@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "rov_exec",
+    "gnd_exec",
+    "comms_if",
+    "util"
+]
