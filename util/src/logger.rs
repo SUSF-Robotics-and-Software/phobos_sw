@@ -10,6 +10,9 @@ use chrono::prelude::*;
 use conquer_once::spin::OnceCell;
 use colored::{ColoredString, Colorize};
 
+// Re-exports
+pub use log::LevelFilter;
+
 // ---------------------------------------------------------------------------
 // STATICS
 // ---------------------------------------------------------------------------
@@ -41,8 +44,8 @@ pub enum LoggerInitError {
 /// # Safety
 /// 
 /// - This function must only be called once to prevent corrupting logs.
-pub unsafe fn logger_init(
-    min_level: log::LevelFilter, 
+pub fn logger_init(
+    min_level: self::LevelFilter, 
     log_file_path: &str
 ) -> Result<(), LoggerInitError> {
 
