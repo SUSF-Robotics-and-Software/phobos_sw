@@ -1,7 +1,8 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+//! Utility library for Phobos Rover Software
+
+// ---------------------------------------------------------------------------
+// MODULES
+// ---------------------------------------------------------------------------
+
+pub mod logger;
+pub mod time;
