@@ -4,5 +4,7 @@
 // MODULES
 // ---------------------------------------------------------------------------
 
+pub mod host;
 pub mod logger;
+pub mod module;
 pub mod time;
