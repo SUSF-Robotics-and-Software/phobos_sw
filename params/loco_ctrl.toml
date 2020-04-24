@@ -1,0 +1,38 @@
+# ---- GEOMETRY ----
+
+# Radius of the wheels in meters
+wheel_radius_m = 0.1
+
+# The position of the steer axes in the RB frame in meters
+str_axis_pos_m_rb = [
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+]
+
+# The position of the drive axes in the RB frame in meters
+drv_axis_pos_m_rb = [
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0],
+]
+
+# ---- CAPABILITIES ----
+
+# Steer axis maximum absolute angular position in radians
+str_max_abs_pos_rad = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# Steer axis minimum aboslute angular position in radians
+str_min_abs_pos_rad = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# Drive axis maximum angular rate in radians
+drv_max_abs_rate_rads = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# Drive axis minimum angular rate in radians
+drv_min_abs_rate_rads = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

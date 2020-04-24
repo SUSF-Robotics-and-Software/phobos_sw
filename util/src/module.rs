@@ -31,7 +31,8 @@ pub trait State {
     /// # Outputs
     /// - On success `Ok(())`.
     /// - On error an `InitError` instance.
-    fn init(init_data: Self::InitData) -> Result<(), Self::InitError>;
+    fn init(&mut self, init_data: Self::InitData) 
+        -> Result<(), Self::InitError>;
 
     /// Main module processing function.
     /// 
@@ -41,6 +42,6 @@ pub trait State {
     /// # Outputs
     /// - On success a tuple of the output data and status report.
     /// - On error a `ProcError` instance.
-    fn proc(input_data: Self::InputData) 
+    fn proc(&mut self, input_data: Self::InputData) 
         -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError>;
 }

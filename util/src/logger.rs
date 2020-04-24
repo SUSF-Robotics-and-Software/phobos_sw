@@ -7,7 +7,7 @@
 use log::{self, info};
 use fern;
 use chrono::prelude::*;
-use conquer_once::spin::OnceCell;
+use conquer_once::OnceCell;
 use colored::{ColoredString, Colorize};
 
 // Re-exports
