@@ -4,6 +4,13 @@
 //! in this module.
 
 // ---------------------------------------------------------------------------
+// IMPORTS
+// ---------------------------------------------------------------------------
+
+// Internal imports
+use crate::session::Session;
+
+// ---------------------------------------------------------------------------
 // MODULE STATE
 // ---------------------------------------------------------------------------
 
@@ -31,7 +38,7 @@ pub trait State {
     /// # Outputs
     /// - On success `Ok(())`.
     /// - On error an `InitError` instance.
-    fn init(&mut self, init_data: Self::InitData) 
+    fn init(&mut self, init_data: Self::InitData, session: &Session) 
         -> Result<(), Self::InitError>;
 
     /// Main module processing function.

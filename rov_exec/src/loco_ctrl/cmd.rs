@@ -1,11 +1,18 @@
 //! Commands passed into LocoCtrl
 
 // ---------------------------------------------------------------------------
+// IMPORTS
+// ---------------------------------------------------------------------------
+
+// External imports
+use serde::Serialize;
+
+// ---------------------------------------------------------------------------
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
 
 /// A command to execute a particular manouvre
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct MnvrCommand {
     
     /// The type of manouvre to perform
@@ -35,7 +42,7 @@ pub struct MnvrCommand {
 // ---------------------------------------------------------------------------
 
 /// Possible manouvres to be executed by LocoCtrl.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub enum MnvrType {
     /// No manouvre - interpreted as continue with last manouvre.
     None,

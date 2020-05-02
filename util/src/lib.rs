@@ -4,12 +4,14 @@
 // MODULES
 // ---------------------------------------------------------------------------
 
+pub mod archive;
 pub mod host;
 #[macro_use]
 pub mod logger;
 pub mod maths;
 pub mod module;
 pub mod params;
+pub mod session;
 pub mod time;
 
 // ---------------------------------------------------------------------------

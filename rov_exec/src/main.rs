@@ -41,7 +41,9 @@ use util::{
     raise_error,
     host, 
     module::State,
-    logger::{logger_init, LevelFilter}
+    logger::{logger_init, LevelFilter},
+    session::Session,
+    archive::Archived
 };
 
 // ---------------------------------------------------------------------------
@@ -63,15 +65,25 @@ fn main() {
 
     // ---- EARLY INITIALISATION ----
 
+    // Initialise session
+    let mut session = match Session::new(
+        "rov_exec", 
+        "sessions"
+    ) {
+        Ok(s) => s,
+        Err(e) => panic!("Cannot create session: {:?}", e)
+    };
+
     // Initialise logger
-    match logger_init(LevelFilter::Trace, "rov_exec.log") {
+    match logger_init(LevelFilter::Trace, &session) {
         Ok(_) => (),
         Err(e) => panic!("Error initialising logging: {:?}", e)
     };
 
     // Log information on this execution.
     info!("Phobos Rover Executable\n");
-    info!("Running on: {:#?}\n", host::get_uname().unwrap());
+    info!("Running on: {:#?}", host::get_uname().unwrap());
+    info!("Session directory: {:?}\n", session.session_root);
 
     // ---- INITIALISE DATASTORE ----
 
@@ -83,7 +95,7 @@ fn main() {
 
     match ds.loco_ctrl.init(loco_ctrl::InitData {
         params_path: "params/loco_ctrl.toml"
-    }) {
+    }, &session) {
         Ok(_) => info!("LocoCtrl init complete"),
         Err(e) => raise_error!("Error initialising LocoCtrl: {:#?}", e)
     };
@@ -120,6 +132,9 @@ fn main() {
                 (None, None)
             }
         };
+
+        // ---- WRITE ARCHIVES ----
+        ds.loco_ctrl.write().unwrap();
 
         break;
     }

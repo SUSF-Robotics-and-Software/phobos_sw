@@ -4,13 +4,21 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+// External
+use serde::Serialize;
+
 // Internal
 use super::{
     Params, 
     MnvrCommand, MnvrType,
     LocoConfig, AxisData, AxisRate, 
     NUM_DRV_AXES, NUM_STR_AXES};
-use util::{params, module::State, maths::lin_map};
+use util::{
+    params, 
+    module::State, 
+    maths::lin_map, 
+    archive::{Archived, Archiver, Writer},
+    session::Session};
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -23,13 +31,16 @@ pub struct LocoCtrl {
     params: Params,
 
     report: StatusReport,
+    arch_report: Archiver,
 
     current_cmd: Option<MnvrCommand>,
+    arch_current_cmd: Archiver,
 
     target_loco_config: Option<LocoConfig>,
+    arch_target_loco_config: Archiver,
 
-    previous_output: Option<OutputData>
-
+    output: Option<OutputData>,
+    arch_output: Archiver
 }
 
 /// Data required for initialising Locomotion Control.
@@ -47,7 +58,7 @@ pub struct InputData {
 }
 
 /// Output command from LocoCtrl that the electronics driver must execute.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize)]
 pub struct OutputData {
     /// Steer axis absolute position demand in radians.
     /// 
@@ -71,9 +82,9 @@ impl Default for OutputData {
 }
 
 /// Status report for LocoCtrl processing.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Serialize)]
 pub struct StatusReport {
-
+    dummy: i32,
 }
 
 // ---------------------------------------------------------------------------
@@ -90,7 +101,7 @@ impl State for LocoCtrl {
     type ProcError = super::Error;
 
     /// Initialise the LocoCtrl module.
-    fn init(&mut self, init_data: Self::InitData) 
+    fn init(&mut self, init_data: Self::InitData, session: &Session) 
         -> Result<(), Self::InitError> 
     {
         
@@ -99,6 +110,25 @@ impl State for LocoCtrl {
             Ok(p) => p,
             Err(e) => return Err(e)
         };
+
+        // Create the arch folder for loco_ctrl
+        let mut arch_path = session.arch_root.clone();
+        arch_path.push("loco_ctrl");
+        std::fs::create_dir_all(arch_path).unwrap();
+
+        // Initialise the archivers
+        self.arch_report = Archiver::from_path(
+            session, "loco_ctrl/status_report.csv"
+        ).unwrap();
+        self.arch_current_cmd = Archiver::from_path(
+            session, "loco_ctrl/current_cmd.csv"
+        ).unwrap();
+        self.arch_target_loco_config = Archiver::from_path(
+            session, "loco_ctrl/target_loco_config.csv"
+        ).unwrap();
+        self.arch_output = Archiver::from_path(
+            session, "loco_ctrl/output.csv"
+        ).unwrap();
 
         // Thoese items wrapped in an `Option` will be defaulted to `None`, and
         // since there's no way we can get information on the current command
@@ -146,7 +176,7 @@ impl State for LocoCtrl {
             // If no target keep the previous output with the drive rates
             // zeroed. If there is no previous output use the default (zero)
             // position and rate.
-            output = match self.previous_output {
+            output = match self.output {
                 Some(po) => {
                     let mut o = po.clone();
                     o.drv_rate = [AxisRate::Normalised(0.0); NUM_DRV_AXES];
@@ -156,7 +186,22 @@ impl State for LocoCtrl {
             }
         }
 
+        // Update the output in self
+        self.output = Some(output);
+
         Ok((output, self.report))
+    }
+}
+
+impl Archived for LocoCtrl {
+    fn write(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Write each one individually
+        self.arch_report.serialise(self.report)?;
+        self.arch_current_cmd.serialise(self.current_cmd)?;
+        self.arch_target_loco_config.serialise(self.target_loco_config)?;
+        self.arch_output.serialise(self.output)?;
+
+        Ok(())
     }
 }
 

@@ -4,20 +4,17 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+// External imports
 use log::{self, info};
 use fern;
 use chrono::prelude::*;
-use conquer_once::OnceCell;
 use colored::{ColoredString, Colorize};
+
+// Internal imports
+use crate::session;
 
 // Re-exports
 pub use log::LevelFilter;
-
-// ---------------------------------------------------------------------------
-// STATICS
-// ---------------------------------------------------------------------------
-
-static INIT_TIME: OnceCell<DateTime<Utc>> = OnceCell::uninit();
 
 // ---------------------------------------------------------------------------
 // ENUMERATIONS
@@ -46,7 +43,7 @@ pub enum LoggerInitError {
 /// - This function must only be called once to prevent corrupting logs.
 pub fn logger_init(
     min_level: self::LevelFilter, 
-    log_file_path: &str
+    session: &session::Session
 ) -> Result<(), LoggerInitError> {
 
     if min_level < log::Level::Info {
@@ -55,28 +52,15 @@ pub fn logger_init(
         return Err(LoggerInitError::InvalidMinLogLevel)
     }
 
-    // Initialise the start time of the logger
-    INIT_TIME.try_init_once(|| {
-        Utc::now()
-    }).expect("Failed to initialise logging base time");
-
     // Setup the logger using fern's builder pattern
     match fern::Dispatch::new()
         .format(|out, message, record| {
-            
-            let elapsed: chrono::Duration = match INIT_TIME.get() {
-                Some(&t0) => Utc::now() - t0,
-                None => chrono::Duration::zero()
-            };
 
             // If debug or trace include the target, otherwise don't include it
             if record.level() > log::Level::Info {
                 out.finish(format_args!(
-                    "[{} {}] {}: {}",
-                    match crate::time::duration_to_nanos(elapsed) {
-                        Some(s) => format!("{:10.6}", s),
-                        None => String::from("ERR OVRFLOW")
-                    },
+                    "[{:10.6} {}] {}: {}",
+                    session::get_elapsed_seconds(),
                     level_to_str(record.level()),
                     record.target(),
                     message
@@ -84,11 +68,8 @@ pub fn logger_init(
             }
             else {
                 out.finish(format_args!(
-                    "[{} {}] {}",
-                    match crate::time::duration_to_nanos(elapsed) {
-                        Some(s) => format!("{:10.6}", s),
-                        None => String::from("ERR OVRFLOW")
-                    },
+                    "[{:10.6} {}] {}",
+                    session::get_elapsed_seconds(),
                     level_to_str(record.level()),
                     message
                 ))
@@ -97,7 +78,7 @@ pub fn logger_init(
         })
         .level(min_level)
         .chain(std::io::stdout())
-        .chain(match fern::log_file(log_file_path) {
+        .chain(match fern::log_file(session.log_file_path.clone()) {
             Ok(f) => f,
             Err(e) => return Err(LoggerInitError::LogFileInitError(e))
         })
@@ -107,9 +88,9 @@ pub fn logger_init(
         };
     
     info!("Logging initialised");
-    info!("    Log init time: {}", INIT_TIME.get().unwrap());
+    info!("    Session epoch: {}", session::get_epoch());
     info!("    Log level: {:?}", min_level);
-    info!("    Log file path: {}", log_file_path);
+    info!("    Log file path: {:?}", session.log_file_path);
 
     Ok(())
 }
