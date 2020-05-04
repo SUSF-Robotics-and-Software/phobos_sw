@@ -116,12 +116,15 @@ fn main() {
         // ---- CONTROL ALGORITHM PROCESSING ----
 
         // LocoCtrl processing
-        let (loco_ctrl_output, loco_ctrl_status_rpt) = match ds.loco_ctrl.proc(
+        let (
+            loco_ctrl_output, 
+            loco_ctrl_status_rpt
+        ) = match ds.loco_ctrl.proc(
             loco_ctrl::InputData {
                 cmd: Some(loco_ctrl::MnvrCommand {
-                    mnvr_type: loco_ctrl::MnvrType::None,
-                    curvature_m: None,
-                    speed_ms: None,
+                    mnvr_type: loco_ctrl::MnvrType::Ackerman,
+                    curvature_m: Some(0.5),
+                    speed_ms: Some(100.0),
                     turn_rate_rads: None
                 })
             }
@@ -133,8 +136,12 @@ fn main() {
             }
         };
 
+        info!("LocoCtrl output: {:#?}", loco_ctrl_output);
+        info!("LocoCtrl report: {:#?}", loco_ctrl_status_rpt);
+
         // ---- WRITE ARCHIVES ----
-        ds.loco_ctrl.write().unwrap();
+        // FIXME: Currently disabled as archiving isn't working quite right
+        // ds.loco_ctrl.write().unwrap();
 
         break;
     }

@@ -8,6 +8,9 @@ mod cmd;
 mod loco_config;
 mod params;
 mod state;
+mod calc_ackerman;
+mod calc_point_turn;
+mod calc_skid_steer;
 
 // ---------------------------------------------------------------------------
 // IMPORTS

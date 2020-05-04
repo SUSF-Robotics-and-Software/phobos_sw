@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Use this script to clear the sessions directory.
+#
+# Make sure to backup anything you want to save first!
+
+read -p "Are you sure, this will delete ALL the contents of 'sessions/'? [y/n] " -n 1 -r
+echo
+
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    rm -rf sessions/*
+    echo "Sessions cleared"
+else
+    echo "Sessions not cleared"
+fi

@@ -15,9 +15,8 @@ use super::{
     NUM_DRV_AXES, NUM_STR_AXES};
 use util::{
     params, 
-    module::State, 
-    maths::lin_map, 
-    archive::{Archived, Archiver, Writer},
+    module::State,
+    archive::{Archived, Archiver},
     session::Session};
 
 // ---------------------------------------------------------------------------
@@ -28,18 +27,18 @@ use util::{
 #[derive(Default)]
 pub struct LocoCtrl {
 
-    params: Params,
+    pub(crate) params: Params,
 
-    report: StatusReport,
+    pub(crate) report: StatusReport,
     arch_report: Archiver,
 
-    current_cmd: Option<MnvrCommand>,
+    pub(crate) current_cmd: Option<MnvrCommand>,
     arch_current_cmd: Archiver,
 
-    target_loco_config: Option<LocoConfig>,
+    pub(crate) target_loco_config: Option<LocoConfig>,
     arch_target_loco_config: Archiver,
 
-    output: Option<OutputData>,
+    pub(crate) output: Option<OutputData>,
     arch_output: Archiver
 }
 
@@ -58,7 +57,7 @@ pub struct InputData {
 }
 
 /// Output command from LocoCtrl that the electronics driver must execute.
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize, Debug)]
 pub struct OutputData {
     /// Steer axis absolute position demand in radians.
     /// 
@@ -82,9 +81,10 @@ impl Default for OutputData {
 }
 
 /// Status report for LocoCtrl processing.
-#[derive(Clone, Copy, Default, Serialize)]
+#[derive(Clone, Copy, Default, Serialize, Debug)]
 pub struct StatusReport {
-    dummy: i32,
+    str_abs_pos_limited: [bool; NUM_STR_AXES],
+    drv_rate_limited: [bool; NUM_STR_AXES],
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +158,8 @@ impl State for LocoCtrl {
         // If there's a target config to move to
         if let Some(cfg) = self.target_loco_config {
             let mut str_abs_pos =  [0f64; NUM_STR_AXES];
-            let mut drv_rate = [AxisRate::Normalised(0.0); NUM_DRV_AXES];
+            let mut drv_rate = 
+                [AxisRate::Normalised(0.0); NUM_DRV_AXES];
 
             // Iterate over each leg and extract the str and drv demands from
             // the configuration
@@ -226,12 +227,78 @@ impl LocoCtrl {
         // Perform calculations for each command type. These calculation
         // functions shall update `self.target_loco_config`.
         match self.current_cmd.unwrap().mnvr_type {
-            MnvrType::Stop => self.calc_stop(),
-            MnvrType::None => self.calc_none(),
-            MnvrType::Ackerman => self.calc_ackerman(),
-            MnvrType::PointTurn => self.calc_point_turn(),
-            MnvrType::SkidSteer => self.calc_skid_steer()
+            MnvrType::Stop => self.calc_stop()?,
+            MnvrType::None => self.calc_none()?,
+            MnvrType::Ackerman => self.calc_ackerman()?,
+            MnvrType::PointTurn => self.calc_point_turn()?,
+            MnvrType::SkidSteer => self.calc_skid_steer()?
+        };
+
+        // Limit target to rover capabilities
+        self.enforce_limits()
+    }
+
+    /// Enforce the limits in the Rover's hardware capabilities.
+    ///
+    /// This function shall modify the current target configuration to ensure
+    /// that no capability of the rover is exceeded.
+    ///
+    /// If a limit is reached the corresponding flag in the status report will 
+    /// be raised.
+    fn enforce_limits(&mut self) -> Result<(), super::Error> {
+
+        // Get a copy of the config, or return if there isn't one
+        let mut target_config = match self.target_loco_config {
+            Some(t) => t,
+            None => return Ok(())
+        };
+
+        // Check steer axis abs pos limits
+        for i in 0..NUM_STR_AXES {
+            if target_config.str_axes[i].abs_pos_rad 
+                > 
+                self.params.str_max_abs_pos_rad[i] 
+            {
+                target_config.str_axes[i].abs_pos_rad = 
+                    self.params.str_max_abs_pos_rad[i];
+                self.report.str_abs_pos_limited[i] = true;
+            }
+            if target_config.str_axes[i].abs_pos_rad 
+                <
+                self.params.str_min_abs_pos_rad[i] 
+            {
+                target_config.str_axes[i].abs_pos_rad = 
+                    self.params.str_max_abs_pos_rad[i];
+                self.report.str_abs_pos_limited[i] = true;
+            }
         }
+
+        // Check drive axis abs pos limits
+        for i in 0..NUM_DRV_AXES {
+            let rate_norm = match target_config.drv_axes[i].rate {
+                AxisRate::Normalised(n) => n,
+                AxisRate::Absolute(r) => util::maths::lin_map(
+                    (
+                        self.params.drv_min_abs_rate_rads[i],
+                        self.params.drv_max_abs_rate_rads[i]
+                    ), (-1f64, 1f64), r)
+            };
+
+            if rate_norm > 1.0 {
+                target_config.drv_axes[i].rate = AxisRate::Normalised(1.0);
+                self.report.drv_rate_limited[i] = true;
+            }
+            if rate_norm < -1.0 {
+                target_config.drv_axes[i].rate = AxisRate::Normalised(-1.0);
+                self.report.drv_rate_limited[i] = true;
+            }
+        }
+
+        // Update the target
+        self.target_loco_config = Some(target_config);
+
+        Ok(())
+
     }
     
     /// Perform the stop command calculations.
@@ -289,65 +356,4 @@ impl LocoCtrl {
         Ok(())
     }
 
-    /// Perform the ackerman command calculations.
-    /// 
-    /// The Ackerman manouvre is described in 
-    /// https://en.wikipedia.org/wiki/Ackermann_steering_geometry, and involves
-    /// the rover pivoting about a point known as the centre of rotation. All
-    /// wheel tangents (those passing through the central axis of the wheel
-    /// and perpendicular to the current wheel "forward" direction) intersect
-    /// at the centre of rotation. The centre of rotation must be outside the
-    /// wheelbase.
-    /// 
-    /// The manouvre is parameterised by the curvature of the turn (1/radius
-    /// of the turn) and the desired speed of the rover. Curvature is used so
-    /// that infinity can be avoided for "straight" manouvres.
-    fn calc_ackerman(&mut self) -> Result<(), super::Error> {
-
-        // Command has previously been verified so we can just extract the
-        // curvature and speed for future use.
-        let curvature_m = self.current_cmd.unwrap().curvature_m.unwrap();
-        let speed_ms = self.current_cmd.unwrap().speed_ms.unwrap();
-
-        // If the demanded curvature is close to zero set the target to point
-        // straight ahead.
-        if curvature_m.abs() < self.params.ackerman_min_curvature_m {
-            // Convert the desired speed into normalised speed
-            let mut drv_axes = [AxisData::default(); NUM_DRV_AXES];
-
-            for i in 0..NUM_DRV_AXES {
-                drv_axes[i].rate = AxisRate::Normalised(lin_map(
-                    (
-                        self.params.drv_min_abs_rate_rads[i], 
-                        self.params.drv_max_abs_rate_rads[i]
-                    ), (-1f64, 1f64), speed_ms));
-            }
-
-            // Build the new target
-            self.target_loco_config = Some(LocoConfig {
-                str_axes: [AxisData::default(); NUM_STR_AXES],
-                drv_axes
-            });
-        }
-        else {
-            // TODO Perform the normal ackerman calculation
-            return Err(super::Error::NotYetSupported(String::from(
-                "Non-straight Ackerman manouvres not yet supported"
-            )))
-        }
-
-        Ok(())
-    }
-
-    /// Perform the point turn command calculations
-    fn calc_point_turn(&mut self) -> Result<(), super::Error> {
-        Err(super::Error::NotYetSupported(String::from(
-            "Manouvre command 'Point Turn' is not yet supported")))
-    }
-
-    /// Perform the skid steer command calculations
-    fn calc_skid_steer(&mut self) -> Result<(), super::Error> {
-        Err(super::Error::NotYetSupported(String::from(
-            "Manouvre command 'Skid Steer' is not yet supported")))
-    }
 }

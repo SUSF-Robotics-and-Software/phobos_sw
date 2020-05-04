@@ -48,7 +48,7 @@ pub struct AxisData {
 
 /// An enumeration which allows axis rates to be specifed as either Normalised
 /// rates (-1 to +1) or absolute rates.
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize, Debug)]
 pub enum AxisRate {
     Normalised(f64),
     Absolute(f64)
@@ -61,5 +61,14 @@ pub enum AxisRate {
 impl Default for AxisRate {
     fn default() -> Self {
         AxisRate::Normalised(0.0)
+    }
+}
+
+impl AxisRate {
+    pub fn invert(self) -> AxisRate {
+        match self {
+            AxisRate::Absolute(r) => AxisRate::Absolute(-r),
+            AxisRate::Normalised(n) => AxisRate::Normalised(-n)
+        }
     }
 }
