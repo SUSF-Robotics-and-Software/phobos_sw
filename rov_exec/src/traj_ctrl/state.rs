@@ -19,13 +19,13 @@ use util::{
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
 
-pub struct TrajCtrl<'a> {
+pub struct TrajCtrl {
     params: Params,
 
     /// Executing mode
     mode: Mode,
 
-    input_data: InputData<'a>,
+    input_data: InputData,
     output_data: OutputData,
     report: StatusReport,
 
@@ -43,8 +43,9 @@ pub struct TrajCtrl<'a> {
 }
 
 /// Input data to the module
-pub struct InputData<'a> {
-    pose: &'a Pose
+#[derive(Copy, Clone)]
+pub struct InputData {
+    pose: Pose
 }
 
 #[derive(Default, Copy, Clone)]
@@ -108,11 +109,11 @@ pub enum Mode {
 // IMPLEMENTATIONS
 // ---------------------------------------------------------------------------
 
-impl<'a> State for TrajCtrl<'a> {
+impl State for TrajCtrl {
     type InitData = &'static str;
     type InitError = InitError;
     
-    type InputData = InputData<'a>;
+    type InputData = InputData;
     type OutputData = OutputData;
     type StatusReport = StatusReport;
     type ProcError = ProcError;
@@ -145,11 +146,11 @@ impl<'a> State for TrajCtrl<'a> {
     ///  1. Calculating LocoCtrl command based on current position and path
     fn proc(
         &mut self, 
-        input_data: Self::InputData
+        input_data: &Self::InputData
     ) -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError> {
 
         // Setup cycle data
-        self.input_data = input_data;
+        self.input_data = *input_data;
         self.output_data = OutputData::default();
         self.report = StatusReport::default();
 
@@ -166,7 +167,7 @@ impl<'a> State for TrajCtrl<'a> {
     }
 }
 
-impl<'a> TrajCtrl<'a> {
+impl<'a> TrajCtrl {
 
     /// Begin executing a path sequence.
     ///
@@ -286,7 +287,7 @@ impl<'a> TrajCtrl<'a> {
 
         // Get the command
         let mnvr_cmd = self.controllers.get_ackerman_cmd(
-            &segment, self.input_data.pose, &mut self.report, &self.params);
+            &segment, &self.input_data.pose, &mut self.report, &self.params);
 
         // Check for error exceedance
         if self.report.lat_error_limit_exceeded 

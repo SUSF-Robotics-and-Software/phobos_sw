@@ -24,19 +24,20 @@
 //!     
 
 // ---------------------------------------------------------------------------
-// MODULES
+// USE MODULES FROM LIBRARY
 // ---------------------------------------------------------------------------
 
-pub mod loc;
-pub mod loco_ctrl;
-pub mod traj_ctrl;
+use rov_lib::*;
+
+mod tc_processor;
 
 // ---------------------------------------------------------------------------
 // IMPORTS
 // ---------------------------------------------------------------------------
 
 // External
-use log::{info, error};
+use log::{debug, info, warn};
+use std::env;
 
 // Internal
 use util::{
@@ -45,7 +46,8 @@ use util::{
     module::State,
     logger::{logger_init, LevelFilter},
     session::Session,
-    archive::Archived
+    script_interpreter::{ScriptInterpreter, PendingTcs},
+    //archive::Archived
 };
 
 // ---------------------------------------------------------------------------
@@ -55,7 +57,13 @@ use util::{
 /// Global data store for the executable.
 #[derive(Default)]
 struct DataStore {
-    loco_ctrl: loco_ctrl::LocoCtrl
+    /// Determines if the rover is in safe mode.
+    make_safe: bool,
+
+    loco_ctrl: loco_ctrl::LocoCtrl,
+    loco_ctrl_input: loco_ctrl::InputData,
+    loco_ctrl_output: loco_ctrl::OutputData,
+    loco_ctrl_status_rpt: loco_ctrl::StatusReport
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +76,7 @@ fn main() {
     // ---- EARLY INITIALISATION ----
 
     // Initialise session
-    let mut session = match Session::new(
+    let session = match Session::new(
         "rov_exec", 
         "sessions"
     ) {
@@ -86,6 +94,52 @@ fn main() {
     info!("Phobos Rover Executable\n");
     info!("Running on: {:#?}", host::get_uname().unwrap());
     info!("Session directory: {:?}\n", session.session_root);
+
+    // ---- INITIALISE TC SOURCE ----
+
+    // TC source is used to determine whether we're getting TCs from a script
+    // or from the ground.
+    let mut tc_source = TcSource::None;
+
+    // Collect all arguments
+    let args: Vec<String> = env::args().collect();
+
+    debug!("CLI arguments: {:?}", args);
+    
+    // If we have a single argument use it as the script path
+    if args.len() == 2 {
+
+        info!("Loading script from \"{}\"", &args[1]);
+
+        // Load the script interpreter
+        let si = match ScriptInterpreter::new(
+            &args[1]) 
+        {
+            Ok(s) => s,
+            Err(e) => raise_error!("Cannot load script!\n{}", e)
+        };
+
+        // Display some info
+        info!(
+            "Loaded script lasts {:.02} s and contains {} TCs",
+            si.get_duration(),
+            si.get_num_tcs()
+        );
+
+        // Set the interpreter in the source
+        tc_source = TcSource::Script(si);
+    }
+    else if args.len() == 1 {
+        // TODO: init remote control from ground
+    }
+    else {
+        raise_error!(
+            "Expected either zero or one argument, found {}", args.len());
+    }
+
+    // Init the tc processor
+    let tc_proc = tc_processor::TcProcessor::new();
+
 
     // ---- INITIALISE DATASTORE ----
 
@@ -113,38 +167,67 @@ fn main() {
 
         // ---- TELECOMMAND PROCESSING ----
 
+        // Get the list of pending TCs
+        
+        let pending_tcs = match tc_source {
+            // If no source no point in continuing so break
+            TcSource::None => raise_error!("No TC source present"),
+
+            // Currently ground command not supported
+            TcSource::Ground => raise_error!(
+                "Ground commanding not yet supported"),
+
+            TcSource::Script(ref mut si) => 
+                si.get_pending_tcs()
+        };
+
+        match pending_tcs {
+            PendingTcs::None => (),
+            PendingTcs::Some(tc_vec) => {
+                for tc in tc_vec.iter() {
+                    tc_proc.exec(&mut ds, tc);
+                }
+            }
+            // Exit if end of script reached
+            PendingTcs::EndOfScript => {
+                info!("End of TC script reached, stopping");
+                break
+            }
+        }
+
         // ---- AUTONOMY PROCESSING ----
 
         // ---- CONTROL ALGORITHM PROCESSING ----
 
         // LocoCtrl processing
-        let (
-            loco_ctrl_output, 
-            loco_ctrl_status_rpt
-        ) = match ds.loco_ctrl.proc(
-            loco_ctrl::InputData {
-                cmd: Some(loco_ctrl::MnvrCommand {
-                    mnvr_type: loco_ctrl::MnvrType::Ackerman,
-                    curvature_m: Some(0.5),
-                    speed_ms: Some(100.0),
-                    turn_rate_rads: None
-                })
-            }
-        ) {
-            Ok((o, r)) => (Some(o), Some(r)),
-            Err(e) => { 
-                error!("LocoCtrl error: {:?}", e);
-                (None, None)
+        match ds.loco_ctrl.proc(&ds.loco_ctrl_input) {
+            Ok((o, r)) => {
+                ds.loco_ctrl_output = o;
+                ds.loco_ctrl_status_rpt = r;
+            },
+            Err(e) => {
+                // No loco_ctrl error is unrecoverable, instead the approach 
+                // taken is to make the rover safe.
+                ds.make_safe = true;
+                warn!("Error during LocoCtrl processing: {:?}", e)
             }
         };
-
-        info!("LocoCtrl output: {:#?}", loco_ctrl_output);
-        info!("LocoCtrl report: {:#?}", loco_ctrl_status_rpt);
+        ds.loco_ctrl_input = loco_ctrl::InputData::default();
 
         // ---- WRITE ARCHIVES ----
         // FIXME: Currently disabled as archiving isn't working quite right
         // ds.loco_ctrl.write().unwrap();
-
-        break;
     }
+}
+
+// ---------------------------------------------------------------------------
+// ENUMERATIONS
+// ---------------------------------------------------------------------------
+
+/// Various sources for the telecommands incoming to the exec.
+#[allow(dead_code)]
+enum TcSource {
+    None,
+    Ground,
+    Script(ScriptInterpreter)
 }

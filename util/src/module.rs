@@ -49,6 +49,6 @@ pub trait State {
     /// # Outputs
     /// - On success a tuple of the output data and status report.
     /// - On error a `ProcError` instance.
-    fn proc(&mut self, input_data: Self::InputData) 
+    fn proc(&mut self, input_data: &Self::InputData) 
         -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError>;
 }

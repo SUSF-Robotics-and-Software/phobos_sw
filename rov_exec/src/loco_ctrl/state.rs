@@ -50,6 +50,7 @@ pub struct InitData {
 }
 
 /// Input data to Locomotion Control.
+#[derive(Default)]
 pub struct InputData {
     /// The manouvre command to be executed, or `None` if there is no new
     /// command on this cycle.
@@ -138,7 +139,7 @@ impl State for LocoCtrl {
     }
 
     /// Perform cyclic processing of Locomotion Control.
-    fn proc(&mut self, input_data: Self::InputData)
+    fn proc(&mut self, input_data: &Self::InputData)
         -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError> 
     {
         // Clear the status report
