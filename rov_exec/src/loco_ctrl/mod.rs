@@ -16,6 +16,8 @@ mod calc_skid_steer;
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+use thiserror::Error;
+
 // Internal
 pub use cmd::*;
 pub use loco_config::*;
@@ -39,9 +41,14 @@ const NUM_STR_AXES: usize = 6;
 // ---------------------------------------------------------------------------
 
 /// Possible errors that can occur during LocoCtrl operation.
-#[derive(Debug)]
-pub enum Error {
+#[derive(Debug, Error)]
+pub enum LocoCtrlError {
+    #[error("Action not yet supported: {0}")]
     NotYetSupported(String),
+
+    #[error("Expected there to be a manouvre command but couldn't find one")]
     NoMnvrCmd,
+
+    #[error("Recieved an invalid manouvre command: {0:#?}")]
     InvalidMnvrCmd(MnvrCommand),
 }

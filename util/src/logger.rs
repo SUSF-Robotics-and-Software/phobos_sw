@@ -7,8 +7,8 @@
 // External imports
 use log::{self, info};
 use fern;
-use chrono::prelude::*;
 use colored::{ColoredString, Colorize};
+use thiserror::Error;
 
 // Internal imports
 use crate::session;
@@ -21,10 +21,15 @@ pub use log::LevelFilter;
 // ---------------------------------------------------------------------------
 
 /// Errors associated with initialising the logger.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum LoggerInitError {
-    InvalidMinLogLevel,
+    #[error("Expected a log level less than `INFO`, found `{0}`")]
+    InvalidMinLogLevel(log::LevelFilter),
+
+    #[error("Error initialising the log file: {0}")]
     LogFileInitError(std::io::Error),
+
+    #[error("An error occured while setting up the logger: {0}")]
     FernInitError(log::SetLoggerError)
 }
 
@@ -47,9 +52,7 @@ pub fn logger_init(
 ) -> Result<(), LoggerInitError> {
 
     if min_level < log::Level::Info {
-        println!(
-            "Cannot initialise logging with a level less than log::Level::Info");
-        return Err(LoggerInitError::InvalidMinLogLevel)
+        return Err(LoggerInitError::InvalidMinLogLevel(min_level))
     }
 
     // Setup the logger using fern's builder pattern

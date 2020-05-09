@@ -4,6 +4,9 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+// External
+use thiserror::Error;
+
 // Internal
 use super::*;
 use crate::loc::Pose;
@@ -77,22 +80,28 @@ pub struct StatusReport {
 // ---------------------------------------------------------------------------
 
 /// Potential errors that could occur during initialisation of the module.
+#[derive(Debug, Error)]
 pub enum InitError {
+    #[error("Could not load parameters: {0}")]
     ParamLoadError(params::LoadError)
 }
 
 /// Potential errors that can occur during processing of the module.
+#[derive(Debug, Error)]
 pub enum ProcError {
     /// A sequence is already loaded. This error occurs when attempting to 
     /// start a new sequence before the current one has finished.
+    #[error("Attempted to load a path sequence while one is already loaded")]
     SequenceAlreadyLoaded,
 
     /// Attempted to load an empty sequence. This error occurs if the sequence 
     /// to be loaded doesn't have any paths in it.
+    #[error("Attempted to load empty path sequence")]
     AttemptEmptySeqLoad,
 
     /// Attempted to load a sequence containing invalid paths. The contained
     /// vector provides the indices of the paths which were invalid.
+    #[error("Loaded sequence contains invalid paths at index(s) {0:?}")]
     SequenceContainsInvalidPaths(Vec<usize>)
 }
 

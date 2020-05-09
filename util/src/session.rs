@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use conquer_once::OnceCell;
 use std::path::PathBuf;
 use std::fs;
+use thiserror::Error;
 
 // Internal imports
 use crate::time;
@@ -49,10 +50,17 @@ pub struct Session {
 // ---------------------------------------------------------------------------
 
 /// Possible errors associated with the session module.
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum SessionError {
+    #[error("Cannot create the session directory: {0}")]
     CannotCreateDir(std::io::Error),
+
+    #[error(
+        "Cannot initialise the session epoch, have you already initialised the\
+         session? (conquer_once error: {0})")]
     CannotInitEpoch(conquer_once::TryInitError),
+
+    #[error("Cannot get the epoch time, did you forget to initialise the session?")]
     CannotGetEpoch
 }
 

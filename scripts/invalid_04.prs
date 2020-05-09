@@ -1,0 +1,8 @@
+# This script includes an invalid loco_ctrl manouvre command
+
+1.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN"
+    }
+};

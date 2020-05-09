@@ -40,6 +40,8 @@ use log::{debug, info, warn};
 use std::env;
 use std::thread;
 use std::time::{Duration, Instant};
+use color_eyre::Report;
+use eyre::{eyre, WrapErr};
 
 // Internal
 use util::{
@@ -85,28 +87,26 @@ struct DataStore {
 // ---------------------------------------------------------------------------
 
 /// Executable main function, entry point.
-fn main() {
+fn main() -> Result<(), Report> {
 
     // ---- EARLY INITIALISATION ----
 
     // Initialise session
-    let session = match Session::new(
+    let session = Session::new(
         "rov_exec", 
         "sessions"
-    ) {
-        Ok(s) => s,
-        Err(e) => panic!("Cannot create session: {:?}", e)
-    };
+    ).wrap_err("Failed to create the session")?;
 
     // Initialise logger
-    match logger_init(LevelFilter::Trace, &session) {
-        Ok(_) => (),
-        Err(e) => panic!("Error initialising logging: {:?}", e)
-    };
+    logger_init(LevelFilter::Trace, &session)
+        .wrap_err("Failed to initialise logging")?;
 
     // Log information on this execution.
     info!("Phobos Rover Executable\n");
-    info!("Running on: {:#?}", host::get_uname().unwrap());
+    info!(
+        "Running on: {:#?}", 
+        host::get_uname().wrap_err("Failed to get host information")?
+    );
     info!("Session directory: {:?}\n", session.session_root);
 
     // ---- INITIALISE TC SOURCE ----
@@ -126,12 +126,8 @@ fn main() {
         info!("Loading script from \"{}\"", &args[1]);
 
         // Load the script interpreter
-        let si = match ScriptInterpreter::new(
-            &args[1]) 
-        {
-            Ok(s) => s,
-            Err(e) => raise_error!("Cannot load script!\n{}", e)
-        };
+        let si = ScriptInterpreter::new(
+            &args[1]).wrap_err("Failed to load script")?;
 
         // Display some info
         info!(
@@ -147,8 +143,9 @@ fn main() {
         // TODO: init remote control from ground
     }
     else {
-        raise_error!(
-            "Expected either zero or one argument, found {}", args.len());
+        return Err(eyre!(
+            "Expected either zero or one argument, found {}", args.len() - 1)
+        );
     }
 
     // ---- INITIALISE DATASTORE ----
@@ -159,12 +156,9 @@ fn main() {
 
     // ---- INITIALISE MODULES ----
 
-    match ds.loco_ctrl.init(loco_ctrl::InitData {
-        params_path: "params/loco_ctrl.toml"
-    }, &session) {
-        Ok(_) => info!("LocoCtrl init complete"),
-        Err(e) => raise_error!("Error initialising LocoCtrl: {:#?}", e)
-    };
+    ds.loco_ctrl.init("params/loco_ctrl.toml", &session)
+        .wrap_err("Failed to initialise LocoCtrl")?;
+    info!("LocoCtrl init complete");
 
     info!("Module initialisation complete\n");
 
@@ -226,7 +220,7 @@ fn main() {
                 // No loco_ctrl error is unrecoverable, instead the approach 
                 // taken is to make the rover safe.
                 ds.make_safe = true;
-                warn!("Error during LocoCtrl processing: {:?}", e)
+                warn!("Error during LocoCtrl processing: {}", e)
             }
         };
 
@@ -262,6 +256,8 @@ fn main() {
             }
         }
     }
+
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

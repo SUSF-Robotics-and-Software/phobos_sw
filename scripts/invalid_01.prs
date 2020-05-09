@@ -1,0 +1,6 @@
+# This script is designed to be invalid to test error handling in the script
+# interpreter
+
+dwac: {
+    dummy
+}

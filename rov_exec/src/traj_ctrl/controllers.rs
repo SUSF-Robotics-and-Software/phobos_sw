@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 // External
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 // Internal
 use util::maths::norm;
