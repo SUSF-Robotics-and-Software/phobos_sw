@@ -1,0 +1,5 @@
+# This script contains improperly formatted JSON
+
+1.0: {
+    type: I_AM_INVALID
+};

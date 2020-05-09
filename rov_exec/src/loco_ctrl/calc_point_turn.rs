@@ -15,7 +15,7 @@ use util::maths::lin_map;
 impl LocoCtrl {
 
     /// Perform the point turn command calculations
-    pub(crate) fn calc_point_turn(&mut self) -> Result<(), super::Error> {
+    pub(crate) fn calc_point_turn(&mut self) -> Result<(), super::LocoCtrlError> {
 
         // Command has previously been verified so we can just extract the
         // turn rate.

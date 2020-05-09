@@ -7,6 +7,7 @@
 // External imports
 use serde::Serialize;
 use serde_json::{self, Value};
+use thiserror::Error;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -58,11 +59,18 @@ pub enum MnvrType {
     SkidSteer
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ParseError {
+    #[error("Command contains invalid JSON: {0}")]
     InvalidJson(serde_json::Error),
+
+    #[error("Command is missing a manouvre type")]
     NoMnvrType,
+
+    #[error("Invalid manouvre type {0}")]
     InvalidMnvrType(String),
+
+    #[error("Invalid {0}: {1} (expected float)")]
     InvalidParam(String, String)
 }
 
