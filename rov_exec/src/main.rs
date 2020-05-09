@@ -38,6 +38,8 @@ mod tc_processor;
 // External
 use log::{debug, info, warn};
 use std::env;
+use std::thread;
+use std::time::{Duration, Instant};
 
 // Internal
 use util::{
@@ -49,6 +51,13 @@ use util::{
     script_interpreter::{ScriptInterpreter, PendingTcs},
     //archive::Archived
 };
+
+// ---------------------------------------------------------------------------
+// CONSTANTS
+// ---------------------------------------------------------------------------
+
+/// Target period of one cycle.
+const CYCLE_PERIOD_S: f64 = 0.01;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -63,7 +72,12 @@ struct DataStore {
     loco_ctrl: loco_ctrl::LocoCtrl,
     loco_ctrl_input: loco_ctrl::InputData,
     loco_ctrl_output: loco_ctrl::OutputData,
-    loco_ctrl_status_rpt: loco_ctrl::StatusReport
+    loco_ctrl_status_rpt: loco_ctrl::StatusReport,
+
+    // Monitoring Counters
+    
+    /// Number of consecutive cycle overruns
+    num_consec_cycle_overruns: u64
 }
 
 // ---------------------------------------------------------------------------
@@ -137,10 +151,6 @@ fn main() {
             "Expected either zero or one argument, found {}", args.len());
     }
 
-    // Init the tc processor
-    let tc_proc = tc_processor::TcProcessor::new();
-
-
     // ---- INITIALISE DATASTORE ----
 
     info!("Initialising modules...");
@@ -163,6 +173,13 @@ fn main() {
     info!("Begining main loop\n");
 
     loop {
+
+        // Get cycle start time
+        let cycle_start_instant = Instant::now();
+
+        // Clear items that need wiping at the start of the cycle
+        ds.cycle_start();
+
         // ---- DATA INPUT ----
 
         // ---- TELECOMMAND PROCESSING ----
@@ -185,7 +202,7 @@ fn main() {
             PendingTcs::None => (),
             PendingTcs::Some(tc_vec) => {
                 for tc in tc_vec.iter() {
-                    tc_proc.exec(&mut ds, tc);
+                    tc_processor::exec(&mut ds, tc);
                 }
             }
             // Exit if end of script reached
@@ -212,11 +229,38 @@ fn main() {
                 warn!("Error during LocoCtrl processing: {:?}", e)
             }
         };
-        ds.loco_ctrl_input = loco_ctrl::InputData::default();
 
         // ---- WRITE ARCHIVES ----
         // FIXME: Currently disabled as archiving isn't working quite right
         // ds.loco_ctrl.write().unwrap();
+
+        // ---- CYCLE MANAGEMENT ----
+
+        let cycle_dur = Instant::now() - cycle_start_instant;
+
+        // Get sleep duration
+        match Duration::from_secs_f64(CYCLE_PERIOD_S)
+            .checked_sub(cycle_dur)
+        {
+            Some(d) => {
+                ds.num_consec_cycle_overruns = 0;
+                thread::sleep(d);
+            },
+            None => {
+                warn!(
+                    "Cycle overran by {:.06} s", 
+                    cycle_dur.as_secs_f64() 
+                        - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
+                );
+                ds.num_consec_cycle_overruns += 1;
+
+                // If number of overruns greater than the limit exit
+                // TODO impl as param?
+                if ds.num_consec_cycle_overruns > 500 {
+                    raise_error!("More than 500 consecutive cycle overruns!");
+                }
+            }
+        }
     }
 }
 
@@ -230,4 +274,19 @@ enum TcSource {
     None,
     Ground,
     Script(ScriptInterpreter)
+}
+
+// ---------------------------------------------------------------------------
+// IMPLEMENTATIONS
+// ---------------------------------------------------------------------------
+
+impl DataStore {
+
+    /// Clears those items that need clearing at the start of a cycle.
+    fn cycle_start(&mut self) {
+        
+        self.loco_ctrl_input = loco_ctrl::InputData::default();
+        self.loco_ctrl_output = loco_ctrl::OutputData::default();
+        self.loco_ctrl_status_rpt = loco_ctrl::StatusReport::default();
+    }
 }
