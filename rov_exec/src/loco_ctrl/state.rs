@@ -42,13 +42,6 @@ pub struct LocoCtrl {
     arch_output: Archiver
 }
 
-/// Data required for initialising Locomotion Control.
-pub struct InitData {
-
-    /// Path to the `loco_ctrl.toml` parameters file.
-    pub params_path: &'static str
-}
-
 /// Input data to Locomotion Control.
 #[derive(Default)]
 pub struct InputData {
@@ -93,21 +86,23 @@ pub struct StatusReport {
 // ---------------------------------------------------------------------------
 
 impl State for LocoCtrl {
-    type InitData = InitData;
+    type InitData = &'static str;
     type InitError = params::LoadError;
     
     type InputData = InputData;
     type OutputData = OutputData;
     type StatusReport = StatusReport;
-    type ProcError = super::Error;
+    type ProcError = super::LocoCtrlError;
 
     /// Initialise the LocoCtrl module.
+    ///
+    /// Expected init data is the path to the parameter file
     fn init(&mut self, init_data: Self::InitData, session: &Session) 
         -> Result<(), Self::InitError> 
     {
         
         // Load the parameters
-        self.params = match params::load(init_data.params_path) {
+        self.params = match params::load(init_data) {
             Ok(p) => p,
             Err(e) => return Err(e)
         };
@@ -214,15 +209,15 @@ impl LocoCtrl {
     /// 
     /// A valid command should be set in `self.current_cmd` before calling
     /// this function.
-    fn calc_target_config(&mut self) -> Result<(), super::Error> {
+    fn calc_target_config(&mut self) -> Result<(), super::LocoCtrlError> {
 
         // Check we have a valid command
         match self.current_cmd {
             Some(c) => match c.is_valid() {
                 true => (),
-                false => return Err(super::Error::InvalidMnvrCmd(c))
+                false => return Err(super::LocoCtrlError::InvalidMnvrCmd(c))
             },
-            None => return Err(super::Error::NoMnvrCmd)
+            None => return Err(super::LocoCtrlError::NoMnvrCmd)
         }
 
         // Perform calculations for each command type. These calculation
@@ -246,7 +241,7 @@ impl LocoCtrl {
     ///
     /// If a limit is reached the corresponding flag in the status report will 
     /// be raised.
-    fn enforce_limits(&mut self) -> Result<(), super::Error> {
+    fn enforce_limits(&mut self) -> Result<(), super::LocoCtrlError> {
 
         // Get a copy of the config, or return if there isn't one
         let mut target_config = match self.target_loco_config {
@@ -310,7 +305,7 @@ impl LocoCtrl {
     /// 
     /// Stop shall never error and must always succeed in bringing the rover to
     /// a full and complete stop.
-    fn calc_stop(&mut self) -> Result<(), super::Error> {
+    fn calc_stop(&mut self) -> Result<(), super::LocoCtrlError> {
 
         // Get the current target or an empty (all zero) target if no target is
         // currently set.
@@ -351,7 +346,7 @@ impl LocoCtrl {
     /// Perform the none command calculations.
     /// 
     /// The None command shall not change the current target.
-    fn calc_none(&mut self) -> Result<(), super::Error> {
+    fn calc_none(&mut self) -> Result<(), super::LocoCtrlError> {
         
         // Simply exit as there's nothing to do.
         Ok(())

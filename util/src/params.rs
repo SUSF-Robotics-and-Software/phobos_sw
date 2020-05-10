@@ -6,6 +6,7 @@
 
 use serde::de::DeserializeOwned;
 use std::fs::read_to_string;
+use thiserror::Error;
 use toml;
 
 // ---------------------------------------------------------------------------
@@ -13,9 +14,12 @@ use toml;
 // ---------------------------------------------------------------------------
 
 /// An error that occurs during loading of a parameter file.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum LoadError {
+    #[error("Cannot load the parmeter file: {0}")]
     FileLoadError(std::io::Error),
+
+    #[error("Cannot read the parameter file: {0}")]
     DeserialiseError(toml::de::Error)
 }
 

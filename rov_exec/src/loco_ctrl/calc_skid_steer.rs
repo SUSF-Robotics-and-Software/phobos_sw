@@ -14,8 +14,8 @@ use super::LocoCtrl;
 impl LocoCtrl {
 
     /// Perform the skid steer command calculations
-    pub(crate) fn calc_skid_steer(&mut self) -> Result<(), super::Error> {
-        Err(super::Error::NotYetSupported(String::from(
+    pub(crate) fn calc_skid_steer(&mut self) -> Result<(), super::LocoCtrlError> {
+        Err(super::LocoCtrlError::NotYetSupported(String::from(
             "Manouvre command 'Skid Steer' is not yet supported")))
     }
 }

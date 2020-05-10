@@ -10,6 +10,7 @@
 // External
 use serde::{Serialize, Deserialize};
 use serde_json::{self, Value};
+use thiserror::Error;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -66,10 +67,15 @@ pub enum TcPayload {
 }
 
 /// Possible parsing errors.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TcParseError {
+    #[error("TC contains invalid JSON: {0}")]
     InvalidJson(serde_json::Error),
+
+    #[error("TC has an invalid type ({0})")]
     InvalidType(String),
+
+    #[error("TC of type {0:?} is expected to have a payload but it doesn't")]
     MissingPayload(TcType)
 }
 
@@ -98,7 +104,9 @@ impl Tc {
         {
             Some(t) => t,
             None => return Err(TcParseError::InvalidType(
-                String::from("Could not parse the type of the TC")
+                format!(
+                    "{} is not a recognised TC type", 
+                    val["type"].as_str().unwrap())
             ))
         };
         
