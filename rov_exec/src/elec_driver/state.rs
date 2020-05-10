@@ -243,7 +243,6 @@ for i in range(num_boards):
             unwrap_py_proc(py, py.run(
                 r#"
 for i in range(0, 6):
-    print(f"DRV axis {i} is at address [{drv_idx_map[i][0]}, {drv_idx_map[i][1]}]")
     boards[drv_idx_map[i][0]].continuous_servo[drv_idx_map[i][1]].throttle = drv_sk[i]
     boards[str_idx_map[i][0]].servo[str_idx_map[i][1]].angle = str_sk[i]
                 "#,
