@@ -16,7 +16,7 @@ use util::{
     module::State,
     session::Session,
     params,
-    maths::poly_val
+    maths::{poly_val, clamp}
 };
 use crate::loco_ctrl::{self, AxisRate};
 use super::{Params, ParamsError};
@@ -213,6 +213,18 @@ for i in range(num_boards):
                         return Err(ProcError::AbsDrvRateUnsupported)
                 };
             }
+        }
+
+        // Apply limits to axis values
+        for i in 0..loco_ctrl::NUM_STR_AXES {
+            drv_sk[i] = clamp(
+                &drv_sk[i], 
+                &self.params.drv_rate_min_sk[i], 
+                &self.params.drv_rate_max_sk[i]);
+            str_sk[i] = clamp(
+                &str_sk[i], 
+                &self.params.str_ang_min_sk[i], 
+                &self.params.str_ang_max_sk[i]);
         }
 
         // Python manipulation, only on the rpi

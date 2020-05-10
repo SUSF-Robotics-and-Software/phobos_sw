@@ -106,7 +106,7 @@ fn main() -> Result<(), Report> {
     ).wrap_err("Failed to create the session")?;
 
     // Initialise logger
-    logger_init(LevelFilter::Debug, &session)
+    logger_init(LevelFilter::Trace, &session)
         .wrap_err("Failed to initialise logging")?;
 
     // Log information on this execution.

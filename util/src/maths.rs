@@ -54,3 +54,19 @@ where
 
     res
 }
+
+pub fn clamp<T>(value: &T, min: &T, max: &T) -> T 
+where
+    T: Float + std::ops::Mul + std::ops::Add + std::ops::AddAssign
+{
+    let mut ret = *value;
+
+    if ret > *max {
+        ret = *max
+    }
+    if ret < *min {
+        ret = *min
+    }
+
+    ret
+}

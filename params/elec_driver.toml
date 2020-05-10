@@ -38,21 +38,29 @@ str_idx_map = [
 # Note right hand motors have their sense reversed as they will drive the wrong
 # way otherwise.
 drv_rate_norm_to_sk_coeffs = [
-    [1.0, 0.0], 
-    [1.0, 0.0], 
-    [1.0, 0.0], 
-    [-1.0, 0.0], 
-    [-1.0, 0.0], 
-    [-1.0, 0.0]
+    [1.0, +0.1], 
+    [1.0, +0.1], 
+    [1.0, +0.1], 
+    [-1.0, -0.1], 
+    [-1.0, -0.1], 
+    [-1.0, -0.1]
 ]
+
+# Min and max drive rates
+drv_rate_min_sk = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+drv_rate_max_sk = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 # Steer axis angle coefficients. Angles for SK are in degrees, so the 
 # coefficients are just to convert from radians to degrees.
 str_ang_rad_to_sk_coeffs = [
-    [57.2958, 0.0], 
-    [57.2958, 0.0], 
-    [57.2958, 0.0], 
-    [57.2958, 0.0], 
-    [57.2958, 0.0], 
-    [57.2958, 0.0]
+    [57.2958, 90.0], 
+    [57.2958, 90.0], 
+    [57.2958, 90.0], 
+    [57.2958, 90.0], 
+    [57.2958, 90.0], 
+    [57.2958, 90.0]
 ]
+
+# Min and max drive rates
+str_ang_min_sk = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+str_ang_max_sk = [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]

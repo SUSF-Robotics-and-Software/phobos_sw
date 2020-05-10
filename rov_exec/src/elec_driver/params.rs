@@ -49,6 +49,18 @@ pub struct Params {
     /// are 3 coefficients it's a 2nd order polynomial with c[0]*x^2 + c[1]*x
     /// + c[2].
     pub str_ang_rad_to_sk_coeffs: [Vec<f64>; loco_ctrl::NUM_DRV_AXES],
+
+    /// Minimum drive axis rate limits.
+    pub drv_rate_min_sk: [f64; loco_ctrl::NUM_DRV_AXES],
+
+    /// Maxmimum drive axis rate limits.
+    pub drv_rate_max_sk: [f64; loco_ctrl::NUM_DRV_AXES],
+
+    /// Minimum steer axis angle..
+    pub str_ang_min_sk: [f64; loco_ctrl::NUM_STR_AXES],
+
+    /// Maximum steer axis angle.
+    pub str_ang_max_sk: [f64; loco_ctrl::NUM_STR_AXES],
 }
 
 #[derive(Debug, Error)]
