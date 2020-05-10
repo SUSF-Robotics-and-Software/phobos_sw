@@ -130,7 +130,7 @@ impl State for ElecDriver {
         {
 
             // Get the GIL lock
-            let gil = Python::acquire_gil();
+            self.gil = Some(Python::acquire_gil());
 
             // Get a python instance
             // let py = match self.gil {

@@ -1,0 +1,202 @@
+# Generated from scripts/gen/gen_loco_ctrl_text_02.py
+
+1.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -1.0
+    }
+};
+
+    
+5.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.8947368421052632
+    }
+};
+
+    
+9.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.7894736842105263
+    }
+};
+
+    
+13.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.6842105263157895
+    }
+};
+
+    
+17.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.5789473684210527
+    }
+};
+
+    
+21.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.4736842105263158
+    }
+};
+
+    
+25.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.368421052631579
+    }
+};
+
+    
+29.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.26315789473684215
+    }
+};
+
+    
+33.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.1578947368421053
+    }
+};
+
+    
+37.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -0.052631578947368474
+    }
+};
+
+    
+41.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.05263157894736836
+    }
+};
+
+    
+45.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.1578947368421053
+    }
+};
+
+    
+49.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.26315789473684204
+    }
+};
+
+    
+53.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.36842105263157876
+    }
+};
+
+    
+57.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.4736842105263157
+    }
+};
+
+    
+61.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.5789473684210527
+    }
+};
+
+    
+65.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.6842105263157894
+    }
+};
+
+    
+69.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.7894736842105261
+    }
+};
+
+    
+73.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 0.894736842105263
+    }
+};
+
+    
+77.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 1.0
+    }
+};
+
+    
