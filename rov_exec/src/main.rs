@@ -278,9 +278,9 @@ fn main() -> Result<(), Report> {
 
                 // If number of overruns greater than the limit exit
                 // TODO impl as param?
-                if ds.num_consec_cycle_overruns > 500 {
-                    raise_error!("More than 500 consecutive cycle overruns!");
-                }
+                // if ds.num_consec_cycle_overruns > 500 {
+                //     raise_error!("More than 500 consecutive cycle overruns!");
+                // }
             }
         }
     }
