@@ -8,6 +8,8 @@ num_channels = [16, 16]
 
 # Address of each board on the I2C bus. Note JSON doesn't support Hex numbers
 # so these must be in decimal :(.
+#
+# Left board is 0x40 (64) and right board is 0x41 (65)
 board_addresses = [64, 65]
 
 # Drive axis motor maps. First index is board index, second is motor.
@@ -22,12 +24,12 @@ drv_idx_map = [
 
 # Steer axis motor maps. First index is board index, second is motor.
 str_idx_map = [
-    [0, 3],
-    [0, 4], 
+    [0, 4],
     [0, 5], 
-    [1, 3],
+    [0, 6], 
     [1, 4],
-    [1, 5]
+    [1, 5],
+    [1, 6]
 ]
 
 # Drive normalised rate coefficients. Normalised are in -1 to 1 range and the
