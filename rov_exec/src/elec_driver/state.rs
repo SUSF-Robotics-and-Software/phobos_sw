@@ -126,7 +126,7 @@ impl State for ElecDriver {
 
         // Python stuff should be excluded from non-rpi builds since the servo
         // kit won't actually work without it
-        //#[cfg(target_arch = "arm")]
+        #[cfg(target_arch = "arm")]
         {
 
             // Get the GIL lock
@@ -140,27 +140,24 @@ impl State for ElecDriver {
             let py = gil.python();
             
             // Create the servokit instance
-            let globals = PyDict::new(py);
             let locals = PyDict::new(py);
 
             unwrap_py_init(py,
-                globals.set_item("num_boards", self.params.num_boards))?;
+                locals.set_item("num_boards", self.params.num_boards))?;
             unwrap_py_init(py, 
-                globals.set_item("num_channels", &self.params.num_channels))?;
+                locals.set_item("num_channels", &self.params.num_channels))?;
             unwrap_py_init(py, 
-                globals.set_item(
+                locals.set_item(
                     "board_addresses", &self.params.board_addresses))?;
-
-            // Import the servokit lib
-            let ask = unwrap_py_init(py, py.import("adafruit_servokit"))?;
-            unwrap_py_init(py, globals.set_item("ask", ask))?;
 
             unwrap_py_init(py, py.run(
                 r#"
-print(num_boards, flush=True)
-boards = [ask.ServoKit(channels=num_channels[i], address=board_addresses[i]) for i in range(num_boards)]
-                "#,
-                Some(&globals),
+from adafruit_servokit import ServoKit
+boards = []
+for i in range(num_boards):
+    boards.append(ServoKit(channels=num_channels[i], address=board_addresses[i]))
+"#,
+                None, //Some(&globals),
                 Some(&locals)
             ))?;
 
