@@ -7,6 +7,7 @@
 // MODULES
 // ---------------------------------------------------------------------------
 
+pub mod elec_driver;
 pub mod loc;
 pub mod loco_ctrl;
 pub mod traj_ctrl;
