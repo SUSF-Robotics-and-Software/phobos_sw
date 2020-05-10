@@ -71,10 +71,18 @@ struct DataStore {
     /// Determines if the rover is in safe mode.
     make_safe: bool,
 
+    // LocoCtrl
+
     loco_ctrl: loco_ctrl::LocoCtrl,
     loco_ctrl_input: loco_ctrl::InputData,
     loco_ctrl_output: loco_ctrl::OutputData,
     loco_ctrl_status_rpt: loco_ctrl::StatusReport,
+
+    // ElecDriver
+
+    elec_driver: elec_driver::ElecDriver,
+    elec_driver_input: elec_driver::InputData,
+    elec_driver_status_rpt: elec_driver::StatusReport,
 
     // Monitoring Counters
     
@@ -156,6 +164,10 @@ fn main() -> Result<(), Report> {
 
     // ---- INITIALISE MODULES ----
 
+    ds.elec_driver.init("params/elec_driver.toml", &session)
+        .wrap_err("Failed to initialise ElecDriver")?;
+    info!("ElecDriver init complete");
+
     ds.loco_ctrl.init("params/loco_ctrl.toml", &session)
         .wrap_err("Failed to initialise LocoCtrl")?;
     info!("LocoCtrl init complete");
@@ -223,6 +235,22 @@ fn main() -> Result<(), Report> {
                 warn!("Error during LocoCtrl processing: {}", e)
             }
         };
+
+        // ElecDriver processing
+        ds.elec_driver_input.loco_ctrl_output = ds.loco_ctrl_output;
+        ds.elec_driver_input.safe_mode = ds.make_safe;
+
+        match ds.elec_driver.proc(&ds.elec_driver_input) {
+            Ok((_, r)) => {
+                ds.elec_driver_status_rpt = r;
+            },
+            Err(e) => {
+                // Electronics driver processing is critical, if it fails we
+                // must exit now
+                
+                return Err(eyre!("Failure in ElecDriver processing: {}", e))
+            }
+        }
 
         // ---- WRITE ARCHIVES ----
         // FIXME: Currently disabled as archiving isn't working quite right

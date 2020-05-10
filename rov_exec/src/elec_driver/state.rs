@@ -5,33 +5,47 @@
 // ---------------------------------------------------------------------------
 
 // External
-use pyo3::Python;
+use log::{trace, error};
+use pyo3::prelude::*;
+#[allow(unused_imports)]
+use pyo3::types::PyDict;
+use thiserror::Error;
 
 // Internal
 use util::{
     module::State,
     session::Session,
-    params
+    params,
+    maths::poly_val
 };
-use crate::loco_ctrl;
+use crate::loco_ctrl::{self, AxisRate};
 use super::Params;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
 
-pub struct ElecDriver<'p> {
+#[allow(dead_code)]
+#[derive(Default)]
+pub struct ElecDriver {
     params: Params,
+    report: StatusReport,
 
-    py: Option<Python<'p>>
+    gil: Option<GILGuard>,
+
+    kit: Option<PyObject>,
+
+    current_str_sk: [f64; loco_ctrl::NUM_STR_AXES]
 }
 
+#[derive(Default)]
 pub struct InputData {
     pub safe_mode: bool,
 
     pub loco_ctrl_output: loco_ctrl::OutputData
 }
 
+#[derive(Default, Copy, Clone)]
 pub struct StatusReport {
 
 }
@@ -40,20 +54,41 @@ pub struct StatusReport {
 // ENUEMRATIONS
 // ---------------------------------------------------------------------------
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum InitError {
-    ParamLoadError(params::LoadError)
+    #[error("Failed to load parameters: {0}")]
+    ParamLoadError(params::LoadError),
+
+    #[error("Failed acquiring reference to the python GIL")]
+    GilRefFailed,
+
+    #[error("An error occured within the python interpreter")]
+    PythonError,
+
+    #[error("ServoKit not found")]
+    ServoKitNotFound
 }
 
+#[derive(Debug, Error)]
 pub enum ProcError {
-    NotImplemented
+    #[error("Absolute drive rates not yet supported")]
+    AbsDrvRateUnsupported,
+
+    #[error("Failed acquiring reference to the python GIL")]
+    GilRefFailed,
+
+    #[error("An error occured within the python interpreter")]
+    PythonError,
+
+    #[error("ServoKit not found")]
+    ServoKitNotFound
 }
 
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
 // ---------------------------------------------------------------------------
 
-impl<'p> State for ElecDriver<'p> {
+impl State for ElecDriver {
     type InitData = &'static str;
     type InitError = InitError;
 
@@ -76,6 +111,55 @@ impl<'p> State for ElecDriver<'p> {
             Err(e) => return Err(InitError::ParamLoadError(e))
         };
 
+        // Python stuff should be excluded from non-rpi builds since the servo
+        // kit won't actually work without it
+        #[cfg(target_arch = "aarch64")]
+        {
+
+            // Get the GIL lock
+            self.gil = Some(Python::acquire_gil());
+
+            // Get a python instance
+            let py = match self.gil {
+                Some(ref g) => g.python(),
+                None => return Err(InitError::GilRefFailed)
+            };
+            
+            // Create the servokit instance
+            let locals = PyDict::new(py);
+
+            match locals.set_item("num_channels", self.params.num_channels) {
+                Ok(_) => (),
+                Err(e) => {
+                    error!("Python error trace:");
+                    e.print_and_set_sys_last_vars(py);
+                    return Err(InitError::PythonError)
+                }
+            };
+
+            match py.run(
+                r#"
+from adafruit_servokit import ServoKit
+kit = ServoKit(channels=num_channels)
+                "#,
+                None,
+                Some(locals)
+            ) {
+                Ok(_) => (),
+                Err(e) => {
+                    error!("Python error trace:");
+                    e.print_and_set_sys_last_vars(py);
+                    return Err(InitError::PythonError)
+                }
+            };
+
+            // Get the kit instance from the locals dict
+            self.kit = match locals.get_item("kit") {
+                Some(k) => Some(k.to_object(py)),
+                None => return Err(InitError::ServoKitNotFound)
+            };
+        }
+
         Ok(())
     }
 
@@ -90,8 +174,90 @@ impl<'p> State for ElecDriver<'p> {
         &mut self, 
         input_data: &Self::InputData
     ) -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError> {
+    
+        let mut str_sk = [0f64; loco_ctrl::NUM_STR_AXES];
+        let mut drv_sk = [0f64; loco_ctrl::NUM_DRV_AXES];
 
+        // If make safe is true hold STR at current angle and set drv to 0
+        if input_data.safe_mode {
+            str_sk = self.current_str_sk;
+        }
+        else {
+            // Otherwise convert the angles to PWM values
+            //
+            // Assume NUM_STR = NUM_DRV
+            for i in 0..loco_ctrl::NUM_STR_AXES {
+                str_sk[i] = poly_val(
+                    &input_data.loco_ctrl_output.str_abs_pos_rad[i], 
+                    &self.params.str_ang_rad_to_sk_coeffs[i]);
+                
+                drv_sk[i] = match input_data.loco_ctrl_output.drv_rate[i] {
+                    AxisRate::Normalised(n) => poly_val(
+                        &n, 
+                        &self.params.drv_rate_norm_to_sk_coeffs[i]
+                    ),
+                    AxisRate::Absolute(_) => 
+                        return Err(ProcError::AbsDrvRateUnsupported)
+                }
+            }
+        }
 
-        Err(ProcError::NotImplemented)
+        // Python manipulation, only on the rpi
+        #[cfg(target_arch = "aarch64")]
+        {
+            // Get the python instance
+            let py = match self.gil {
+                Some(g) => g.python(),
+                None => return Err(ProcError::GilRefFailed)
+            };
+
+            // Set the locals up
+            let locals = PyDict::new(py);
+            unwrap_py_proc(py, py.set_item("kit"), match self.kit {
+                Some(k) => k,
+                None => return Err(ProcError::ServoKitNotFound)
+            })?;
+            unwrap_py_proc(py, 
+                py.set_item("drv_idx_map", self.params.drv_idx_map))?;
+            unwrap_py_proc(py, 
+                py.set_item("str_idx_map", self.params.str_idx_map))?;
+            unwrap_py_proc(py, py.set_item("drv_sk", drv_sk))?;
+            unwrap_py_proc(py, py.set_item("str_sk", str_sk))?;
+
+            // Run the python code
+            unwrap_py_proc(py.run(
+                r#"
+for i in range(0, 6):
+    kit.continuous_servo[drv_idx_map[i]].throttle = drv_sk[i]
+    kit.servo[str_idx_map[i]].angle = str_sk[i]
+                "#,
+                None,
+                Some(locals)
+            ))?;
+        }
+
+        trace!("commands out:\n    drv: {:?}\n    str: {:?}", drv_sk, str_sk);
+
+        Ok(((), self.report))
+    }
+}
+
+impl ProcError {
+    fn from_py_err(py: Python, e: PyErr) -> Self {
+        error!("Python error occured:");
+        e.print_and_set_sys_last_vars(py);
+        ProcError::PythonError
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PRIVATE FUNCTIONS
+// ---------------------------------------------------------------------------
+
+#[allow(dead_code)]
+fn unwrap_py_proc<T>(py: Python, r: PyResult<T>) -> Result<T, ProcError> {
+    match r {
+        Ok(t) => Ok(t),
+        Err(e) => Err(ProcError::from_py_err(py, e))
     }
 }

@@ -29,12 +29,12 @@ pub use state::*;
 // ---------------------------------------------------------------------------
 
 /// The number of drive axes on the rover.
-const NUM_DRV_AXES: usize = 6;
+pub const NUM_DRV_AXES: usize = 6;
 
 /// The number of steer axes on the rover (note although there are only 4 
 /// active steer axes we use the same number of drive axes here so we can 
 /// easily iterate through each pair of drive and steer axes).
-const NUM_STR_AXES: usize = 6;
+pub const NUM_STR_AXES: usize = 6;
 
 // ---------------------------------------------------------------------------
 // ENUMERATIONS
