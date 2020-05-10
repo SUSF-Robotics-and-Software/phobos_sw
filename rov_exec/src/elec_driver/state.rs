@@ -225,19 +225,19 @@ for i in range(num_boards):
             };
 
             // Set the locals up
-            let globals = PyDict::new(py);
-            unwrap_py_proc(py, globals.set_item("boards", match &self.boards {
+            let locals = PyDict::new(py);
+            unwrap_py_proc(py, locals.set_item("boards", match &self.boards {
                 Some(k) => k,
                 None => return Err(ProcError::ServoKitNotFound)
             }))?;
             unwrap_py_proc(py, 
-                globals.set_item("num_boards", self.params.num_boards))?;
+                locals.set_item("num_boards", self.params.num_boards))?;
             unwrap_py_proc(py, 
-                globals.set_item("drv_idx_map", &self.drv_idx_map))?;
+                locals.set_item("drv_idx_map", &self.drv_idx_map))?;
             unwrap_py_proc(py, 
-                globals.set_item("str_idx_map", &self.str_idx_map))?;
-            unwrap_py_proc(py, globals.set_item("drv_sk", &drv_sk.to_vec()))?;
-            unwrap_py_proc(py, globals.set_item("str_sk", &str_sk.to_vec()))?;
+                locals.set_item("str_idx_map", &self.str_idx_map))?;
+            unwrap_py_proc(py, locals.set_item("drv_sk", &drv_sk.to_vec()))?;
+            unwrap_py_proc(py, locals.set_item("str_sk", &str_sk.to_vec()))?;
 
             // Run the python code
             unwrap_py_proc(py, py.run(
@@ -247,10 +247,13 @@ for i in range(0, 6):
     boards[drv_idx_map[i][0]].continuous_servo[drv_idx_map[i][1]].throttle = drv_sk[i]
     boards[str_idx_map[i][0]].servo[str_idx_map[i][1]].angle = str_sk[i]
                 "#,
-                Some(&globals),
-                None
+                None,
+                Some(&locals)
             ))?;
         }
+
+        // Update current steer position
+        self.current_str_sk = str_sk;
 
         trace!("commands out:\n    drv: {:?}\n    str: {:?}", drv_sk, str_sk);
 
