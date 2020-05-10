@@ -198,6 +198,12 @@ kit = ServoKit(channels=num_channels)
                     ),
                     AxisRate::Absolute(_) => 
                         return Err(ProcError::AbsDrvRateUnsupported)
+                };
+
+                // If on the right hand size invert the drive direction becuase
+                // these motors will spin the wrong way
+                if i > 2 {
+                    drv_sk[i] *= -1f64;
                 }
             }
         }
