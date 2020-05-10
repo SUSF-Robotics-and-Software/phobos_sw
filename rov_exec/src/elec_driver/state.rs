@@ -133,11 +133,11 @@ impl State for ElecDriver {
             self.gil = Some(Python::acquire_gil());
 
             // Get a python instance
-            // let py = match self.gil {
-            //     Some(ref g) => g.python(),
-            //     None => return Err(InitError::GilRefFailed)
-            // };
-            let py = gil.python();
+            let py = match self.gil {
+                Some(ref g) => g.python(),
+                None => return Err(InitError::GilRefFailed)
+            };
+            //let py = gil.python();
             
             // Create the servokit instance
             let locals = PyDict::new(py);
