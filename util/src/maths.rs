@@ -40,3 +40,33 @@ where
     // Return the squareroot of the sum
     Some(sum.sqrt())
 }
+
+/// Apply polynomial coefficients to a value
+pub fn poly_val<T>(value: &T, coeffs: &Vec<T>) -> T
+where
+    T: Float + std::ops::Mul + std::ops::Add + std::ops::AddAssign
+{
+    let mut res = T::from(0).unwrap();
+
+    for i in 0..(coeffs.len() as i32) {
+        res += value.powi(coeffs.len() as i32 - 1 - i) * coeffs[i as usize];
+    }
+
+    res
+}
+
+pub fn clamp<T>(value: &T, min: &T, max: &T) -> T 
+where
+    T: Float + std::ops::Mul + std::ops::Add + std::ops::AddAssign
+{
+    let mut ret = *value;
+
+    if ret > *max {
+        ret = *max
+    }
+    if ret < *min {
+        ret = *min
+    }
+
+    ret
+}

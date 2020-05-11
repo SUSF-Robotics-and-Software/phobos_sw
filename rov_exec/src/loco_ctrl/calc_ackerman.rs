@@ -105,10 +105,12 @@ impl LocoCtrl {
         //
         // We use atan2 here to respect signs.
         for i in 0..NUM_STR_AXES {
-            str_axes[i].abs_pos_rad = self.params.str_axis_pos_m_rb[i][0]
-                .atan2(
-                    curv_radius_m - self.params.str_axis_pos_m_rb[i][1]
-                );
+            str_axes[i].abs_pos_rad = 
+                (
+                    self.params.str_axis_pos_m_rb[i][0]
+                    /
+                    (curv_radius_m - self.params.str_axis_pos_m_rb[i][1])
+                ).atan();
         }
 
         // Drive rate

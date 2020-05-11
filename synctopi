@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Sync the directory with a raspberry pi, skipping the target dir because it's 
+# big
+
+# Change the username, ip, and path here if needed!
+# Do have a _local and _ref version, i.e. one from git and one for testsing.
+rsync -avz --exclude "target" --exclude "sessions" . pi@172.16.0.114:/home/pi/Development/phobos_sw_local
