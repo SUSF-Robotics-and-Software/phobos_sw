@@ -138,8 +138,14 @@ impl State for ElecDriver {
                 None => return Err(InitError::GilRefFailed)
             };
             //let py = gil.python();
+
+            // Set the python-compatible maps
+            for i in 0..loco_ctrl::NUM_DRV_AXES {
+                self.drv_idx_map.push(self.params.drv_idx_map[i].to_vec());
+                self.str_idx_map.push(self.params.str_idx_map[i].to_vec());
+            }
             
-            // Create the servokit instance
+            // Set all local vars needed for initialisation
             let locals = PyDict::new(py);
 
             unwrap_py_init(py,
@@ -149,6 +155,17 @@ impl State for ElecDriver {
             unwrap_py_init(py, 
                 locals.set_item(
                     "board_addresses", &self.params.board_addresses))?;
+            unwrap_py_init(py, 
+                locals.set_item("str_idx_map", self.str_idx_map))?;
+            unwrap_py_proc(py, 
+                locals.set_item(
+                    "str_act_range", self.params.str_act_range_sk.to_vec()))?;
+            unwrap_py_init(py, 
+                locals.set_item(
+                    "str_pw_range_min", self.params.str_pw_range_min.to_vec()))?;
+            unwrap_py_init(py, 
+                locals.set_item(
+                    "str_pw_range_max", self.params.str_pw_range_max.to_vec()))?;
 
             unwrap_py_init(py, py.run(
                 r#"
@@ -156,6 +173,9 @@ from adafruit_servokit import ServoKit
 boards = []
 for i in range(num_boards):
     boards.append(ServoKit(channels=num_channels[i], address=board_addresses[i]))
+for i in range(0, 6):
+    boards[str_idx_map[i][0]].servo[str_idx_map[i][1]].actuation_range = str_act_range[i]
+    boards[str_idx_map[i][0]].servo[str_idx_map[i][1]].set_pulse_width_range(str_pw_range_min[i], str_pw_range_max[i])
 "#,
                 None, //Some(&globals),
                 Some(&locals)
@@ -166,11 +186,6 @@ for i in range(num_boards):
                 Some(k) => Some(k.to_object(py)),
                 None => return Err(InitError::ServoKitNotFound)
             };
-        }
-
-        for i in 0..loco_ctrl::NUM_DRV_AXES {
-            self.drv_idx_map.push(self.params.drv_idx_map[i].to_vec());
-            self.str_idx_map.push(self.params.str_idx_map[i].to_vec());
         }
 
         Ok(())

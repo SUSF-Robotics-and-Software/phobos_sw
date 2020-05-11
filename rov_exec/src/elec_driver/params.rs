@@ -56,11 +56,20 @@ pub struct Params {
     /// Maxmimum drive axis rate limits.
     pub drv_rate_max_sk: [f64; loco_ctrl::NUM_DRV_AXES],
 
-    /// Minimum steer axis angle..
+    /// Minimum steer axis angle.
     pub str_ang_min_sk: [f64; loco_ctrl::NUM_STR_AXES],
 
     /// Maximum steer axis angle.
     pub str_ang_max_sk: [f64; loco_ctrl::NUM_STR_AXES],
+
+    /// Actuation range of the steer axes
+    pub str_act_range_sk: [f64; loco_ctrl::NUM_STR_AXES],
+
+    /// Steer axis pulse width range minimum
+    pub str_pw_range_min: [i64; loco_ctrl::NUM_DRV_AXES],
+
+    /// Steer axis pulse width range maximum
+    pub str_pw_range_max: [i64; loco_ctrl::NUM_DRV_AXES],
 }
 
 #[derive(Debug, Error)]
