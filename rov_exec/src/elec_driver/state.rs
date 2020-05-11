@@ -156,16 +156,16 @@ impl State for ElecDriver {
                 locals.set_item(
                     "board_addresses", &self.params.board_addresses))?;
             unwrap_py_init(py, 
-                locals.set_item("str_idx_map", self.str_idx_map))?;
+                locals.set_item("str_idx_map", &self.str_idx_map))?;
             unwrap_py_init(py, 
                 locals.set_item(
-                    "str_act_range", self.params.str_act_range_sk.to_vec()))?;
+                    "str_act_range", &self.params.str_act_range_sk.to_vec()))?;
             unwrap_py_init(py, 
                 locals.set_item(
-                    "str_pw_range_min", self.params.str_pw_range_min.to_vec()))?;
+                    "str_pw_range_min", &self.params.str_pw_range_min.to_vec()))?;
             unwrap_py_init(py, 
                 locals.set_item(
-                    "str_pw_range_max", self.params.str_pw_range_max.to_vec()))?;
+                    "str_pw_range_max", &self.params.str_pw_range_max.to_vec()))?;
 
             unwrap_py_init(py, py.run(
                 r#"
