@@ -28,8 +28,12 @@ impl LocoCtrl {
 
         // Calculate steer axis angles
         for i in 0..NUM_STR_AXES {
-            str_axes[i].abs_pos_rad = self.params.str_axis_pos_m_rb[i][0]
-                .atan2(self.params.str_axis_pos_m_rb[i][1]);
+            str_axes[i].abs_pos_rad = 
+                (
+                    self.params.str_axis_pos_m_rb[i][0]
+                    /
+                    self.params.str_axis_pos_m_rb[i][1]
+                ).atan();
         }
 
         // Calculate drive axis rates
@@ -53,6 +57,12 @@ impl LocoCtrl {
                 drv_axes[i].rate = drv_axes[i].rate.invert();
             }
         }
+
+        // Build the target configuration
+        self.target_loco_config = Some(LocoConfig {
+            drv_axes,
+            str_axes
+        });
 
         Ok(())
     }
