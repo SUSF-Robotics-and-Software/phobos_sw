@@ -4,15 +4,16 @@
     "type": "MNVR",
     "payload": {
         "mnvr_type": "POINT_TURN",
-        "turn_rate_rads": 1,
+        "rate_rads": -0.1
     }
 };
+
 
 5.0: {
     "type": "MNVR",
     "payload": {
         "mnvr_type": "POINT_TURN",
-        "turn_rate_rads": -1,
+        "rate_rads": 0.1
     }
 };
 
