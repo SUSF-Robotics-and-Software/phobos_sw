@@ -4,6 +4,9 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+// External
+use log::info;
+
 // Internal imports
 use super::*;
 use util::maths::lin_map;
@@ -38,12 +41,15 @@ impl LocoCtrl {
 
         // Calculate drive axis rates
         for i in 0..NUM_DRV_AXES {
-            let wheel_rate_rads = self.params.wheel_radius_m
-                * turn_rate_rads
+            let wheel_rate_rads = 
+                turn_rate_rads
                 * (
                     self.params.str_axis_pos_m_rb[i][0].powi(2)
                     + self.params.str_axis_pos_m_rb[i][1].powi(2)
-                ).sqrt();
+                ).sqrt()
+                / self.params.wheel_radius_m;
+
+            info!("Wheel rate [{}]: {}", i, wheel_rate_rads);
             
             drv_axes[i].rate = AxisRate::Normalised(lin_map(
                 (
