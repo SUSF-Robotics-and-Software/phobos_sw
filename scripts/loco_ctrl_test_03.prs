@@ -1,0 +1,24 @@
+# Simple test which drives the motors at 10% forward speed for 5 seconds.
+
+1.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "POINT_TURN",
+        "rate_rads": 1,
+    }
+};
+
+5.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "POINT_TURN",
+        "rate_rads": -1,
+    }
+};
+
+10.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "STOP"
+    }
+};
