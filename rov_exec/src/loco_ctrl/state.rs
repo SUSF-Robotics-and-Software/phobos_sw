@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 
 // External
+use log::trace;
 use serde::Serialize;
 
 // Internal
@@ -182,6 +183,10 @@ impl State for LocoCtrl {
                 None => OutputData::default()
             }
         }
+
+        trace!("LocoCtrl output:\n    drv: {:?}\n    strL {:?}", 
+            output.drv_rate, 
+            output.str_abs_pos_rad);
 
         // Update the output in self
         self.output = Some(output);
