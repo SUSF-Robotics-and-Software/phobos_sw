@@ -1,0 +1,8 @@
+# This script contains an invalidly manouvre command type
+
+1.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "WHAT"
+    }
+};

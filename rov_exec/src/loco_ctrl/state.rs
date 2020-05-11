@@ -7,6 +7,8 @@
 // External
 use log::trace;
 use serde::Serialize;
+use eyre::WrapErr;
+use color_eyre::Report;
 
 // Internal
 use super::{
@@ -88,12 +90,12 @@ pub struct StatusReport {
 
 impl State for LocoCtrl {
     type InitData = &'static str;
-    type InitError = params::LoadError;
+    type InitError = Report;
     
     type InputData = InputData;
     type OutputData = OutputData;
     type StatusReport = StatusReport;
-    type ProcError = super::LocoCtrlError;
+    type ProcError = Report;
 
     /// Initialise the LocoCtrl module.
     ///
@@ -103,10 +105,8 @@ impl State for LocoCtrl {
     {
         
         // Load the parameters
-        self.params = match params::load(init_data) {
-            Ok(p) => p,
-            Err(e) => return Err(e)
-        };
+        self.params = params::load(init_data)
+            .wrap_err("Error loading loco_ctrl parameters")?;
 
         // Create the arch folder for loco_ctrl
         let mut arch_path = session.arch_root.clone();
@@ -116,16 +116,16 @@ impl State for LocoCtrl {
         // Initialise the archivers
         self.arch_report = Archiver::from_path(
             session, "loco_ctrl/status_report.csv"
-        ).unwrap();
+        ).wrap_err("Failed creating status report archive")?;
         self.arch_current_cmd = Archiver::from_path(
             session, "loco_ctrl/current_cmd.csv"
-        ).unwrap();
+        ).wrap_err("Failed creating manouvre command archive")?;
         self.arch_target_loco_config = Archiver::from_path(
             session, "loco_ctrl/target_loco_config.csv"
-        ).unwrap();
+        ).wrap_err("Failed creating target locomotion config archive")?;
         self.arch_output = Archiver::from_path(
             session, "loco_ctrl/output.csv"
-        ).unwrap();
+        ).wrap_err("Failed creating output archive")?;
 
         // Thoese items wrapped in an `Option` will be defaulted to `None`, and
         // since there's no way we can get information on the current command
@@ -196,7 +196,7 @@ impl State for LocoCtrl {
 }
 
 impl Archived for LocoCtrl {
-    fn write(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn write(&mut self) -> Result<(), Report> {
         // Write each one individually
         self.arch_report.serialise(self.report)?;
         self.arch_current_cmd.serialise(self.current_cmd)?;
@@ -214,15 +214,17 @@ impl LocoCtrl {
     /// 
     /// A valid command should be set in `self.current_cmd` before calling
     /// this function.
-    fn calc_target_config(&mut self) -> Result<(), super::LocoCtrlError> {
+    fn calc_target_config(&mut self) -> Result<(), Report> {
 
         // Check we have a valid command
         match self.current_cmd {
             Some(c) => match c.is_valid() {
                 true => (),
                 false => return Err(super::LocoCtrlError::InvalidMnvrCmd(c))
+                    .wrap_err("Invalid manouvre command")
             },
             None => return Err(super::LocoCtrlError::NoMnvrCmd)
+                .wrap_err("Cannot find a manouvre command")
         }
 
         // Perform calculations for each command type. These calculation
@@ -246,7 +248,7 @@ impl LocoCtrl {
     ///
     /// If a limit is reached the corresponding flag in the status report will 
     /// be raised.
-    fn enforce_limits(&mut self) -> Result<(), super::LocoCtrlError> {
+    fn enforce_limits(&mut self) -> Result<(), Report> {
 
         // Get a copy of the config, or return if there isn't one
         let mut target_config = match self.target_loco_config {
@@ -310,7 +312,7 @@ impl LocoCtrl {
     /// 
     /// Stop shall never error and must always succeed in bringing the rover to
     /// a full and complete stop.
-    fn calc_stop(&mut self) -> Result<(), super::LocoCtrlError> {
+    fn calc_stop(&mut self) -> Result<(), Report> {
 
         // Get the current target or an empty (all zero) target if no target is
         // currently set.
@@ -351,7 +353,7 @@ impl LocoCtrl {
     /// Perform the none command calculations.
     /// 
     /// The None command shall not change the current target.
-    fn calc_none(&mut self) -> Result<(), super::LocoCtrlError> {
+    fn calc_none(&mut self) -> Result<(), Report> {
         
         // Simply exit as there's nothing to do.
         Ok(())

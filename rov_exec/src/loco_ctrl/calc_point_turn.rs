@@ -4,6 +4,9 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+// External imports
+use color_eyre::Report;
+
 // Internal imports
 use super::*;
 use util::maths::lin_map;
@@ -15,7 +18,7 @@ use util::maths::lin_map;
 impl LocoCtrl {
 
     /// Perform the point turn command calculations
-    pub(crate) fn calc_point_turn(&mut self) -> Result<(), super::LocoCtrlError> {
+    pub(crate) fn calc_point_turn(&mut self) -> Result<(), Report> {
 
         // Command has previously been verified so we can just extract the
         // turn rate.

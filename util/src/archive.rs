@@ -12,9 +12,11 @@ use std::fs::{File, OpenOptions};
 use csv::WriterBuilder;
 pub use csv::Writer;
 use serde::Serialize;
+use eyre::WrapErr;
+use color_eyre::Report;
 
 // Internal imports
-use crate::session::{Session, get_elapsed_seconds};
+use crate::session::Session;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -43,7 +45,7 @@ struct Record<T: Serialize> {
 /// member shall be setup in the struct's `init` or `new` functions. 
 pub trait Archived {
     /// Write the archives for this struct
-    fn write(&mut self) -> Result<(), Box<dyn std::error::Error>>;
+    fn write(&mut self) -> Result<(), Report>;
 }
 
 // ---------------------------------------------------------------------------
@@ -55,7 +57,7 @@ impl Archiver {
     /// archive root.
     pub fn from_path<P: AsRef<Path>>(
         session: &Session, path: P
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Report> {
         let mut session_path = session.arch_root.clone();
         session_path.push(path);
         
@@ -63,12 +65,10 @@ impl Archiver {
         std::fs::File::create(session_path.clone())?;
 
         // Open the file in append mode
-        let file = match OpenOptions::new()
-            .append(true).open(session_path)
-        {
-            Ok(f) => f,
-            Err(e) => return Err(Box::new(e))
-        };
+        let file = OpenOptions::new()
+            .append(true).open(session_path.clone())
+            .wrap_err(format!(
+                "Cannot create archive file at {:?}", session_path))?;
 
         let w = WriterBuilder::new()
             .has_headers(true)
@@ -82,7 +82,7 @@ impl Archiver {
     /// Serialise a record into the archive.
     pub fn serialise<T: serde::Serialize>(
         &mut self, record: T
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Report> {
         match self.writer {
             Some(ref mut w) => {
                 // w.serialize(Record { 
