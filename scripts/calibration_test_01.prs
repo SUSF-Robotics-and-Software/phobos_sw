@@ -5,7 +5,7 @@
     "payload": {
         "mnvr_type": "ACKERMAN",
         "curv_m": 0.0,
-        "speed_ms": 1.0
+        "speed_ms": 2.0
     }
 };
 
@@ -14,7 +14,7 @@
     "payload": {
         "mnvr_type": "ACKERMAN",
         "curv_m": 0.0,
-        "speed_ms": -1.0
+        "speed_ms": -2.0
     }
 };
 
