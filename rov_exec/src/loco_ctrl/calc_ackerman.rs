@@ -4,9 +4,12 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+// External imports
+use log::debug;
+
 // Internal imports
 use super::*;
-use util::maths::lin_map;
+use util::maths::{lin_map, clamp};
 
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
@@ -91,9 +94,17 @@ impl LocoCtrl {
 
         // Compute the radius of curvature in meters.
         //
+        // Clamp the curvature to the maximum curv value.
+        //
         //  Note: No check is required for a division by zero as this check
         //  is performed by the calling function.
-        let curv_radius_m = 1.0 / curvature_m;
+        let curv_radius_m = 
+            1.0 
+            / 
+            clamp(
+                &curvature_m, 
+                &(-self.params.ackerman_max_curvature_m),
+                &self.params.ackerman_max_curvature_m);
 
         // Steer axis angles
         //
@@ -105,14 +116,16 @@ impl LocoCtrl {
         //
         // We use atan2 here to respect signs.
         for i in 0..NUM_STR_AXES {
-            str_axes[i].abs_pos_rad = 
-                (
-                    self.params.str_axis_pos_m_rb[i][0]
-                    /
-                    (curv_radius_m - self.params.str_axis_pos_m_rb[i][1])
-                ).atan();
-        }
 
+            str_axes[i].abs_pos_rad = 
+            (
+                self.params.str_axis_pos_m_rb[i][0]
+                /
+                (curv_radius_m - self.params.str_axis_pos_m_rb[i][1])
+            ).atan();
+
+        }
+        
         // Drive rate
         //
         // Drive rate is based on the idea that all wheels will rotate about

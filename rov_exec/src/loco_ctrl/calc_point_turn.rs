@@ -48,8 +48,6 @@ impl LocoCtrl {
                     + self.params.str_axis_pos_m_rb[i][1].powi(2)
                 ).sqrt()
                 / self.params.wheel_radius_m;
-
-            info!("Wheel rate [{}]: {}", i, wheel_rate_rads);
             
             drv_axes[i].rate = AxisRate::Normalised(lin_map(
                 (

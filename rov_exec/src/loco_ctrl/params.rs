@@ -61,4 +61,9 @@ pub struct Params {
     /// Units: 1/meters
     pub ackerman_min_curvature_m: f64,
 
+    /// Maximum curvature possible under an ackerman command.
+    ///
+    /// Units: 1/meters
+    pub ackerman_max_curvature_m: f64
+
 }

@@ -61,3 +61,9 @@ drv_min_abs_rate_rads = [-20.84, -20.84, -20.84, -20.84, -20.84, -20.84]
 #
 # TODO: Arbitraray, fix
 ackerman_min_curvature_m = 0.01
+
+# Maximum curvature achievable during an Ackerman manouvre.
+#
+# This is the limit at which the centre of rotation would move inside the 
+# wheelbase of the rover, with a margin of 10% (1/(0.152 * 1.1)).
+ackerman_max_curvature_m = 5.98
