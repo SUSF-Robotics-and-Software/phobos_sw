@@ -9,7 +9,7 @@
     }
 };
 
-2.0: {
+4.0: {
     "type": "MNVR",
     "payload": {
         "mnvr_type": "ACKERMAN",
@@ -18,7 +18,7 @@
     }
 };
 
-3.0: {
+10.0: {
     "type": "MNVR",
     "payload": {
         "mnvr_type": "STOP"
