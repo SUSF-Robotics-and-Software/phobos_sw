@@ -4,9 +4,6 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-// External imports
-use log::debug;
-
 // Internal imports
 use super::*;
 use util::maths::{lin_map, clamp};
@@ -125,7 +122,7 @@ impl LocoCtrl {
             ).atan();
 
         }
-        
+
         // Drive rate
         //
         // Drive rate is based on the idea that all wheels will rotate about

@@ -4,9 +4,6 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-// External
-use log::info;
-
 // Internal imports
 use super::*;
 use util::maths::lin_map;

@@ -14,7 +14,7 @@ pub use csv::Writer;
 use serde::Serialize;
 
 // Internal imports
-use crate::session::{Session, get_elapsed_seconds};
+use crate::session::Session;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
