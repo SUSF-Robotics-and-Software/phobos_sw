@@ -9,7 +9,7 @@
     }
 };
 
-5.0: {
+30.0: {
     "type": "MNVR",
     "payload": {
         "mnvr_type": "STOP"
