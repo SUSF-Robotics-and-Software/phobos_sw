@@ -47,15 +47,21 @@ str_min_abs_pos_rad = [-1.5865, -1.5865, -1.5865, -1.5865, -1.5865, -1.5865]
 
 # Drive axis maximum angular rate in radians.
 #
-# Want axes to be capable of 1m/s driving, this is the limit in radians/second
+# Timing number of revolutions in 30 s of the wheels at maximum speed gives 
+# 18 rev/30 sec or a rover body speed of 0.175 m/s (508 cm in 30 s).
+#
+# Want axes to be capable of 0.175m/s driving, this is the limit in radians/second
 # as per speed_ms = wheel_radius_m * wheel_rate_rads
-drv_max_abs_rate_rads = [20.84, 20.84, 20.84, 20.84, 20.84, 20.84]
+drv_max_abs_rate_rads = [3.6458, 3.6458, 3.6458, 3.6458, 3.6458, 3.6458]
 
 # Drive axis minimum angular rate in radians.
 #
-# Want axes to be capable of -1m/s driving, this is the limit in radians/second
+# Timing number of revolutions in 30 s of the wheels at maximum speed gives 
+# 18 rev/30 sec or a rover body speed of 0.175 m/s (508 cm in 30 s).
+#
+# Want axes to be capable of -0.175m/s driving, this is the limit in radians/second
 # as per speed_ms = wheel_radius_m * wheel_rate_rads
-drv_min_abs_rate_rads = [-20.84, -20.84, -20.84, -20.84, -20.84, -20.84]
+drv_min_abs_rate_rads = [-3.6458, -3.6458, -3.6458, -3.6458, -3.6458, -3.6458]
 
 # Minimum curvature achievable during an Ackerman manouvre.
 #
