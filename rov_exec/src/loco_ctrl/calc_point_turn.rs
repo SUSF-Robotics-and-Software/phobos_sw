@@ -29,7 +29,7 @@ impl LocoCtrl {
         // Calculate steer axis angles
         for i in 0..NUM_STR_AXES {
             str_axes[i].abs_pos_rad = 
-                (
+                -1f64 * (
                     self.params.str_axis_pos_m_rb[i][0]
                     /
                     self.params.str_axis_pos_m_rb[i][1]
