@@ -50,7 +50,7 @@ impl LocoCtrl {
                 (
                     self.params.drv_min_abs_rate_rads[i],
                     self.params.drv_max_abs_rate_rads[i]
-                ), (-1f64, 1f64), wheel_rate_rads)
+                ), (1f64, -1f64), wheel_rate_rads)
             );
             
             // If on the right side reverse direction
