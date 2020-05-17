@@ -3,6 +3,12 @@
 //! To add archiving functionality to a struct implement the `Archive` trait.
 
 // ---------------------------------------------------------------------------
+// MODULES
+// ---------------------------------------------------------------------------
+
+pub mod ser;
+
+// ---------------------------------------------------------------------------
 // IMPORTS
 // ---------------------------------------------------------------------------
 
@@ -12,6 +18,8 @@ use std::fs::{File, OpenOptions};
 use csv::WriterBuilder;
 pub use csv::Writer;
 use serde::Serialize;
+use eyre::WrapErr;
+use color_eyre::Report;
 
 // Internal imports
 use crate::session::Session;
@@ -55,7 +63,7 @@ impl Archiver {
     /// archive root.
     pub fn from_path<P: AsRef<Path>>(
         session: &Session, path: P
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Report> {
         let mut session_path = session.arch_root.clone();
         session_path.push(path);
         
@@ -63,12 +71,10 @@ impl Archiver {
         std::fs::File::create(session_path.clone())?;
 
         // Open the file in append mode
-        let file = match OpenOptions::new()
-            .append(true).open(session_path)
-        {
-            Ok(f) => f,
-            Err(e) => return Err(Box::new(e))
-        };
+        let file = OpenOptions::new()
+            .append(true)
+            .open(session_path)
+            .wrap_err("Cannot create archive")?;
 
         let w = WriterBuilder::new()
             .has_headers(true)
