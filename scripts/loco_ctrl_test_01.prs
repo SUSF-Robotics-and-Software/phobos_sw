@@ -1,0 +1,17 @@
+# Simple test which drives the motors at 10% forward speed for 5 seconds.
+
+1.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "speed_ms": 0.1,
+        "curv_m": 0.0
+    }
+};
+
+30.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "STOP"
+    }
+};

@@ -1,0 +1,26 @@
+# Ackerman test
+
+1.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": -6.5,
+        "speed_ms": 0.5
+    }
+};
+
+4.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 6.5,
+        "speed_ms": 0.5
+    }
+};
+
+10.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "STOP"
+    }
+};

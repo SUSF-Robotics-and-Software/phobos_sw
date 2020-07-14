@@ -1,0 +1,26 @@
+# Generated from scripts/gen/gen_loco_ctrl_text_02.py
+
+1.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": 2.0
+    }
+};
+
+5.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "curv_m": 0.0,
+        "speed_ms": -2.0
+    }
+};
+
+10.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "STOP"
+    }
+};

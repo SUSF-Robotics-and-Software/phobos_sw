@@ -1,0 +1,75 @@
+# ---- GEOMETRY ----
+
+# Radius of the wheels in meters.
+#
+# Based on CAD for 3D printed wheels.
+wheel_radius_m = 0.048
+
+# The position of the steer axes in the RB frame in meters.
+#
+# Based on information from the combined CAD produced for the wooden chassis +
+# 3D printed leg assemblies.
+str_axis_pos_m_rb = [
+    [ 0.15,  0.152, 0.0],
+    [ 0.0,   0.152, 0.0],
+    [-0.15,  0.152, 0.0],
+    [ 0.15, -0.152, 0.0],
+    [ 0.0,  -0.152, 0.0],
+    [-0.15, -0.152, 0.0],
+]
+
+# The position of the drive axes in the RB frame in meters.
+#
+# Based on information from the combined CAD produced for the wooden chassis +
+# 3D printed leg assemblies. (same as str for now)
+drv_axis_pos_m_rb = [
+    [ 0.15,  0.152, 0.0],
+    [ 0.0,   0.152, 0.0],
+    [-0.15,  0.152, 0.0],
+    [ 0.15, -0.152, 0.0],
+    [ 0.0,  -0.152, 0.0],
+    [-0.15, -0.152, 0.0],
+]
+
+# ---- CAPABILITIES ----
+
+# Steer axis maximum absolute angular position in radians.
+#
+# Want axes to be capable of +90 deg of turn, so value here is +90 + 1%
+# TODO: Validate these are sensible numbers
+str_max_abs_pos_rad = [1.5865, 1.5865, 1.5865, 1.5865, 1.5865, 1.5865]
+
+# Steer axis minimum aboslute angular position in radians.
+#
+# Want axes to be capable of -90 deg of turn, so value here is +90 + 1%
+# TODO: Validate these are sensible numbers
+str_min_abs_pos_rad = [-1.5865, -1.5865, -1.5865, -1.5865, -1.5865, -1.5865]
+
+# Drive axis maximum angular rate in radians.
+#
+# Timing number of revolutions in 30 s of the wheels at maximum speed gives 
+# 18 rev/30 sec or a rover body speed of 0.175 m/s (508 cm in 30 s).
+#
+# Want axes to be capable of 0.175m/s driving, this is the limit in radians/second
+# as per speed_ms = wheel_radius_m * wheel_rate_rads
+drv_max_abs_rate_rads = [3.6458, 3.6458, 3.6458, 3.6458, 3.6458, 3.6458]
+
+# Drive axis minimum angular rate in radians.
+#
+# Timing number of revolutions in 30 s of the wheels at maximum speed gives 
+# 18 rev/30 sec or a rover body speed of 0.175 m/s (508 cm in 30 s).
+#
+# Want axes to be capable of -0.175m/s driving, this is the limit in radians/second
+# as per speed_ms = wheel_radius_m * wheel_rate_rads
+drv_min_abs_rate_rads = [-3.6458, -3.6458, -3.6458, -3.6458, -3.6458, -3.6458]
+
+# Minimum curvature achievable during an Ackerman manouvre.
+#
+# TODO: Arbitraray, fix
+ackerman_min_curvature_m = 0.01
+
+# Maximum curvature achievable during an Ackerman manouvre.
+#
+# This is the limit at which the centre of rotation would move inside the 
+# wheelbase of the rover, with a margin of 10% (1/(0.152 * 1.1)).
+ackerman_max_curvature_m = 5.98

@@ -1,0 +1,28 @@
+# Comments start with '#'s
+
+# Commands should be entered chronologically (times must keep going up).
+# Each command will be run once only. 
+
+# Command format is:
+#   <time in seconds>: {
+#       <JSON COMMAND> 
+#   };
+# Note the end of command semi-colon!
+
+# This is the first command, it does nothing
+0.0: {
+    "type": "NONE"
+};
+
+# This is the second command, it will fire 2 seconds into the script, and will
+# the rover in 'SAFE' mode - i.e. don't move at all.
+2.0: {
+    "type": "SAFE"
+};
+
+# This is the final command, it makes the rover 'UNSAFE' - it can drive again
+5.0: {
+    "type": "UNSAFE"
+};
+
+# At this point the script is over and the execution will stop

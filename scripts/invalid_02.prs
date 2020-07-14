@@ -1,0 +1,5 @@
+# This script is designed to contain bad type names
+
+1.0: {
+    "type": "418_IM_A_TEAPOT"
+};

@@ -1,0 +1,55 @@
+# Test manouvre commands
+
+# Nothing should happen here
+1.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "NONE"
+    }
+};
+
+# This one should error, so make unsafe afterwards so we can move again
+5.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN"
+    }
+};
+
+7.0: {
+    "type": "UNSAFE"
+};
+
+# Try an actual ackerman now
+10.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "ACKERMAN",
+        "speed_ms": 0.1,
+        "curv_m": 1.0
+    }
+};
+
+# Then stop after 5 seconds
+15.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "NONE"
+    }
+};
+
+# Try a point turn
+17.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "POINT_TURN",
+        "rate_rads": -0.1
+    }
+};
+
+22.0: {
+    "type": "MNVR",
+    "payload": {
+        "mnvr_type": "NONE"
+    }
+};
