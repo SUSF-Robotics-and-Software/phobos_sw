@@ -7,3 +7,6 @@
 // ---------------------------------------------------------------------------
 
 pub mod tc;
+
+/// Command and response definitions for equipment (like mechanisms)
+pub mod eqpt;
