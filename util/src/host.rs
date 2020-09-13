@@ -1,8 +1,9 @@
 //! Host platform (linux for example) utility functions
 
-use uname;
+// use uname;
 
 /// Retrieve uname information.
-pub fn get_uname() -> std::io::Result<uname::Info> {
-    uname::uname()
+pub fn get_uname() -> std::io::Result<String> {
+    // uname::uname()
+    Ok("HOST INFO NOT YET AVAILABLE".to_string())
 }

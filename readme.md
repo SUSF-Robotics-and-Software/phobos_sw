@@ -6,12 +6,41 @@ Written in **Rust**.
 
 ## Architecture
 
-There are two executables and one library:
+> :warning: **Note**: The architecture is currently undergoing a rework, which
+> is being tracked in [this issue](https://github.com/SUSF-Robotics-and-Software/phobos_sw/issues/8).
+
+There are two executables and two libraries:
 
 * `rov_exec`: Rover executable - runs on the Rover's Raspberry Pi 4.
 * `gnd_exec`: Ground station executbale - runs at the groundstation and commands the Rover.
 * `comms_if`: Communications interface library providing for coherent Telemetry and Telecommand (TmTc) between the ground station and rover.
 * `util`: Utility library including logging, archiving, and any other concept which is used in both executbales but does not fit into the reams of communications.
+
+
+## Scripts
+
+`rov_exec` is capable of running scripts (which are stored in the `scripts`
+directory). To run a specific script append it's path to the end of the run
+command, such as:
+
+```shell
+RUST_BACKTRACE=1 cargo run --bin rov_exec scripts/demo_01.prs
+```
+## Requirements
+
+The following are required to be able to build and run the software:
+
+- `rust` - Follow the guide [on the rust website](https://www.rust-lang.org/learn/get-started) for your OS
+  > **Note**: For Windows you should be using the `x86_64-pc-windows-msvc` default
+  > build target, *not* `i686-pc-windows-msvc`.
+- `python` - Currently the electronic driver uses a python interface, though this
+  should be changed in the future. For now this means that python 3.7+ and the 
+  associated development libs are required.
+
+  **Linux**: `sudo apt install python3-dev` should do the trick.
+
+  **Windows**: Either use anaconda, which has the dll, or place the correct 
+  version of the dll in the same directory as `python37.exe`.
 
 ## Development and Executing
 
@@ -26,16 +55,6 @@ backtraces. To enable them prepend `RUST_BACKTRACE=1` to your run command. Will
 not work properly under release mode due to a lack of symbols.
 
 I recommend using `rust-analyser` for VSCode linting/development.
-
-## Scripts
-
-`rov_exec` is capable of running scripts (which are stored in the `scripts`
-directory). To run a specific script append it's path to the end of the run
-command, such as:
-
-```shell
-RUST_BACKTRACE=1 cargo run --bin rov_exec scripts/demo_01.prs
-```
 
 ## Tools
 
