@@ -13,11 +13,11 @@ use serde::{Serialize, Deserialize};
 // ------------------------------------------------------------------------------------------------
 
 /// TODO
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct MechDems;
 
 /// TODO
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct MechSensData;
 
 // ------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ pub struct MechSensData;
 // ------------------------------------------------------------------------------------------------
 
 /// Response from the mechanisms server based on the demands sent by the client.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum MechDemsResponse {
     /// Demands were valid and will be executed
     DemsOk,

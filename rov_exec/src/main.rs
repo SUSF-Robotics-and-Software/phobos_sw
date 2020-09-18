@@ -27,6 +27,9 @@
 // USE MODULES FROM LIBRARY
 // ---------------------------------------------------------------------------
 
+use mech_client::MechClient;
+use comms_if::eqpt::MechDems;
+use params::RovExecParams;
 use rov_lib::*;
 
 mod tc_processor;
@@ -117,6 +120,14 @@ fn main() -> Result<(), Report> {
     );
     info!("Session directory: {:?}\n", session.session_root);
 
+    // ---- LOAD PARAMETERS ----
+
+    let rov_exec_params: RovExecParams = util::params::load(
+        "params/rov_exec.toml"
+    ).wrap_err("Could not load rov_exec params")?;
+
+    info!("Exec parameters loaded");
+
     // ---- INITIALISE TC SOURCE ----
 
     // TC source is used to determine whether we're getting TCs from a script
@@ -173,6 +184,18 @@ fn main() -> Result<(), Report> {
     info!("LocoCtrl init complete");
 
     info!("Module initialisation complete\n");
+
+    // ---- INITIALISE NETWORK ----
+
+    info!("Initialising network");
+
+    let zmq_ctx = comms_if::net::zmq::Context::new();
+
+    let mut mech_client = MechClient::new(&zmq_ctx, &rov_exec_params)
+        .wrap_err("Failed to initialise MechClient")?;
+    info!("MechClient initialised");
+
+    info!("Network initialisation complete");
 
     // ---- MAIN LOOP ----
 
@@ -252,6 +275,12 @@ fn main() -> Result<(), Report> {
             }
         }
 
+        // Send demands to mechanisms
+        match mech_client.send_demands(&MechDems) {
+            Ok(r) => debug!("Got {:?} from MechServer", r),
+            Err(e) => warn!("{}", e)
+        }
+
         // ---- WRITE ARCHIVES ----
         // FIXME: Currently disabled as archiving isn't working quite right
         // ds.loco_ctrl.write().unwrap();
@@ -284,6 +313,10 @@ fn main() -> Result<(), Report> {
             }
         }
     }
+
+    // ---- SHUTDOWN ----
+
+    info!("End of execution");
 
     Ok(())
 }

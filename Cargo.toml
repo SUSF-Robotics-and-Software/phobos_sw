@@ -1,8 +1,12 @@
 [workspace]
 
 members = [
+    # Executables
     "rov_exec",
     "gnd_exec",
+    "mech_exec",
+
+    # Libraries
     "comms_if",
     "util"
 ]

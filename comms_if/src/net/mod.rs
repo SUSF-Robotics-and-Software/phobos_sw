@@ -9,6 +9,7 @@
 
 use std::{sync::{Arc, atomic::{AtomicBool, AtomicUsize}, atomic::Ordering}, thread};
 use zmq::{Socket, Context, SocketType, SocketEvent};
+// use log::debug;
 
 // Export zmq
 pub use zmq;
@@ -241,8 +242,13 @@ impl Drop for MonitoredSocket {
     fn drop(&mut self) {
         self.shutdown.store(true, Ordering::Relaxed);
         
-        if let Some(jh) =  self.join_handle.take() {
-            jh.join().ok();
+        // debug!("MonitoredSocket shutdown sent");
+        
+        if let Some(_jh) =  self.join_handle.take() {
+            // TODO: Currently this hangs, probably because the monitor thread is waiting for an
+            // event but none is coming, add timeout?
+            // debug!("Waiting for join");
+            // jh.join().ok();
         }
     }
 }
