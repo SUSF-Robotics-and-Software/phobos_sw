@@ -10,6 +10,9 @@
 use std::{sync::{Arc, atomic::{AtomicBool, AtomicUsize}, atomic::Ordering}, thread};
 use zmq::{Socket, Context, SocketType, SocketEvent};
 
+// Export zmq
+pub use zmq;
+
 // ------------------------------------------------------------------------------------------------
 // MACROS
 // ------------------------------------------------------------------------------------------------
