@@ -19,3 +19,7 @@ embedded-hal = "0.2"
 # Internal
 comms_if = { path = "../comms_if" }
 util = { path = "../util" }
+
+# Raspberry Pi 2/3/4 Targets only
+[target.'armv7-unknown-linux-gnueabihf'.dependencies]
+rppal = { version = "0.11.3", features = ["hal"] }

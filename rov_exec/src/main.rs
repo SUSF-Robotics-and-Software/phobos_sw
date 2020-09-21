@@ -27,6 +27,7 @@
 // USE MODULES FROM LIBRARY
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "mech")]
 use mech_client::MechClient;
 use comms_if::eqpt::MechDems;
 use params::RovExecParams;
@@ -123,7 +124,7 @@ fn main() -> Result<(), Report> {
     // ---- LOAD PARAMETERS ----
 
     let rov_exec_params: RovExecParams = util::params::load(
-        "params/rov_exec.toml"
+        "rov_exec.toml"
     ).wrap_err("Could not load rov_exec params")?;
 
     info!("Exec parameters loaded");
@@ -175,11 +176,11 @@ fn main() -> Result<(), Report> {
 
     // ---- INITIALISE MODULES ----
 
-    ds.elec_driver.init("params/elec_driver.toml", &session)
+    ds.elec_driver.init("elec_driver.toml", &session)
         .wrap_err("Failed to initialise ElecDriver")?;
     info!("ElecDriver init complete");
 
-    ds.loco_ctrl.init("params/loco_ctrl.toml", &session)
+    ds.loco_ctrl.init("loco_ctrl.toml", &session)
         .wrap_err("Failed to initialise LocoCtrl")?;
     info!("LocoCtrl init complete");
 
@@ -191,9 +192,13 @@ fn main() -> Result<(), Report> {
 
     let zmq_ctx = comms_if::net::zmq::Context::new();
 
-    let mut mech_client = MechClient::new(&zmq_ctx, &rov_exec_params)
-        .wrap_err("Failed to initialise MechClient")?;
-    info!("MechClient initialised");
+    #[cfg(feature = "mech")]
+    let mut mech_client = {
+        let c = MechClient::new(&zmq_ctx, &rov_exec_params)
+            .wrap_err("Failed to initialise MechClient")?;
+        info!("MechClient initialised");
+        c
+    };
 
     info!("Network initialisation complete");
 
@@ -276,6 +281,7 @@ fn main() -> Result<(), Report> {
         }
 
         // Send demands to mechanisms
+        #[cfg(feature = "mech")]
         match mech_client.send_demands(&MechDems) {
             Ok(r) => debug!("Got {:?} from MechServer", r),
             Err(e) => warn!("{}", e)

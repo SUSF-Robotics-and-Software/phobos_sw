@@ -27,3 +27,20 @@ pyo3 = "0.9.2" # For electronics driver
 # Internal
 util = { path = "../util" }
 comms_if = { path = "../comms_if" }
+
+[features]
+# Default feature enables all network stacks
+default = ["mech", "cam", "imu", "sim"]
+
+# Mechanisms network stack
+mech = []
+
+# Camera network stack
+cam = []
+
+# IMU network stack
+imu = []
+
+# Simulation network stack (note this is not required for using simulated mech,
+# cam, or imu stacks, only for additional sim data falling under sim_client)
+sim = []

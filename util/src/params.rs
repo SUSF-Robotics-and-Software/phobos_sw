@@ -16,6 +16,9 @@ use toml;
 /// An error that occurs during loading of a parameter file.
 #[derive(Debug, Error)]
 pub enum LoadError {
+    #[error("The software root environment variable (SUSF_PHOBOS_SW_ROOT) is not set")]
+    SwRootNotSet,
+
     #[error("Cannot load the parmeter file: {0}")]
     FileLoadError(std::io::Error),
 
@@ -28,13 +31,20 @@ pub enum LoadError {
 // ---------------------------------------------------------------------------
 
 /// Load a parameter file
+///
+/// The file path is relative to the "phobos_sw/params" directory
 pub fn load<P>(param_file_path: &str) -> Result<P, LoadError> 
 where
     P: DeserializeOwned
 {
+    // Get the params dir
+    let mut path = crate::host::get_phobos_sw_root()
+        .map_err(|_| LoadError::SwRootNotSet)?;
+    path.push("params");
+    path.push(param_file_path);
 
     // Load the file into a string
-    let params_str = match read_to_string(param_file_path) {
+    let params_str = match read_to_string(path) {
         Ok(s) => s,
         Err(e) => return Err(LoadError::FileLoadError(e))
     };
