@@ -15,4 +15,4 @@ Cargo.lock
 # Ignore sessions
 sessions/
 
-.vscode
+.vscode/*
