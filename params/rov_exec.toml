@@ -1,5 +1,0 @@
-
-# ---- NETWORK ----
-
-mech_dems_endpoint = "tcp://localhost:5000"
-mech_sens_endpoint = "tcp://localhost:5001"

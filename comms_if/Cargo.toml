@@ -8,9 +8,7 @@ edition = "2018"
 
 [dependencies]
 # External
-log = "0.4"
 chrono = "0.4"
-serde = { version = "1.0", features = ["derive"] }
+serde = "1.0"
 serde_json = "1.0"
 thiserror = "1.0"
-zmq = { version = "0.9", features = ["vendored"] }

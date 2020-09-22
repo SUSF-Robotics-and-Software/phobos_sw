@@ -1,4 +1,0 @@
-# ---- NETWORK ----
-
-demands_endpoint = "tcp://*:5000"
-sensor_data_endpoint = "tcp://*:5001"

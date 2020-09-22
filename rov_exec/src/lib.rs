@@ -11,6 +11,3 @@ pub mod elec_driver;
 pub mod loc;
 pub mod loco_ctrl;
 pub mod traj_ctrl;
-#[cfg(feature = "mech")]
-pub mod mech_client;
-pub mod params;

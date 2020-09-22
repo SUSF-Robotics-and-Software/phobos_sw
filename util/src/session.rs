@@ -52,9 +52,6 @@ pub struct Session {
 /// Possible errors associated with the session module.
 #[derive(Error, Debug)]
 pub enum SessionError {
-    #[error("The software root environment variable (SUSF_PHOBOS_SW_ROOT) is not set")]
-    SwRootNotSet,
-
     #[error("Cannot create the session directory: {0}")]
     CannotCreateDir(std::io::Error),
 
@@ -94,15 +91,11 @@ impl Session {
             None => return Err(SessionError::CannotGetEpoch)
         };
 
-        // Get the root directory
-        let root = crate::host::get_phobos_sw_root()
-            .map_err(|_| SessionError::SwRootNotSet)?;
-
-        // Create the session path
-        let mut path: PathBuf = root.clone();
-        path.push(String::from(sessions_dir));
-        path.push(format!("{}_{}", exec_name, timestamp));
-
+        // Get the directory for the session
+        let path: PathBuf = 
+            [String::from(sessions_dir), format!("{}_{}", exec_name, timestamp)]
+            .iter().collect();
+        
         // Create the directory
         match fs::create_dir_all(path.clone()) {
             Ok(_) => (),

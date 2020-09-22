@@ -80,7 +80,6 @@ pub fn logger_init(
 
         })
         .level(min_level)
-        .level_for("zmq", LevelFilter::Info)
         .chain(std::io::stdout())
         .chain(match fern::log_file(session.log_file_path.clone()) {
             Ok(f) => f,

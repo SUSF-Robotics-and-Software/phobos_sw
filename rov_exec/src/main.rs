@@ -27,10 +27,6 @@
 // USE MODULES FROM LIBRARY
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "mech")]
-use mech_client::MechClient;
-use comms_if::eqpt::MechDems;
-use params::RovExecParams;
 use rov_lib::*;
 
 mod tc_processor;
@@ -44,7 +40,8 @@ use log::{debug, info, warn};
 use std::env;
 use std::thread;
 use std::time::{Duration, Instant};
-use color_eyre::{Report, eyre::{WrapErr, eyre}};
+use color_eyre::Report;
+use eyre::{eyre, WrapErr};
 
 // Internal
 use util::{
@@ -120,14 +117,6 @@ fn main() -> Result<(), Report> {
     );
     info!("Session directory: {:?}\n", session.session_root);
 
-    // ---- LOAD PARAMETERS ----
-
-    let rov_exec_params: RovExecParams = util::params::load(
-        "rov_exec.toml"
-    ).wrap_err("Could not load rov_exec params")?;
-
-    info!("Exec parameters loaded");
-
     // ---- INITIALISE TC SOURCE ----
 
     // TC source is used to determine whether we're getting TCs from a script
@@ -175,31 +164,15 @@ fn main() -> Result<(), Report> {
 
     // ---- INITIALISE MODULES ----
 
-    ds.elec_driver.init("elec_driver.toml", &session)
+    ds.elec_driver.init("params/elec_driver.toml", &session)
         .wrap_err("Failed to initialise ElecDriver")?;
     info!("ElecDriver init complete");
 
-    ds.loco_ctrl.init("loco_ctrl.toml", &session)
+    ds.loco_ctrl.init("params/loco_ctrl.toml", &session)
         .wrap_err("Failed to initialise LocoCtrl")?;
     info!("LocoCtrl init complete");
 
     info!("Module initialisation complete\n");
-
-    // ---- INITIALISE NETWORK ----
-
-    info!("Initialising network");
-
-    let zmq_ctx = comms_if::net::zmq::Context::new();
-
-    #[cfg(feature = "mech")]
-    let mut mech_client = {
-        let c = MechClient::new(&zmq_ctx, &rov_exec_params)
-            .wrap_err("Failed to initialise MechClient")?;
-        info!("MechClient initialised");
-        c
-    };
-
-    info!("Network initialisation complete");
 
     // ---- MAIN LOOP ----
 
@@ -279,13 +252,6 @@ fn main() -> Result<(), Report> {
             }
         }
 
-        // Send demands to mechanisms
-        #[cfg(feature = "mech")]
-        match mech_client.send_demands(&MechDems) {
-            Ok(r) => debug!("Got {:?} from MechServer", r),
-            Err(e) => warn!("{}", e)
-        }
-
         // ---- WRITE ARCHIVES ----
         // FIXME: Currently disabled as archiving isn't working quite right
         // ds.loco_ctrl.write().unwrap();
@@ -318,10 +284,6 @@ fn main() -> Result<(), Report> {
             }
         }
     }
-
-    // ---- SHUTDOWN ----
-
-    info!("End of execution");
 
     Ok(())
 }
