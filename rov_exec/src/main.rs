@@ -44,8 +44,7 @@ use log::{debug, info, warn};
 use std::env;
 use std::thread;
 use std::time::{Duration, Instant};
-use color_eyre::Report;
-use eyre::{eyre, WrapErr};
+use color_eyre::{Report, eyre::{WrapErr, eyre}};
 
 // Internal
 use util::{
