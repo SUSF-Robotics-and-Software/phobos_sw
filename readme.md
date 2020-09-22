@@ -44,6 +44,14 @@ The following are required to be able to build and run the software:
 
 ## Development and Executing
 
+Before running the software setup an environment variable to point to the 
+root of the `phobos_sw` directory. This is used to easily find the sessions and
+params directories. For example, in your `.bashrc` file:
+
+```bash
+export SUSF_PHOBOS_SW_ROOT="/c/Users/{USR}/Development/SUSF-Robotics-and-Software/phobos_sw"
+```
+
 For testing use `cargo run --bin <BINARY_NAME>` to execute a specific binary.
 
 Use `cargo build` to just build and not run.
