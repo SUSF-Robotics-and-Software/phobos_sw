@@ -65,7 +65,7 @@ fn main() -> Result<()> {
 
     // ---- LOAD PARAMETERS ----
 
-    let params = util::params::load("params/mech_exec.toml")?;
+    let params = util::params::load("mech_exec.toml")?;
 
     info!("Parameters loaded");
 
