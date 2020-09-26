@@ -72,3 +72,6 @@ Two tools (shell scripts) are provided for ease of use:
     you want!
 * `synctopi`: Send the current directory to a raspberry pi (or anyting else,
     make sure you change the username, ip address, or path if needed)
+    
+## Test
+Ceris trying to get git authentication to work
