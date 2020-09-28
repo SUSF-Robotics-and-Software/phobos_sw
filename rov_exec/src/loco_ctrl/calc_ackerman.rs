@@ -6,7 +6,7 @@
 
 // Internal imports
 use super::*;
-use util::maths::{lin_map, clamp};
+use util::maths::clamp;
 
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
@@ -58,11 +58,7 @@ impl LocoCtrl {
         let wheel_rate_rads = speed_ms/self.params.wheel_radius_m;
 
         for i in 0..NUM_DRV_AXES {
-            drv_axes[i].rate = AxisRate::Normalised(lin_map(
-                (
-                    self.params.drv_min_abs_rate_rads[i], 
-                    self.params.drv_max_abs_rate_rads[i]
-                ), (-1f64, 1f64), wheel_rate_rads));
+            drv_axes[i].rate_rads = wheel_rate_rads;
         }
 
         // Build the new target
@@ -141,16 +137,8 @@ impl LocoCtrl {
                 ).sqrt();
             
             // Calculate the wheel rate by converting the speed into rads/s
-            let wheel_rate_rads = 
+            drv_axes[i].rate_rads = 
                 wheel_speed_ms / self.params.wheel_radius_m;
-
-            // Set the normalised rates
-            drv_axes[i].rate = AxisRate::Normalised(lin_map(
-                (
-                    self.params.drv_min_abs_rate_rads[i], 
-                    self.params.drv_max_abs_rate_rads[i]
-                ), (-1f64, 1f64),wheel_rate_rads
-            ))
         }
 
         // Build the target configuration

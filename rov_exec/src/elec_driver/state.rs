@@ -16,9 +16,9 @@ use util::{
     module::State,
     session::Session,
     params,
-    maths::{poly_val, clamp}
+    maths::clamp
 };
-use crate::loco_ctrl::{self, AxisRate};
+use crate::loco_ctrl;
 use super::{Params, ParamsError};
 
 // ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ pub struct ElecDriver {
 pub struct InputData {
     pub safe_mode: bool,
 
-    pub loco_ctrl_output: loco_ctrl::OutputData
+    // pub loco_ctrl_output: 
 }
 
 #[derive(Default, Copy, Clone)]
@@ -214,20 +214,20 @@ for i in range(0, 6):
             // Otherwise convert the angles to PWM values
             //
             // Assume NUM_STR = NUM_DRV
-            for i in 0..loco_ctrl::NUM_STR_AXES {
-                str_sk[i] = poly_val(
-                    &input_data.loco_ctrl_output.str_abs_pos_rad[i], 
-                    &self.params.str_ang_rad_to_sk_coeffs[i]);
+            //for i in 0..loco_ctrl::NUM_STR_AXES {
+                // str_sk[i] = poly_val(
+                //     &input_data.loco_ctrl_output.str_abs_pos_rad[i], 
+                //     &self.params.str_ang_rad_to_sk_coeffs[i]);
                 
-                drv_sk[i] = match input_data.loco_ctrl_output.drv_rate[i] {
-                    AxisRate::Normalised(n) => poly_val(
-                        &n, 
-                        &self.params.drv_rate_norm_to_sk_coeffs[i]
-                    ),
-                    AxisRate::Absolute(_) => 
-                        return Err(ProcError::AbsDrvRateUnsupported)
-                };
-            }
+                // drv_sk[i] = match input_data.loco_ctrl_output.drv_rate[i] {
+                //     AxisRate::Normalised(n) => poly_val(
+                //         &n, 
+                //         &self.params.drv_rate_norm_to_sk_coeffs[i]
+                //     ),
+                //     AxisRate::Absolute(_) => 
+                //         return Err(ProcError::AbsDrvRateUnsupported)
+                // };
+            //}
         }
 
         // Apply limits to axis values

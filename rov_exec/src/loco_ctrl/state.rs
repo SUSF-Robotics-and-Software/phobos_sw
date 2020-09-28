@@ -5,20 +5,21 @@
 // ---------------------------------------------------------------------------
 
 // External
-use log::trace;
 use serde::Serialize;
 
 // Internal
 use super::{
     Params, 
     MnvrCommand, MnvrType,
-    LocoConfig, AxisData, AxisRate, 
+    LocoConfig, AxisData, 
     NUM_DRV_AXES, NUM_STR_AXES};
 use util::{
     params, 
     module::State,
     archive::{Archived, Archiver},
     session::Session};
+use comms_if::eqpt::{ActId, MechDems};
+use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -39,7 +40,7 @@ pub struct LocoCtrl {
     pub(crate) target_loco_config: Option<LocoConfig>,
     arch_target_loco_config: Archiver,
 
-    pub(crate) output: Option<OutputData>,
+    pub(crate) output: Option<MechDems>,
     arch_output: Archiver
 }
 
@@ -49,30 +50,6 @@ pub struct InputData {
     /// The manouvre command to be executed, or `None` if there is no new
     /// command on this cycle.
     pub cmd: Option<MnvrCommand>
-}
-
-/// Output command from LocoCtrl that the electronics driver must execute.
-#[derive(Clone, Copy, Serialize, Debug)]
-pub struct OutputData {
-    /// Steer axis absolute position demand in radians.
-    /// 
-    /// Units: radians
-    pub str_abs_pos_rad: [f64; NUM_STR_AXES],
-
-    /// Drive axis rate demand.
-    /// 
-    /// Units: radians/second for `AxisRate::Absolute` or between -1 and +1 for
-    ///        `AxisRate::Normalised`.
-    pub drv_rate: [AxisRate; NUM_DRV_AXES]
-}
-
-impl Default for OutputData {
-    fn default() -> Self {
-        OutputData {
-            str_abs_pos_rad: [0.0; NUM_STR_AXES],
-            drv_rate: [AxisRate::Normalised(0.0); NUM_DRV_AXES]
-        }
-    }
 }
 
 /// Status report for LocoCtrl processing.
@@ -91,7 +68,7 @@ impl State for LocoCtrl {
     type InitError = params::LoadError;
     
     type InputData = InputData;
-    type OutputData = OutputData;
+    type OutputData = MechDems;
     type StatusReport = StatusReport;
     type ProcError = super::LocoCtrlError;
 
@@ -150,46 +127,67 @@ impl State for LocoCtrl {
             self.calc_target_config()?;
         }
 
-        let output: OutputData;
+        let output: MechDems;
 
         // If there's a target config to move to
         if let Some(cfg) = self.target_loco_config {
-            let mut str_abs_pos =  [0f64; NUM_STR_AXES];
-            let mut drv_rate = 
-                [AxisRate::Normalised(0.0); NUM_DRV_AXES];
+            // let mut str_abs_pos =  [0f64; NUM_STR_AXES];
+            // let mut drv_rate = 
+            //     [0.0; NUM_DRV_AXES];
 
-            // Iterate over each leg and extract the str and drv demands from
-            // the configuration
-            for i in 0..NUM_DRV_AXES {
-                str_abs_pos[i] = cfg.str_axes[i].abs_pos_rad;
-                drv_rate[i] = cfg.drv_axes[i].rate;
-            }
+            // // Iterate over each leg and extract the str and drv demands from
+            // // the configuration
+            // for i in 0..NUM_DRV_AXES {
+            //     str_abs_pos[i] = cfg.str_axes[i].abs_pos_rad;
+            //     drv_rate[i] = cfg.drv_axes[i].rate_rads;
+            // }
 
-            output = OutputData {
-                str_abs_pos_rad: str_abs_pos,
-                drv_rate: drv_rate
+            // output = OutputData {
+            //     str_abs_pos_rad: str_abs_pos,
+            //     drv_rate: drv_rate
+            // }
+            let mut pos_rad = HashMap::new();
+            let mut speed_rads = HashMap::new();
+
+            // Steer axis positions
+            pos_rad.insert(ActId::StrFL, cfg.str_axes[0].abs_pos_rad);
+            pos_rad.insert(ActId::StrML, cfg.str_axes[1].abs_pos_rad);
+            pos_rad.insert(ActId::StrRL, cfg.str_axes[2].abs_pos_rad);
+            pos_rad.insert(ActId::StrFR, cfg.str_axes[3].abs_pos_rad);
+            pos_rad.insert(ActId::StrMR, cfg.str_axes[4].abs_pos_rad);
+            pos_rad.insert(ActId::StrRR, cfg.str_axes[5].abs_pos_rad);
+
+            // Drive axis rates
+            speed_rads.insert(ActId::DrvFL, cfg.drv_axes[0].rate_rads);
+            speed_rads.insert(ActId::DrvML, cfg.drv_axes[1].rate_rads);
+            speed_rads.insert(ActId::DrvRL, cfg.drv_axes[2].rate_rads);
+            speed_rads.insert(ActId::DrvFR, cfg.drv_axes[3].rate_rads);
+            speed_rads.insert(ActId::DrvMR, cfg.drv_axes[4].rate_rads);
+            speed_rads.insert(ActId::DrvRR, cfg.drv_axes[5].rate_rads);
+
+            output = MechDems {
+                pos_rad,
+                speed_rads
             }
         }
         else {
             // If no target keep the previous output with the drive rates
             // zeroed. If there is no previous output use the default (zero)
             // position and rate.
-            output = match self.output {
+            output = match self.output.take() {
                 Some(po) => {
                     let mut o = po.clone();
-                    o.drv_rate = [AxisRate::Normalised(0.0); NUM_DRV_AXES];
+                    for (_, speed_rads) in o.speed_rads.iter_mut() {
+                        *speed_rads = 0.0;
+                    }
                     o
                 },
-                None => OutputData::default()
+                None => MechDems::default()
             }
         }
 
-        trace!("LocoCtrl output:\n    drv: {:?}\n    strL {:?}", 
-            output.drv_rate, 
-            output.str_abs_pos_rad);
-
         // Update the output in self
-        self.output = Some(output);
+        self.output = Some(output.clone());
 
         Ok((output, self.report))
     }
@@ -201,7 +199,7 @@ impl Archived for LocoCtrl {
         self.arch_report.serialise(self.report)?;
         self.arch_current_cmd.serialise(self.current_cmd)?;
         self.arch_target_loco_config.serialise(self.target_loco_config)?;
-        self.arch_output.serialise(self.output)?;
+        self.arch_output.serialise(self.output.clone())?;
 
         Ok(())
     }
@@ -276,21 +274,14 @@ impl LocoCtrl {
 
         // Check drive axis abs pos limits
         for i in 0..NUM_DRV_AXES {
-            let rate_norm = match target_config.drv_axes[i].rate {
-                AxisRate::Normalised(n) => n,
-                AxisRate::Absolute(r) => util::maths::lin_map(
-                    (
-                        self.params.drv_min_abs_rate_rads[i],
-                        self.params.drv_max_abs_rate_rads[i]
-                    ), (-1f64, 1f64), r)
-            };
-
-            if rate_norm > 1.0 {
-                target_config.drv_axes[i].rate = AxisRate::Normalised(1.0);
+            if target_config.drv_axes[i].rate_rads > self.params.drv_max_abs_rate_rads[i]
+            {
+                target_config.drv_axes[i].rate_rads = self.params.drv_max_abs_rate_rads[i];
                 self.report.drv_rate_limited[i] = true;
             }
-            if rate_norm < -1.0 {
-                target_config.drv_axes[i].rate = AxisRate::Normalised(-1.0);
+            if target_config.drv_axes[i].rate_rads < self.params.drv_min_abs_rate_rads[i]
+            {
+                target_config.drv_axes[i].rate_rads = self.params.drv_min_abs_rate_rads[i];
                 self.report.drv_rate_limited[i] = true;
             }
         }
@@ -323,8 +314,8 @@ impl LocoCtrl {
                 // Modify the target's rates to be zero, demanding that the 
                 // rover stop.
                 for i in 0..NUM_DRV_AXES {
-                    t.str_axes[i].rate = AxisRate::Normalised(0.0);
-                    t.drv_axes[i].rate = AxisRate::Normalised(0.0);
+                    t.str_axes[i].rate_rads = 0.0;
+                    t.drv_axes[i].rate_rads = 0.0;
                 }
 
                 t
@@ -332,7 +323,7 @@ impl LocoCtrl {
             None => {
                 let default = AxisData {
                     abs_pos_rad: 0.0,
-                    rate: AxisRate::Normalised(0.0)
+                    rate_rads: 0.0
                 };
 
                 LocoConfig {

@@ -29,7 +29,7 @@
 
 #[cfg(feature = "mech")]
 use mech_client::MechClient;
-use comms_if::eqpt::MechDems;
+use comms_if::eqpt::{MechDemsResponse, MechDems};
 use params::RovExecParams;
 use rov_lib::*;
 
@@ -78,14 +78,8 @@ struct DataStore {
 
     loco_ctrl: loco_ctrl::LocoCtrl,
     loco_ctrl_input: loco_ctrl::InputData,
-    loco_ctrl_output: loco_ctrl::OutputData,
+    loco_ctrl_output: MechDems,
     loco_ctrl_status_rpt: loco_ctrl::StatusReport,
-
-    // ElecDriver
-
-    elec_driver: elec_driver::ElecDriver,
-    elec_driver_input: elec_driver::InputData,
-    elec_driver_status_rpt: elec_driver::StatusReport,
 
     // Monitoring Counters
     
@@ -175,10 +169,6 @@ fn main() -> Result<(), Report> {
 
     // ---- INITIALISE MODULES ----
 
-    ds.elec_driver.init("elec_driver.toml", &session)
-        .wrap_err("Failed to initialise ElecDriver")?;
-    info!("ElecDriver init complete");
-
     ds.loco_ctrl.init("loco_ctrl.toml", &session)
         .wrap_err("Failed to initialise LocoCtrl")?;
     info!("LocoCtrl init complete");
@@ -263,26 +253,14 @@ fn main() -> Result<(), Report> {
             }
         };
 
-        // ElecDriver processing
-        ds.elec_driver_input.loco_ctrl_output = ds.loco_ctrl_output;
-        ds.elec_driver_input.safe_mode = ds.make_safe;
-
-        match ds.elec_driver.proc(&ds.elec_driver_input) {
-            Ok((_, r)) => {
-                ds.elec_driver_status_rpt = r;
-            },
-            Err(e) => {
-                // Electronics driver processing is critical, if it fails we
-                // must exit now
-                
-                return Err(eyre!("Failure in ElecDriver processing: {}", e))
-            }
-        }
-
         // Send demands to mechanisms
         #[cfg(feature = "mech")]
-        match mech_client.send_demands(&MechDems) {
-            Ok(r) => debug!("Got {:?} from MechServer", r),
+        match mech_client.send_demands(&ds.loco_ctrl_output) {
+            Ok(MechDemsResponse::DemsOk) => (),
+            Ok(r) => warn!(
+                "Recieved non-nominal response from MechServer: {:?}", 
+                r
+            ),
             Err(e) => warn!("{}", e)
         }
 
@@ -348,7 +326,7 @@ impl DataStore {
     fn cycle_start(&mut self) {
         
         self.loco_ctrl_input = loco_ctrl::InputData::default();
-        self.loco_ctrl_output = loco_ctrl::OutputData::default();
+        self.loco_ctrl_output = MechDems::default();
         self.loco_ctrl_status_rpt = loco_ctrl::StatusReport::default();
     }
 }
