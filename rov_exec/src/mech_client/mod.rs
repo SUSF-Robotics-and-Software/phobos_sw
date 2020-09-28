@@ -59,6 +59,7 @@ impl MechClient {
     pub fn new(ctx: &zmq::Context, params: &RovExecParams) -> Result<Self, MechClientError> {
         
         // Create the socket options
+        // TODO: Move these into a parameter file
         let dems_socket_options = SocketOptions {
             connect_timeout: 1000,
             heartbeat_ivl: 500,

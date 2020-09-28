@@ -17,5 +17,5 @@ pub struct MechExecParams {
     pub demands_endpoint: String,
 
     /// Endpoint for the sensor data socket
-    pub sensor_data_endpoint: String
+    pub sensor_data_endpoint: String,
 }
