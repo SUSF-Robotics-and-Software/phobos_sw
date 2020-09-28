@@ -56,7 +56,6 @@ where
 
     servo_config_map: HashMap<S, ServoConfig<D::Channel>>,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct ControllerConfig<S, C>
 where
@@ -82,13 +81,7 @@ pub enum ServoError {
     InvalidDutyCycle
 }
 
-/// Shows if the servo is positional or continuous.
-pub enum ServoType {
-    Positional,
-    Continuous
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ServoConfig<C> {
     Positional {
         channel: (usize, C),

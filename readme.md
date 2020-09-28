@@ -35,12 +35,14 @@ The following are required to be able to build and run the software:
   > build target, *not* `i686-pc-windows-msvc`.
 - `python` - Currently the electronic driver uses a python interface, though this
   should be changed in the future. For now this means that python 3.7+ and the 
-  associated development libs are required.
+  associated development libs are required. 64 bit is required.
 
   **Linux**: `sudo apt install python3-dev` should do the trick.
 
   **Windows**: Either use anaconda, which has the dll, or place the correct 
   version of the dll in the same directory as `python37.exe`.
+- `cmake` - The network library requires CMake to build, which can be downloaded
+  from [https://cmake.org/](https://cmake.org/).
 
 ## Development and Executing
 

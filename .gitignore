@@ -19,3 +19,6 @@ Cargo.lock
 sessions/
 
 .vscode/*
+.vs/*
+comms_if/target/
+comms_if/.vs/

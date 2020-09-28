@@ -8,7 +8,6 @@
 use log::{self, info};
 use fern;
 use colored::{ColoredString, Colorize};
-use thiserror::Error;
 
 // Internal imports
 use crate::session;
@@ -21,7 +20,7 @@ pub use log::LevelFilter;
 // ---------------------------------------------------------------------------
 
 /// Errors associated with initialising the logger.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum LoggerInitError {
     #[error("Expected a log level less than `INFO`, found `{0}`")]
     InvalidMinLogLevel(log::LevelFilter),
@@ -58,26 +57,13 @@ pub fn logger_init(
     // Setup the logger using fern's builder pattern
     match fern::Dispatch::new()
         .format(|out, message, record| {
-
-            // If debug or trace include the target, otherwise don't include it
-            if record.level() > log::Level::Info {
-                out.finish(format_args!(
-                    "[{:10.6} {}] {}: {}",
-                    session::get_elapsed_seconds(),
-                    level_to_str(record.level()),
-                    record.target(),
-                    message
-                ))
-            }
-            else {
-                out.finish(format_args!(
-                    "[{:10.6} {}] {}",
-                    session::get_elapsed_seconds(),
-                    level_to_str(record.level()),
-                    message
-                ))
-            }
-
+            out.finish(format_args!(
+                "[{:10.6} {}] {}: {}",
+                session::get_elapsed_seconds(),
+                level_to_str(record.level()),
+                record.target().dimmed(),
+                message
+            ))
         })
         .level(min_level)
         .level_for("zmq", LevelFilter::Info)
