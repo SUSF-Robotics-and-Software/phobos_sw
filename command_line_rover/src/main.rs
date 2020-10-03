@@ -1,4 +1,6 @@
-use clap::{Arg, App};
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
+use clap::{App, Arg, AppSettings};
 
 
 // const str ascii_art = """
@@ -9,40 +11,88 @@ use clap::{Arg, App};
 // |_|   |_| |_|\___/|____/ \___/|____/
 // """
 
+const PROMPT: &str = "Phobos $ ";
+const HISTORY_PATH: &str = "data/history.txt";
+
 
 fn main() {
-    let matches = App::new("Phobos")
-        .version("0.1")
-        .author("The Great Richard")
-        .about("Issues commands directly to the rover exec, how cool is that?")
-        .subcommand(App::new("mnvr")
-            .about("controls maneuvering")
-            .subcommand(App::new("ack")
-            .arg(Arg::new("velocity")
-                .short('v')
-                // .index(1)
-                .required(true)
-                .takes_value(true))
-            .arg(Arg::new("radius")
-                .short('r')
-                // .index(2)
-                .required(true)
-                .takes_value(true))
-            .arg(Arg::new("crab")
-                .short('c')
-                // .index(3)
-                .required(true)
-                .takes_value(true))
-                ))
-        .get_matches();
+    let mut rl = Editor::<()>::new();
+    if rl.load_history(HISTORY_PATH).is_err() {
+        println!("No history detected");
+    }
 
 
-    if let Some(subman) = matches.subcommand_matches("mnvr") {
-        if let Some(submnvrack) = subman.subcommand_matches("ack") {
-            if let Some(v) = submnvrack.value_of("velocity") {
-                println!("v = {}", v);
+
+    loop {
+        let readline = rl.readline(PROMPT);
+        match readline {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str());
+                // println!("Line: {}", line);
+                parse(&line);
+            }
+            Err(ReadlineError::Interrupted) => {
+                
+                break
+            }
+            Err(err) => {
+                println!("Unhandled Error: {:?}", err);
+                break
             }
         }
     }
+    rl.save_history(HISTORY_PATH).unwrap();
+}
 
+
+fn parse(line: &str) {
+    let command_parser = App::new("Phobos")
+        // .version("0.1")
+        // .author("The Great Richard")
+        // .about("Issues commands directly to the rover exec, how cool is that?")
+        .subcommand(App::new("mnvr")
+            .setting(AppSettings::AllowExternalSubcommands)
+            .about("controls maneuvering")
+            .subcommand(App::new("ack")
+                .setting(AppSettings::AllowExternalSubcommands)
+                .arg(Arg::new("velocity")
+                    .short('v')
+                    // .index(1)
+                    .required(true)
+                    .takes_value(true))
+                .arg(Arg::new("radius")
+                    .short('r')
+                    // .index(2)
+                    .required(true)
+                    .takes_value(true))
+                .arg(Arg::new("crab")
+                    .short('c')
+                    // .index(3)
+                    .required(true)
+                    .takes_value(true))
+                    )
+            )
+        .subcommand(App::new("ping")
+            .setting(AppSettings::AllowExternalSubcommands)
+    );
+
+    let split:Vec<&str> = line.split(" ").collect();
+    println!("{:?}", split);
+    let matches = command_parser.get_matches_from(split);
+    match matches.subcommand() {
+        Some(("mnvr", sub_m)) => {
+            println!("got command mnvr");
+        },
+        Some(("ping", sub_m)) => {
+            println!("pong");
+        }
+        _ => {
+            println!("NOTHING");
+        }
+    }
+}
+
+
+fn shutdown() {
+    println!("Exiting...");
 }
