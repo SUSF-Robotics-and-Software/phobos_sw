@@ -29,9 +29,16 @@
 
 #[cfg(feature = "mech")]
 use mech_client::MechClient;
-use comms_if::eqpt::{MechDemsResponse, MechDems};
+use cam_client::CamClient;
+use comms_if::{
+    tc::TcResponse,
+    eqpt::mech::{MechDemsResponse, MechDems}
+};
 use params::RovExecParams;
-use rov_lib::*;
+use rov_lib::{
+    *,
+    tc_client::{TcClient, TcClientError}
+};
 
 mod tc_processor;
 
@@ -72,7 +79,10 @@ const CYCLE_PERIOD_S: f64 = 0.05;
 #[derive(Default)]
 struct DataStore {
     /// Determines if the rover is in safe mode.
-    make_safe: bool,
+    safe: bool,
+    
+    /// Gives the reason for the rover being in safe mode.
+    safe_cause: Option<SafeModeCause>,
 
     // LocoCtrl
 
@@ -127,6 +137,7 @@ fn main() -> Result<(), Report> {
     // TC source is used to determine whether we're getting TCs from a script
     // or from the ground.
     let mut tc_source = TcSource::None;
+    let mut use_tc_client = false;
 
     // Collect all arguments
     let args: Vec<String> = env::args().collect();
@@ -144,7 +155,7 @@ fn main() -> Result<(), Report> {
 
         // Display some info
         info!(
-            "Loaded script lasts {:.02} s and contains {} TCs",
+            "Loaded script lasts {:.02} s and contains {} TCs\n",
             si.get_duration(),
             si.get_num_tcs()
         );
@@ -152,8 +163,12 @@ fn main() -> Result<(), Report> {
         // Set the interpreter in the source
         tc_source = TcSource::Script(si);
     }
+    // If no arguments then setup the tc client
     else if args.len() == 1 {
-        // TODO: init remote control from ground
+
+        info!("No script provided, remote control via the TcClient will be used\n");
+        use_tc_client = true;
+
     }
     else {
         return Err(eyre!(
@@ -181,11 +196,27 @@ fn main() -> Result<(), Report> {
 
     let zmq_ctx = comms_if::net::zmq::Context::new();
 
+    if use_tc_client {
+        tc_source = TcSource::Remote(
+            TcClient::new(&zmq_ctx, &rov_exec_params)
+                .wrap_err("Failed to initialise the TcClient")?
+        );
+        info!("TcClient initialised");
+    }
+
     #[cfg(feature = "mech")]
     let mut mech_client = {
         let c = MechClient::new(&zmq_ctx, &rov_exec_params)
             .wrap_err("Failed to initialise MechClient")?;
         info!("MechClient initialised");
+        c
+    };
+
+    #[cfg(feature = "cam")]
+    let mut cam_client = {
+        let c = CamClient::new(&zmq_ctx, &rov_exec_params)
+            .wrap_err("Failed to initialise CamClient")?;
+        info!("CamClient initialised");
         c
     };
 
@@ -207,33 +238,60 @@ fn main() -> Result<(), Report> {
 
         // ---- TELECOMMAND PROCESSING ----
 
-        // Get the list of pending TCs
-        
-        let pending_tcs = match tc_source {
+        // Branch depending on the source
+        match tc_source {
             // If no source no point in continuing so break
             TcSource::None => raise_error!("No TC source present"),
 
             // Currently ground command not supported
-            TcSource::Ground => raise_error!(
-                "Ground commanding not yet supported"),
+            TcSource::Remote(ref client) => {
+                // If the client is connected remove any safe mode, otherwise make safe
+                if client.is_connected() {
+                    ds.make_unsafe(SafeModeCause::TcClientNotConnected).ok();
+                }
+                else {
+                    ds.make_safe(SafeModeCause::TcClientNotConnected);
+                }
+
+                // Get commands until none remain
+                loop {
+                    match client.recieve_tc() {
+                        Ok(Some(tc)) => {
+                            // Process the TC
+                            tc_processor::exec(&mut ds, &tc);
+
+                            // Send response
+                            match client.send_response(TcResponse::Ok) {
+                                Ok(_) => (),
+                                Err(e) => warn!("Could not respond to TC: {}", e)
+                            }
+                        },
+                        Ok(None) => break,
+                        // If not connected go into safe mode
+                        Err(TcClientError::NotConnected) => {
+                            ds.make_safe(SafeModeCause::TcClientNotConnected);
+                        },
+                        Err(e) => return Err(e)
+                            .wrap_err("An error occured while receiving TCs from the server")
+                    }
+                }
+            },
 
             TcSource::Script(ref mut si) => 
-                si.get_pending_tcs()
-        };
-
-        match pending_tcs {
-            PendingTcs::None => (),
-            PendingTcs::Some(tc_vec) => {
-                for tc in tc_vec.iter() {
-                    tc_processor::exec(&mut ds, tc);
+                match si.get_pending_tcs() {
+                    PendingTcs::None => (),
+                    PendingTcs::Some(tc_vec) => {
+                        for tc in tc_vec.iter() {
+                            tc_processor::exec(&mut ds, tc);
+                        }
+                    }
+                    // Exit if end of script reached
+                    PendingTcs::EndOfScript => {
+                        info!("End of TC script reached, stopping");
+                        break
+                    }
                 }
-            }
-            // Exit if end of script reached
-            PendingTcs::EndOfScript => {
-                info!("End of TC script reached, stopping");
-                break
-            }
-        }
+        };
 
         // ---- AUTONOMY PROCESSING ----
 
@@ -248,7 +306,7 @@ fn main() -> Result<(), Report> {
             Err(e) => {
                 // No loco_ctrl error is unrecoverable, instead the approach 
                 // taken is to make the rover safe.
-                ds.make_safe = true;
+                ds.safe = true;
                 warn!("Error during LocoCtrl processing: {}", e)
             }
         };
@@ -312,8 +370,15 @@ fn main() -> Result<(), Report> {
 #[allow(dead_code)]
 enum TcSource {
     None,
-    Ground,
+    Remote(TcClient),
     Script(ScriptInterpreter)
+}
+
+/// Gives the reason the rover has been put into safe mode
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+enum SafeModeCause {
+    MakeSafeTc,
+    TcClientNotConnected,
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +386,42 @@ enum TcSource {
 // ---------------------------------------------------------------------------
 
 impl DataStore {
+
+    /// Puts the rover into safe mode with the given cause.
+    fn make_safe(&mut self, cause: SafeModeCause) {
+        if !self.safe {
+            warn!("Make safe requested, cause: {:?}", cause);
+            self.safe = true;
+            self.safe_cause = Some(cause);
+        }
+    }
+
+    /// Attempts to disable the safe mode by clearing the given cause.
+    ///
+    /// Returns `Ok(())` if this cause was cleared and safe mode was disabled, or `Err(())` 
+    /// otherwise. To remove safe mode the provided cause must match the initial reason for safe 
+    /// mode being enabled.
+    ///
+    /// If safe mode was not enabled `Ok(())` is returned
+    fn make_unsafe(&mut self, cause: SafeModeCause) -> Result<(), ()> {
+        if !self.safe {
+            return Ok(())
+        }
+
+        match self.safe_cause {
+            Some(root_cause) => {
+                if cause == root_cause {
+                    self.safe = false;
+                    self.safe_cause = None;
+                    Ok(())
+                }
+                else {
+                    Err(())
+                }
+            },
+            None => Ok(())
+        }
+    }
 
     /// Clears those items that need clearing at the start of a cycle.
     fn cycle_start(&mut self) {

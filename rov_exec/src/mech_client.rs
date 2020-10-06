@@ -8,7 +8,7 @@
 
 use comms_if::{
     net::{zmq, MonitoredSocket, SocketOptions, MonitoredSocketError}, 
-    eqpt::{MechDems, MechSensData, MechDemsResponse}
+    eqpt::mech::{MechDems, MechSensData, MechDemsResponse}
 };
 
 use crate::params::RovExecParams;

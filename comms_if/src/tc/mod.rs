@@ -10,7 +10,6 @@
 // External
 use serde::{Serialize, Deserialize};
 use serde_json::{self, Value};
-use thiserror::Error;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -49,7 +48,6 @@ static TYPE_HAS_NO_PAYLOAD: [TcType; 3] = [
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum TcType {
     None,
-    Heartbeat,
     MakeSafe,
     MakeUnsafe,
     LocoCtrlManouvre,
@@ -60,14 +58,37 @@ pub enum TcType {
 /// The payload allows the data contained in the TC to be serialised in may 
 /// ways. The payload only indicates which serialisation format the data is in.
 /// It is up to the user to properly deserialise the data contained within it.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TcPayload {
     None,
     Json(String)
 }
 
+/// Response to an issued telecommand
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+pub enum TcResponse {
+    /// The TC was accepted and will be executed
+    Ok,
+
+    /// The TC message was invalid and could not be parsed
+    InvalidMessage,
+
+    /// The TC had an invalid type
+    InvalidType,
+
+    /// The TC had an invalid payload
+    InvalidPayload,
+
+    /// The TC type was expected to have a payload but none was provided
+    MissingPayload,
+
+    /// The TC cannot be executed because the rover is:
+    /// 1. in safe mode
+    CannotExecute
+}
+
 /// Possible parsing errors.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum TcParseError {
     #[error("TC contains invalid JSON: {0}")]
     InvalidJson(serde_json::Error),
@@ -84,6 +105,14 @@ pub enum TcParseError {
 // ---------------------------------------------------------------------------
 
 impl Tc {
+
+    /// Create a new TC with the given serialized payload
+    pub fn new<S: Serialize>(tc_type: TcType, payload: &S) -> Self {
+        Self {
+            tc_type,
+            payload: TcPayload::Json(serde_json::to_string(payload).unwrap())
+        }
+    }
 
     /// Parse a new TC from a JSON packet
     pub fn from_json(json_str: &str) -> Result<Self, TcParseError> {
@@ -130,7 +159,6 @@ impl TcType {
     fn from_str(s: &str) -> Option<Self> {
         match s {
             "NONE" => Some(TcType::None),
-            "HEARTBEAT" => Some(TcType::Heartbeat),
             "SAFE" => Some(TcType::MakeSafe),
             "UNSAFE" => Some(TcType::MakeUnsafe),
             "MNVR" => Some(TcType::LocoCtrlManouvre),

@@ -10,7 +10,7 @@
 
 use comms_if::{
     net::{zmq, MonitoredSocket, SocketOptions, MonitoredSocketError}, 
-    eqpt::{MechDems, MechDemsResponse}
+    eqpt::mech::{MechDems, MechDemsResponse}
 };
 use log::warn;
 

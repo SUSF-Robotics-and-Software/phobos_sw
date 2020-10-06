@@ -19,5 +19,11 @@ pub struct RovExecParams {
     pub mech_dems_endpoint: String,
 
     /// Network endpoint for the mechanisms sensor data socket
-    pub mech_sens_endpoint: String
+    pub mech_sens_endpoint: String,
+
+    /// Network endpoint for the camera socket
+    pub cam_endpoint: String,
+
+    /// Network endpoint for the telecommand client
+    pub tc_endpoint: String
 }

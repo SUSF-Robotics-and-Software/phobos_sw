@@ -12,7 +12,6 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::fs;
 use regex::RegexBuilder;
-use thiserror::Error;
 
 // Internal
 use comms_if::tc::{Tc, TcParseError};
@@ -44,7 +43,7 @@ pub struct ScriptInterpreter {
 // ENUMERATIONS
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ScriptError {
     #[error("Could not find the script at {0}")]
     ScriptNotFound(String),

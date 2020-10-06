@@ -16,8 +16,6 @@ mod calc_skid_steer;
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-use thiserror::Error;
-
 // Internal
 pub use cmd::*;
 pub use loco_config::*;
@@ -39,7 +37,7 @@ pub const NUM_STR_AXES: usize = 6;
 // ---------------------------------------------------------------------------
 
 /// Possible errors that can occur during LocoCtrl operation.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum LocoCtrlError {
     #[error("Action not yet supported: {0}")]
     NotYetSupported(String),

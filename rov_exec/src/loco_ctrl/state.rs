@@ -18,7 +18,7 @@ use util::{
     module::State,
     archive::{Archived, Archiver},
     session::Session};
-use comms_if::eqpt::{ActId, MechDems};
+use comms_if::eqpt::mech::{ActId, MechDems};
 use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------

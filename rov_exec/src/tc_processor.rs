@@ -24,24 +24,18 @@ use crate::loco_ctrl::MnvrCommand;
 pub(crate) fn exec(ds: &mut DataStore, tc: &Tc) {
     // Handle different TCs
     match tc.tc_type {
-        // No action required
+        // Do nothing
         TcType::None => (),
-        TcType::Heartbeat => {
-            // TODO: Respond with a heartbeat TM
-            debug!("Recieved Heartbeat command");
-        },
         TcType::LocoCtrlManouvre => {
             exec_loco_ctrl_mnvr(ds, tc);
         },
         TcType::MakeSafe => {
-            // TODO: Raise safe flag
             debug!("Recieved MakeSafe command");
-            ds.make_safe = true;
+            ds.make_safe(crate::SafeModeCause::MakeSafeTc);
         },
         TcType::MakeUnsafe => {
-            // TODO: Unset safe flag
             debug!("Recieved MakeUnsafe command");
-            ds.make_safe = false;
+            ds.make_unsafe(crate::SafeModeCause::MakeSafeTc).ok();
         }
     }
 }

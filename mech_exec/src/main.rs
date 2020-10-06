@@ -23,7 +23,7 @@ mod params;
 // ------------------------------------------------------------------------------------------------
 
 // External
-use comms_if::eqpt::MechDemsResponse;
+use comms_if::eqpt::mech::MechDemsResponse;
 use log::{info, warn, trace};
 use color_eyre::{Result, eyre::WrapErr};
 
