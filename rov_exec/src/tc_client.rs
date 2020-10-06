@@ -4,11 +4,9 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::collections::HashMap;
-
 use comms_if::{
     net::{zmq, MonitoredSocket, SocketOptions, MonitoredSocketError}, 
-    tc::{Tc, TcParseError, TcResponse}
+    tc::{Tc, TcResponse}
 };
 
 use crate::params::RovExecParams;
@@ -43,8 +41,8 @@ pub enum TcClientError {
     #[error("Could not serialize the data: {0}")]
     SerializationError(serde_json::Error),
 
-    #[error("Could not parse the recieved telecommand: {0}")]
-    TcParseError(TcParseError),
+    #[error("Could not parse the recieved telecommand")]
+    TcParseError(serde_json::Error),
 
     #[error("The server sent a message which was not valid UTF-8")]
     NonUtf8Response
@@ -117,7 +115,7 @@ impl TcClient {
             // Non UTF-8 message
             Ok(Err(_)) => {
                 // Send invalid message response
-                self.send_response(TcResponse::InvalidMessage)?;
+                self.send_response(TcResponse::Invalid)?;
 
                 return Err(TcClientError::NonUtf8Response)
             },
@@ -133,16 +131,9 @@ impl TcClient {
         // Parse the TC
         Tc::from_json(&tc_str)
             .map_err(|e| {
-                // Send the response based on the error we recieved
+                // Send the invalid response
                 // TODO: add proper error handling here
-                match e {
-                    TcParseError::InvalidJson(_) => 
-                        self.send_response(TcResponse::InvalidMessage).ok(),
-                    TcParseError::InvalidType(_) => 
-                        self.send_response(TcResponse::InvalidType).ok(),
-                    TcParseError::MissingPayload(_) =>
-                        self.send_response(TcResponse::MissingPayload).ok()
-                };
+                self.send_response(TcResponse::Invalid).ok();
 
                 TcClientError::TcParseError(e)
             })

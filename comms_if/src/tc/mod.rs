@@ -1,67 +1,35 @@
 //! # Telecommand module
 //!
-//! This module provides telecommand functionality to the communications 
-//! interface.
+//! This module provdies a unified definition of a telecommand
 
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+// MODULES
+// ------------------------------------------------------------------------------------------------
+
+pub mod loco_ctrl;
+
+// ------------------------------------------------------------------------------------------------
 // IMPORTS
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 
-// External
 use serde::{Serialize, Deserialize};
-use serde_json::{self, Value};
 
-// ---------------------------------------------------------------------------
-// DATA STRUCTURES
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------------------------------------
 
-/// A telecommand, i.e. an instruction sent to the rover by the ground station.
-#[derive(Serialize, Deserialize)]
-pub struct Tc
-{
-    /// The type of the telecommand
-    pub tc_type: TcType,
-
-    /// The payload associated with this TC
-    pub payload: TcPayload
-}
-
-// ---------------------------------------------------------------------------
-// STATICS
-// ---------------------------------------------------------------------------
-
-static TYPE_HAS_NO_PAYLOAD: [TcType; 3] = [
-    TcType::None,
-    TcType::MakeSafe,
-    TcType::MakeUnsafe
-];
-
-// ---------------------------------------------------------------------------
-// ENUMERATIONS
-// ---------------------------------------------------------------------------
-
-/// Telecommand types. 
-///
-/// The type is used to identify the purpose of the telecommand, and should be
-/// used by the rover's telecommand processor to determine where to send the 
-/// command.
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub enum TcType {
-    None,
+/// Telecommand
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum Tc {
+    /// Set the rover into safe mode, disabling all motion of the vehicle. To re-enable the system
+    /// the `MakeUnsafe` command must be issued.
     MakeSafe,
-    MakeUnsafe,
-    LocoCtrlManouvre,
-}
 
-/// Telecommand payload.
-///
-/// The payload allows the data contained in the TC to be serialised in may 
-/// ways. The payload only indicates which serialisation format the data is in.
-/// It is up to the user to properly deserialise the data contained within it.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum TcPayload {
-    None,
-    Json(String)
+    /// Disable the rover's safe mode.
+    MakeUnsafe,
+
+    /// Send a direct manouvre command to locomotion control.
+    LocoCtrlMnvr(loco_ctrl::MnvrCmd)
 }
 
 /// Response to an issued telecommand
@@ -71,98 +39,20 @@ pub enum TcResponse {
     Ok,
 
     /// The TC message was invalid and could not be parsed
-    InvalidMessage,
-
-    /// The TC had an invalid type
-    InvalidType,
-
-    /// The TC had an invalid payload
-    InvalidPayload,
-
-    /// The TC type was expected to have a payload but none was provided
-    MissingPayload,
+    Invalid,
 
     /// The TC cannot be executed because the rover is:
     /// 1. in safe mode
     CannotExecute
 }
 
-/// Possible parsing errors.
-#[derive(Debug, thiserror::Error)]
-pub enum TcParseError {
-    #[error("TC contains invalid JSON: {0}")]
-    InvalidJson(serde_json::Error),
-
-    #[error("TC has an invalid type ({0})")]
-    InvalidType(String),
-
-    #[error("TC of type {0:?} is expected to have a payload but it doesn't")]
-    MissingPayload(TcType)
-}
-
-// ---------------------------------------------------------------------------
-// IMPLEMENTATIONS
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+// IMPLS
+// ------------------------------------------------------------------------------------------------
 
 impl Tc {
-
-    /// Create a new TC with the given serialized payload
-    pub fn new<S: Serialize>(tc_type: TcType, payload: &S) -> Self {
-        Self {
-            tc_type,
-            payload: TcPayload::Json(serde_json::to_string(payload).unwrap())
-        }
-    }
-
-    /// Parse a new TC from a JSON packet
-    pub fn from_json(json_str: &str) -> Result<Self, TcParseError> {
-        // Parse the JSON string into a value
-        let val: Value = match serde_json::from_str(json_str) {
-            Ok(v) => v,
-            Err(e) => return Err(TcParseError::InvalidJson(e))
-        };
-
-        // Get the type of the TC
-        let tc_type = match TcType::from_str(
-            match val["type"].as_str() {
-                Some(s) => s,
-                None => return Err(TcParseError::InvalidType(String::from(
-                    "Expected \"type\" to be a string"
-                )))
-            })
-        {
-            Some(t) => t,
-            None => return Err(TcParseError::InvalidType(
-                format!(
-                    "{} is not a recognised TC type", 
-                    val["type"].as_str().unwrap())
-            ))
-        };
-        
-        // Get the payload. If it's null and the type does not have a payload 
-        // then an error is returned
-        if val["payload"].is_null()
-            &&
-            !TYPE_HAS_NO_PAYLOAD.contains(&tc_type)
-        {
-            return Err(TcParseError::MissingPayload(tc_type))
-        }
-
-        Ok(Tc {
-            tc_type,
-            payload: TcPayload::Json(val["payload"].to_string())
-        })
-    }
-}
-
-impl TcType {
-    fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "NONE" => Some(TcType::None),
-            "SAFE" => Some(TcType::MakeSafe),
-            "UNSAFE" => Some(TcType::MakeUnsafe),
-            "MNVR" => Some(TcType::LocoCtrlManouvre),
-            _ => None
-        }
+    /// Parse a TC from a given json string
+    pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json_str)
     }
 }

@@ -4,7 +4,6 @@
 // MODULES
 // ---------------------------------------------------------------------------
 
-mod cmd;
 mod loco_config;
 mod params;
 mod state;
@@ -17,7 +16,6 @@ mod calc_skid_steer;
 // ---------------------------------------------------------------------------
 
 // Internal
-pub use cmd::*;
 pub use loco_config::*;
 pub use params::*;
 pub use state::*;
@@ -45,6 +43,6 @@ pub enum LocoCtrlError {
     #[error("Expected there to be a manouvre command but couldn't find one")]
     NoMnvrCmd,
 
-    #[error("Recieved an invalid manouvre command: {0:#?}")]
-    InvalidMnvrCmd(MnvrCommand),
+    #[error("Recieved an invalid manouvre command")]
+    InvalidMnvrCmd,
 }

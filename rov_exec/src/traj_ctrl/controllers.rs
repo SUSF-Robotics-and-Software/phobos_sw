@@ -14,7 +14,7 @@ use std::time::Instant;
 use util::maths::norm;
 use super::path::*;
 use crate::loc::Pose;
-use crate::loco_ctrl::{MnvrCommand, MnvrType};
+use comms_if::tc::loco_ctrl::MnvrCmd;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -136,13 +136,15 @@ impl TrajControllers {
     }
 
     /// Get the ackerman demand for the current path segment and pose.
+    ///
+    /// TODO: Add crab support
     pub fn get_ackerman_cmd(
         &mut self, 
         segment: &PathSegment, 
         pose: &Pose,
         report: &mut super::StatusReport,
         params: &super::Params
-    ) -> MnvrCommand {
+    ) -> MnvrCmd {
 
         // Calculate lateral error
         let lat_err_m = self.calc_lat_error(segment, pose);
@@ -195,12 +197,10 @@ impl TrajControllers {
             speed_dem_ms = params.min_speed_dem_ms
         }
 
-        // Build the command and return it
-        MnvrCommand {
-            mnvr_type: MnvrType::Ackerman,
-            curvature_m: Some(curv_dem_m),
-            speed_ms: Some(speed_dem_ms),
-            turn_rate_rads: None
+        MnvrCmd::Ackerman {
+            speed_ms: speed_dem_ms,
+            curv_m: curv_dem_m,
+            crab_rad: 0.0
         }
     }
 

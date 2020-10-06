@@ -213,7 +213,7 @@ fn main() -> Result<(), Report> {
     };
 
     #[cfg(feature = "cam")]
-    let mut cam_client = {
+    let mut _cam_client = {
         let c = CamClient::new(&zmq_ctx, &rov_exec_params)
             .wrap_err("Failed to initialise CamClient")?;
         info!("CamClient initialised");

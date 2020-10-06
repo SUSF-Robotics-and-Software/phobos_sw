@@ -14,7 +14,7 @@ use std::fs;
 use regex::RegexBuilder;
 
 // Internal
-use comms_if::tc::{Tc, TcParseError};
+use comms_if::tc::Tc;
 use crate::session::get_elapsed_seconds;
 
 // ---------------------------------------------------------------------------
@@ -59,8 +59,8 @@ pub enum ScriptError {
         Should be a float (like 1.0)")]
     InvalidTimestamp(String),
 
-    #[error("Script contains an invalid TC at {0} s: {1}")]
-    InvalidTc(f64, TcParseError)
+    #[error("Script contains an invalid TC at {0} s")]
+    InvalidTc(f64, serde_json::Error)
 }
 
 pub enum PendingTcs {
@@ -118,9 +118,7 @@ impl ScriptInterpreter {
                 cap.get(3).unwrap().as_str()) 
             {
                 Ok(c) => c,
-                Err(e) => return Err(ScriptError::InvalidTc(
-                    exec_time_s, e
-                ))
+                Err(e) => return Err(ScriptError::InvalidTc(exec_time_s, e))
             };
 
             // Build command from the match

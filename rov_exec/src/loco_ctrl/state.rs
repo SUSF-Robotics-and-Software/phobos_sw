@@ -10,7 +10,6 @@ use serde::Serialize;
 // Internal
 use super::{
     Params, 
-    MnvrCommand, MnvrType,
     LocoConfig, AxisData, 
     NUM_DRV_AXES, NUM_STR_AXES};
 use util::{
@@ -18,7 +17,10 @@ use util::{
     module::State,
     archive::{Archived, Archiver},
     session::Session};
-use comms_if::eqpt::mech::{ActId, MechDems};
+use comms_if::{
+    tc::loco_ctrl::MnvrCmd,
+    eqpt::mech::{ActId, MechDems}
+};
 use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
@@ -34,7 +36,7 @@ pub struct LocoCtrl {
     pub(crate) report: StatusReport,
     arch_report: Archiver,
 
-    pub(crate) current_cmd: Option<MnvrCommand>,
+    pub(crate) current_cmd: Option<MnvrCmd>,
     arch_current_cmd: Archiver,
 
     pub(crate) target_loco_config: Option<LocoConfig>,
@@ -49,7 +51,7 @@ pub struct LocoCtrl {
 pub struct InputData {
     /// The manouvre command to be executed, or `None` if there is no new
     /// command on this cycle.
-    pub cmd: Option<MnvrCommand>
+    pub cmd: Option<MnvrCmd>
 }
 
 /// Status report for LocoCtrl processing.
@@ -215,22 +217,24 @@ impl LocoCtrl {
     fn calc_target_config(&mut self) -> Result<(), super::LocoCtrlError> {
 
         // Check we have a valid command
-        match self.current_cmd {
-            Some(c) => match c.is_valid() {
-                true => (),
-                false => return Err(super::LocoCtrlError::InvalidMnvrCmd(c))
-            },
-            None => return Err(super::LocoCtrlError::NoMnvrCmd)
+        match self.is_current_cmd_valid() {
+            true => (),
+            false => return Err(super::LocoCtrlError::InvalidMnvrCmd)
         }
 
         // Perform calculations for each command type. These calculation
         // functions shall update `self.target_loco_config`.
-        match self.current_cmd.unwrap().mnvr_type {
-            MnvrType::Stop => self.calc_stop()?,
-            MnvrType::None => self.calc_none()?,
-            MnvrType::Ackerman => self.calc_ackerman()?,
-            MnvrType::PointTurn => self.calc_point_turn()?,
-            MnvrType::SkidSteer => self.calc_skid_steer()?
+        match self.current_cmd.unwrap() {
+            MnvrCmd::Stop => self.calc_stop()?,
+            MnvrCmd::Ackerman{speed_ms, curv_m, crab_rad} => self.calc_ackerman(
+                speed_ms, curv_m, crab_rad
+            )?,
+            MnvrCmd::PointTurn{rate_rads} => self.calc_point_turn(
+                rate_rads
+            )?,
+            MnvrCmd::SkidSteer{speed_ms, curv_m} => self.calc_skid_steer(
+                speed_ms, curv_m
+            )?
         };
 
         // Limit target to rover capabilities
@@ -339,13 +343,10 @@ impl LocoCtrl {
         Ok(())
     }
 
-    /// Perform the none command calculations.
-    /// 
-    /// The None command shall not change the current target.
-    fn calc_none(&mut self) -> Result<(), super::LocoCtrlError> {
-        
-        // Simply exit as there's nothing to do.
-        Ok(())
+    /// Validate that the current manouvre command is achievable
+    /// TODO
+    fn is_current_cmd_valid(&self) -> bool {
+        true
     }
 
 }

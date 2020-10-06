@@ -4,13 +4,10 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-// External
-use thiserror::Error;
-
 // Internal
 use super::*;
 use crate::loc::Pose;
-use crate::loco_ctrl::{MnvrCommand, MnvrType};
+use comms_if::tc::loco_ctrl::MnvrCmd;
 use util::{
     module::State,
     params,
@@ -53,7 +50,7 @@ pub struct InputData {
 
 #[derive(Default, Copy, Clone)]
 pub struct OutputData {
-    mnvr_cmd: Option<MnvrCommand>
+    mnvr_cmd: Option<MnvrCmd>
 }
 
 /// The status report containing various error flags and monitoring quantities.
@@ -80,14 +77,14 @@ pub struct StatusReport {
 // ---------------------------------------------------------------------------
 
 /// Potential errors that could occur during initialisation of the module.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum InitError {
     #[error("Could not load parameters: {0}")]
     ParamLoadError(params::LoadError)
 }
 
 /// Potential errors that can occur during processing of the module.
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ProcError {
     /// A sequence is already loaded. This error occurs when attempting to 
     /// start a new sequence before the current one has finished.
@@ -336,12 +333,7 @@ impl<'a> TrajCtrl {
         // If the error is less than the threshold the adjustment is complete
         if head_err_rad.abs() < self.params.head_adjust_threshold_rad {
             // Issue a stop command and switch to follow path mode
-            self.output_data.mnvr_cmd = Some(MnvrCommand {
-                mnvr_type: MnvrType::Stop,
-                curvature_m: None,
-                speed_ms: None,
-                turn_rate_rads: None
-            });
+            self.output_data.mnvr_cmd = Some(MnvrCmd::Stop);
 
             self.mode = Mode::FollowingPath;
         }
@@ -349,12 +341,8 @@ impl<'a> TrajCtrl {
             // Set the turn speed. The sense of the heading error is the same
             // as that of the turn rate, therefore if there is a positive error
             // we need a negative turn rate to decrease that error.
-            self.output_data.mnvr_cmd = Some(MnvrCommand {
-                mnvr_type: MnvrType::PointTurn,
-                curvature_m: None,
-                speed_ms: None,
-                turn_rate_rads: Some(-1f64 * head_err_rad.signum() 
-                    * self.params.head_adjust_rate_rads)
+            self.output_data.mnvr_cmd = Some(MnvrCmd::PointTurn {
+                rate_rads: -1f64 * head_err_rad.signum() * self.params.head_adjust_rate_rads
             });
         }
 
@@ -369,12 +357,7 @@ impl<'a> TrajCtrl {
     fn mode_seq_finished(&mut self) -> Result<(), ProcError> {
         
         // Set the stop command
-        self.output_data.mnvr_cmd = Some(MnvrCommand {
-            mnvr_type: MnvrType::Stop,
-            curvature_m: None,
-            speed_ms: None,
-            turn_rate_rads: None
-        });
+        self.output_data.mnvr_cmd = Some(MnvrCmd::Stop);
 
         // Clear the path sequence
         self.path_sequence = vec![];

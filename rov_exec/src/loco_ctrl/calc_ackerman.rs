@@ -27,21 +27,22 @@ impl LocoCtrl {
     /// The manouvre is parameterised by the curvature of the turn (1/radius
     /// of the turn) and the desired speed of the rover. Curvature is used so
     /// that infinity can be avoided for "straight" manouvres.
-    pub(crate) fn calc_ackerman(&mut self) -> Result<(), super::LocoCtrlError> {
-
-        // Command has previously been verified so we can just extract the
-        // curvature and speed for future use.
-        let curvature_m = self.current_cmd.unwrap().curvature_m.unwrap();
-        let speed_ms = self.current_cmd.unwrap().speed_ms.unwrap();
+    ///
+    /// TODO: Add crab
+    pub(crate) fn calc_ackerman(
+        &mut self, speed_ms: f64,
+        curv_m: f64, 
+        _crab_ms: f64
+    ) -> Result<(), super::LocoCtrlError> {
 
         // If the demanded curvature is close to zero set the target to point
         // straight ahead.
-        if curvature_m.abs() < self.params.ackerman_min_curvature_m {
+        if curv_m.abs() < self.params.ackerman_min_curvature_m {
             self.calc_ackerman_straight(speed_ms)?;
         }
         // Otherwise perform the generic ackerman calculation
         else {
-            self.calc_ackerman_generic(curvature_m, speed_ms)?;
+            self.calc_ackerman_generic(speed_ms, curv_m)?;
         }
 
         Ok(())
@@ -77,8 +78,8 @@ impl LocoCtrl {
     /// may result in a division by zero.
     fn calc_ackerman_generic(
         &mut self,
-        curvature_m: f64,
-        speed_ms: f64
+        speed_ms: f64,
+        curv_m: f64
     ) -> Result<(), super::LocoCtrlError> {
         
         // Axis arrays
@@ -95,7 +96,7 @@ impl LocoCtrl {
             1.0 
             / 
             clamp(
-                &curvature_m, 
+                &curv_m, 
                 &(-self.params.ackerman_max_curvature_m),
                 &self.params.ackerman_max_curvature_m);
 

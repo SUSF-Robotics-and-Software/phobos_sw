@@ -5,6 +5,7 @@ members = [
     "rov_exec",
     "gnd_exec",
     "mech_exec",
+    "tc_server",
     "command_line_rover",
 
     # Libraries

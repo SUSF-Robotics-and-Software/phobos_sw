@@ -14,13 +14,8 @@ use super::*;
 impl LocoCtrl {
 
     /// Perform the point turn command calculations
-    pub(crate) fn calc_point_turn(&mut self) -> Result<(), super::LocoCtrlError> {
+    pub(crate) fn calc_point_turn(&mut self, rate_rads: f64) -> Result<(), super::LocoCtrlError> {
 
-        // Command has previously been verified so we can just extract the
-        // turn rate.
-        let turn_rate_rads = self.current_cmd.unwrap()
-            .turn_rate_rads.unwrap();
-        
         // Axis arrays
         let mut str_axes = [AxisData::default(); NUM_STR_AXES];
         let mut drv_axes = [AxisData::default(); NUM_DRV_AXES];
@@ -38,7 +33,7 @@ impl LocoCtrl {
         // Calculate drive axis rates
         for i in 0..NUM_DRV_AXES {
             drv_axes[i].rate_rads = 
-                turn_rate_rads
+                rate_rads
                 * (
                     self.params.str_axis_pos_m_rb[i][0].powi(2)
                     + self.params.str_axis_pos_m_rb[i][1].powi(2)
