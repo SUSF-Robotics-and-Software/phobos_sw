@@ -22,3 +22,5 @@ sessions/
 .vs/*
 comms_if/target/
 comms_if/.vs/
+
+**/clr_history.txt

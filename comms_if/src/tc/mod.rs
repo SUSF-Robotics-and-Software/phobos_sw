@@ -13,22 +13,35 @@ pub mod loco_ctrl;
 // ------------------------------------------------------------------------------------------------
 
 use serde::{Serialize, Deserialize};
+use structopt::{StructOpt, clap::AppSettings};
 
 // ------------------------------------------------------------------------------------------------
 // ENUMS
 // ------------------------------------------------------------------------------------------------
 
 /// Telecommand
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, StructOpt)]
+#[structopt(
+    name = "tc",
+    about = "Parse a telecommand to be sent to the rover",
+    setting(AppSettings::NoBinaryName),
+    global_setting(AppSettings::DeriveDisplayOrder), 
+    global_setting(AppSettings::DisableVersion),
+    global_setting(AppSettings::DontCollapseArgsInUsage),
+    global_setting(AppSettings::VersionlessSubcommands),
+    global_setting(AppSettings::AllowNegativeNumbers))]
 pub enum Tc {
     /// Set the rover into safe mode, disabling all motion of the vehicle. To re-enable the system
     /// the `MakeUnsafe` command must be issued.
+    #[structopt(name = "safe")]
     MakeSafe,
 
     /// Disable the rover's safe mode.
+    #[structopt(name = "unsafe")]
     MakeUnsafe,
 
     /// Send a direct manouvre command to locomotion control.
+    #[structopt(name = "mnvr")]
     LocoCtrlMnvr(loco_ctrl::MnvrCmd)
 }
 

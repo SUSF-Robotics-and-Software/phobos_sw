@@ -1,6 +1,7 @@
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use clap::{App, Arg, AppSettings};
+use structopt::StructOpt;
+use comms_if::tc::Tc;
 
 
 // const str ascii_art = """
@@ -11,25 +12,58 @@ use clap::{App, Arg, AppSettings};
 // |_|   |_| |_|\___/|____/ \___/|____/
 // """
 
-const PROMPT: &str = "Phobos $ ";
-const HISTORY_PATH: &str = "data/history.txt";
+const PROMPT: &str = "[Phobos] $ ";
+const HISTORY_PATH: &str = "clr_history.txt";
 
 
 fn main() {
+    // Rustline input
     let mut rl = Editor::<()>::new();
+
+    // Load history if some exists
     if rl.load_history(HISTORY_PATH).is_err() {
         println!("No history detected");
     }
 
+    // TcParser form clap
+    let tc_parser_app = Tc::clap();
 
-
+    // Main loop
     loop {
+
+        // Get line of input from the user
         let readline = rl.readline(PROMPT);
+
+        // Handle the input
         match readline {
+            // Valid line
             Ok(line) => {
+                // Add it to the history so we can select with arrow keys
                 rl.add_history_entry(line.as_str());
-                // println!("Line: {}", line);
-                parse(&line);
+
+                // Strip any spaces off the line
+                let line = line.trim();
+
+                // If empty string just continue
+                if line.is_empty() {
+                    continue
+                }
+                
+                // Split on spaces to parse with structopt
+                let cmd: Vec<&str> = line.split(' ').collect();
+
+                // Get the clap matches for this TC
+                let matches = match tc_parser_app.clone().get_matches_from_safe(cmd) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        println!("\n{:#}\n", e.message);
+                        continue;
+                    }
+                };
+
+                // Parse the tc
+                let tc = Tc::from_clap(&matches);
+
             }
             Err(ReadlineError::Interrupted) => {
                 
@@ -41,58 +75,6 @@ fn main() {
             }
         }
     }
+
     rl.save_history(HISTORY_PATH).unwrap();
-}
-
-
-fn parse(line: &str) {
-    let command_parser = App::new("Phobos")
-        // .version("0.1")
-        // .author("The Great Richard")
-        // .about("Issues commands directly to the rover exec, how cool is that?")
-        .subcommand(App::new("mnvr")
-            .setting(AppSettings::AllowExternalSubcommands)
-            .about("controls maneuvering")
-            .subcommand(App::new("ack")
-                .setting(AppSettings::AllowExternalSubcommands)
-                .arg(Arg::new("velocity")
-                    .short('v')
-                    // .index(1)
-                    .required(true)
-                    .takes_value(true))
-                .arg(Arg::new("radius")
-                    .short('r')
-                    // .index(2)
-                    .required(true)
-                    .takes_value(true))
-                .arg(Arg::new("crab")
-                    .short('c')
-                    // .index(3)
-                    .required(true)
-                    .takes_value(true))
-                    )
-            )
-        .subcommand(App::new("ping")
-            .setting(AppSettings::AllowExternalSubcommands)
-    );
-
-    let split:Vec<&str> = line.split(" ").collect();
-    println!("{:?}", split);
-    let matches = command_parser.get_matches_from(split);
-    match matches.subcommand() {
-        Some(("mnvr", sub_m)) => {
-            println!("got command mnvr");
-        },
-        Some(("ping", sub_m)) => {
-            println!("pong");
-        }
-        _ => {
-            println!("NOTHING");
-        }
-    }
-}
-
-
-fn shutdown() {
-    println!("Exiting...");
 }
