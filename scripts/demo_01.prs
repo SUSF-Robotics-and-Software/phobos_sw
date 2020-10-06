@@ -9,20 +9,13 @@
 #   };
 # Note the end of command semi-colon!
 
-# This is the first command, it does nothing
-0.0: {
-    "type": "NONE"
-};
+# Note: Previously a "NONE" command was supported, this has been removed
 
 # This is the second command, it will fire 2 seconds into the script, and will
-# the rover in 'SAFE' mode - i.e. don't move at all.
-2.0: {
-    "type": "SAFE"
-};
+# the rover in 'safe' mode - i.e. don't move at all.
+2.0: "MakeSafe";
 
-# This is the final command, it makes the rover 'UNSAFE' - it can drive again
-5.0: {
-    "type": "UNSAFE"
-};
+# This is the final command, it makes the rover 'unsafe' - it can drive again
+5.0: "MakeUnsafe";
 
 # At this point the script is over and the execution will stop

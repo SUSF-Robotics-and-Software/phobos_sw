@@ -29,8 +29,8 @@ pub(crate) fn exec(ds: &mut DataStore, tc: &Tc) {
             ds.make_safe(crate::SafeModeCause::MakeSafeTc);
         },
         Tc::MakeUnsafe => {
-            debug!("Recieved MakeSafe command");
-            ds.make_safe(crate::SafeModeCause::MakeSafeTc);
+            debug!("Recieved MakeUnsafe command");
+            ds.make_unsafe(crate::SafeModeCause::MakeSafeTc).ok();
         },
         Tc::LocoCtrlMnvr(m) => {
             ds.loco_ctrl_input.cmd = Some(*m)

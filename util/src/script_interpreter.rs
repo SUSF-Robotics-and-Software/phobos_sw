@@ -59,7 +59,7 @@ pub enum ScriptError {
         Should be a float (like 1.0)")]
     InvalidTimestamp(String),
 
-    #[error("Script contains an invalid TC at {0} s")]
+    #[error("Script contains an invalid TC at {0} s: {1}")]
     InvalidTc(f64, serde_json::Error)
 }
 

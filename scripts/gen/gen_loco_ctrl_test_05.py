@@ -23,18 +23,22 @@ def main():
     with open('scripts/loco_ctrl_test_05.prs', 'w') as f:
         f.write(script)
 
-def get_ack(time_s, curv_m, speed_ms):
+def get_ack(time_s, speed_ms=0.0, curv_m=0.0, crab_rad=0.0):
     return '''
 TIME: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "ACKERMAN",
-        "curv_m": CURV,
-        "speed_ms": SPEED
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": SPEED,
+            "curv_m": CURV,
+            "crab_rad": CRAB
+        }
     }
 };
 
-    '''.replace('TIME', str(time_s)).replace('CURV', str(curv_m)).replace('SPEED', str(speed_ms))
+    '''.replace('TIME', str(time_s))\
+        .replace('SPEED', str(speed_ms))\
+        .replace('CURV', str(curv_m))\
+        .replace('CRAB', str(crab_rad))
 
 if __name__ == '__main__':
     main()

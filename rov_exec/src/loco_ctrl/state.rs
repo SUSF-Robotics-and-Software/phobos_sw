@@ -6,6 +6,7 @@
 
 // External
 use serde::Serialize;
+use log::debug;
 
 // Internal
 use super::{
@@ -125,6 +126,9 @@ impl State for LocoCtrl {
             // Update the interal copy of the command
             self.current_cmd = Some(cmd);
 
+            // Ouptut the command in debug mode
+            debug!("New LocoCtrl MnvrCmd::{:#?}", cmd);
+
             // Calculate the target configuration based on this new command.
             self.calc_target_config()?;
         }
@@ -133,21 +137,7 @@ impl State for LocoCtrl {
 
         // If there's a target config to move to
         if let Some(cfg) = self.target_loco_config {
-            // let mut str_abs_pos =  [0f64; NUM_STR_AXES];
-            // let mut drv_rate = 
-            //     [0.0; NUM_DRV_AXES];
 
-            // // Iterate over each leg and extract the str and drv demands from
-            // // the configuration
-            // for i in 0..NUM_DRV_AXES {
-            //     str_abs_pos[i] = cfg.str_axes[i].abs_pos_rad;
-            //     drv_rate[i] = cfg.drv_axes[i].rate_rads;
-            // }
-
-            // output = OutputData {
-            //     str_abs_pos_rad: str_abs_pos,
-            //     drv_rate: drv_rate
-            // }
             let mut pos_rad = HashMap::new();
             let mut speed_rads = HashMap::new();
 

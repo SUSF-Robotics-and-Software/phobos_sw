@@ -1,25 +1,22 @@
-# Simple test which drives the motors at 10% forward speed for 5 seconds.
+# Simple test for point turn.
 
 1.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "POINT_TURN",
-        "rate_rads": -0.8
+    "LocoCtrlMnvr": {
+        "PointTurn": {
+            "rate_rads": -0.8
+        }
     }
 };
 
 
 5.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "POINT_TURN",
-        "rate_rads": 0.8
+    "LocoCtrlMnvr": {
+        "PointTurn": {
+            "rate_rads": 0.8
+        }
     }
 };
 
 10.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "STOP"
-    }
+    "LocoCtrlMnvr": "Stop"
 };

@@ -405,6 +405,7 @@ impl DataStore {
     /// If safe mode was not enabled `Ok(())` is returned
     fn make_unsafe(&mut self, cause: SafeModeCause) -> Result<(), ()> {
         if !self.safe {
+            info!("Make unsafe requested, rover already unsafe");
             return Ok(())
         }
 
@@ -413,9 +414,16 @@ impl DataStore {
                 if cause == root_cause {
                     self.safe = false;
                     self.safe_cause = None;
+                    info!("Make unsafe requested, root cause match, safe mode disabled");
                     Ok(())
                 }
                 else {
+                    info!(
+                        "Make unsafe requested, root cause ({:?}) differs from response ({:?}), \
+                        rejected", 
+                        root_cause,
+                        cause
+                    );
                     Err(())
                 }
             },

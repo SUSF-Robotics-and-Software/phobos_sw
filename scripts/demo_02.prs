@@ -1,55 +1,36 @@
 # Test manouvre commands
 
-# Nothing should happen here
-1.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "NONE"
-    }
-};
+# Note: previously there was a "NONE" loco ctlr mnvr type, this has been removed
 
-# This one should error, so make unsafe afterwards so we can move again
-5.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "ACKERMAN"
-    }
-};
-
-7.0: {
-    "type": "UNSAFE"
-};
+# Note: previously loco ctrl manouvres were checked at runtime, this has been
+# changed so the invalid command has been removed.
 
 # Try an actual ackerman now
 10.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "ACKERMAN",
-        "speed_ms": 0.1,
-        "curv_m": 1.0
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 1.0,
+            "crab_rad": 0.0
+        }
     }
 };
 
 # Then stop after 5 seconds
 15.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "NONE"
-    }
+    "LocoCtrlMnvr": "Stop"
 };
 
 # Try a point turn
 17.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "POINT_TURN",
-        "rate_rads": -0.1
+    "LocoCtrlMnvr": {
+        "PointTurn": {
+            "rate_rads": -0.1
+        }
     }
 };
 
+# And stop
 22.0: {
-    "type": "MNVR",
-    "payload": {
-        "mnvr_type": "NONE"
-    }
+    "LocoCtrlMnvr": "Stop"
 };
