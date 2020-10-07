@@ -17,14 +17,14 @@ def main():
     speeds_ms = np.linspace(-0.175, 0.175, 20)
 
     for speed in speeds_ms:
-        script += get_ack(time_s, 0.0, speed)
+        script += get_ack(time_s, speed_ms=speed, curv_m=0.0)
         time_s += 3.0
 
     # Generate curvs from -6.5 to 6.5 (wheelbase to wheelbase)
     curvs_m = np.linspace(-6.5, 6.5, 20)
 
     for curv in curvs_m:
-        script += get_ack(time_s, curv, 0.0)
+        script += get_ack(time_s, speed_ms=0.0, curv_m=curv)
         time_s += 3.0
 
     with open('scripts/loco_ctrl_test_02.prs', 'w') as f:

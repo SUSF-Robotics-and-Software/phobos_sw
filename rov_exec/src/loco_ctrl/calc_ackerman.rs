@@ -30,7 +30,8 @@ impl LocoCtrl {
     ///
     /// TODO: Add crab
     pub(crate) fn calc_ackerman(
-        &mut self, speed_ms: f64,
+        &mut self, 
+        speed_ms: f64,
         curv_m: f64, 
         _crab_ms: f64
     ) -> Result<(), super::LocoCtrlError> {

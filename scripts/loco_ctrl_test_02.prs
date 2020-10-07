@@ -3,8 +3,8 @@
 1.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.175,
+            "speed_ms": -0.175,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -14,8 +14,8 @@
 4.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.15657894736842104,
+            "speed_ms": -0.15657894736842104,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -25,8 +25,8 @@
 7.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.1381578947368421,
+            "speed_ms": -0.1381578947368421,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -36,8 +36,8 @@
 10.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.11973684210526316,
+            "speed_ms": -0.11973684210526316,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -47,8 +47,8 @@
 13.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.1013157894736842,
+            "speed_ms": -0.1013157894736842,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -58,8 +58,8 @@
 16.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.08289473684210526,
+            "speed_ms": -0.08289473684210526,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -69,8 +69,8 @@
 19.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.06447368421052632,
+            "speed_ms": -0.06447368421052632,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -80,8 +80,8 @@
 22.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.04605263157894737,
+            "speed_ms": -0.04605263157894737,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -91,8 +91,8 @@
 25.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.027631578947368424,
+            "speed_ms": -0.027631578947368424,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -102,8 +102,8 @@
 28.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": -0.009210526315789475,
+            "speed_ms": -0.009210526315789475,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -113,8 +113,8 @@
 31.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.009210526315789475,
+            "speed_ms": 0.009210526315789475,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -124,8 +124,8 @@
 34.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.027631578947368424,
+            "speed_ms": 0.027631578947368424,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -135,8 +135,8 @@
 37.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.046052631578947345,
+            "speed_ms": 0.046052631578947345,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -146,8 +146,8 @@
 40.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.0644736842105263,
+            "speed_ms": 0.0644736842105263,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -157,8 +157,8 @@
 43.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.08289473684210524,
+            "speed_ms": 0.08289473684210524,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -168,8 +168,8 @@
 46.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.10131578947368419,
+            "speed_ms": 0.10131578947368419,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -179,8 +179,8 @@
 49.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.11973684210526314,
+            "speed_ms": 0.11973684210526314,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -190,8 +190,8 @@
 52.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.1381578947368421,
+            "speed_ms": 0.1381578947368421,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -201,8 +201,8 @@
 55.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.15657894736842104,
+            "speed_ms": 0.15657894736842104,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -212,8 +212,8 @@
 58.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.0,
-            "curv_m": 0.175,
+            "speed_ms": 0.175,
+            "curv_m": 0.0,
             "crab_rad": 0.0
         }
     }
@@ -223,8 +223,8 @@
 61.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -6.5,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -6.5,
             "crab_rad": 0.0
         }
     }
@@ -234,8 +234,8 @@
 64.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -5.815789473684211,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -5.815789473684211,
             "crab_rad": 0.0
         }
     }
@@ -245,8 +245,8 @@
 67.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -5.131578947368421,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -5.131578947368421,
             "crab_rad": 0.0
         }
     }
@@ -256,8 +256,8 @@
 70.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -4.447368421052632,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -4.447368421052632,
             "crab_rad": 0.0
         }
     }
@@ -267,8 +267,8 @@
 73.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -3.763157894736842,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -3.763157894736842,
             "crab_rad": 0.0
         }
     }
@@ -278,8 +278,8 @@
 76.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -3.0789473684210527,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -3.0789473684210527,
             "crab_rad": 0.0
         }
     }
@@ -289,8 +289,8 @@
 79.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -2.394736842105263,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -2.394736842105263,
             "crab_rad": 0.0
         }
     }
@@ -300,8 +300,8 @@
 82.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -1.7105263157894735,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -1.7105263157894735,
             "crab_rad": 0.0
         }
     }
@@ -311,8 +311,8 @@
 85.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -1.026315789473684,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -1.026315789473684,
             "crab_rad": 0.0
         }
     }
@@ -322,8 +322,8 @@
 88.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": -0.3421052631578947,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": -0.3421052631578947,
             "crab_rad": 0.0
         }
     }
@@ -333,8 +333,8 @@
 91.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 0.3421052631578947,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 0.3421052631578947,
             "crab_rad": 0.0
         }
     }
@@ -344,8 +344,8 @@
 94.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 1.026315789473684,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 1.026315789473684,
             "crab_rad": 0.0
         }
     }
@@ -355,8 +355,8 @@
 97.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 1.7105263157894743,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 1.7105263157894743,
             "crab_rad": 0.0
         }
     }
@@ -366,8 +366,8 @@
 100.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 2.3947368421052637,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 2.3947368421052637,
             "crab_rad": 0.0
         }
     }
@@ -377,8 +377,8 @@
 103.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 3.078947368421053,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 3.078947368421053,
             "crab_rad": 0.0
         }
     }
@@ -388,8 +388,8 @@
 106.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 3.7631578947368425,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 3.7631578947368425,
             "crab_rad": 0.0
         }
     }
@@ -399,8 +399,8 @@
 109.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 4.447368421052632,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 4.447368421052632,
             "crab_rad": 0.0
         }
     }
@@ -410,8 +410,8 @@
 112.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 5.131578947368421,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 5.131578947368421,
             "crab_rad": 0.0
         }
     }
@@ -421,8 +421,8 @@
 115.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 5.815789473684211,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 5.815789473684211,
             "crab_rad": 0.0
         }
     }
@@ -432,8 +432,8 @@
 118.0: {
     "LocoCtrlMnvr": {
         "Ackerman": {
-            "speed_ms": 6.5,
-            "curv_m": 0.0,
+            "speed_ms": 0.0,
+            "curv_m": 6.5,
             "crab_rad": 0.0
         }
     }

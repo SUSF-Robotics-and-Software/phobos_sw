@@ -133,6 +133,43 @@ impl State for LocoCtrl {
             self.calc_target_config()?;
         }
 
+        // Calculate the output
+        self.set_output();
+
+        Ok((match self.output {
+            Some(ref o) => o.clone(),
+            None => MechDems::default()
+        }, self.report))
+    }
+}
+
+impl Archived for LocoCtrl {
+    fn write(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Write each one individually
+        self.arch_report.serialise(self.report)?;
+        self.arch_current_cmd.serialise(self.current_cmd)?;
+        self.arch_target_loco_config.serialise(self.target_loco_config)?;
+        self.arch_output.serialise(self.output.clone())?;
+
+        Ok(())
+    }
+}
+
+impl LocoCtrl {
+
+    /// Function called when entering safe mode.
+    ///
+    /// Must result in no motion of the vehicle
+    pub fn make_safe(&mut self) {
+        self.current_cmd = Some(MnvrCmd::Stop);
+        
+        self.calc_target_config().unwrap();
+
+        self.set_output();
+    }
+
+    /// Set the output based on the target loco config.
+    fn set_output(&mut self) {
         let output: MechDems;
 
         // If there's a target config to move to
@@ -180,24 +217,7 @@ impl State for LocoCtrl {
 
         // Update the output in self
         self.output = Some(output.clone());
-
-        Ok((output, self.report))
     }
-}
-
-impl Archived for LocoCtrl {
-    fn write(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Write each one individually
-        self.arch_report.serialise(self.report)?;
-        self.arch_current_cmd.serialise(self.current_cmd)?;
-        self.arch_target_loco_config.serialise(self.target_loco_config)?;
-        self.arch_output.serialise(self.output.clone())?;
-
-        Ok(())
-    }
-}
-
-impl LocoCtrl {
     
     /// Based on the current command calculate a target configuration for
     /// the rover to achieve.

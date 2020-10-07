@@ -266,10 +266,13 @@ fn main() -> Result<(), Report> {
                                 Err(e) => warn!("Could not respond to TC: {}", e)
                             }
                         },
-                        Ok(None) => break,
+                        Ok(None) => {
+                            break
+                        },
                         // If not connected go into safe mode
                         Err(TcClientError::NotConnected) => {
                             ds.make_safe(SafeModeCause::TcClientNotConnected);
+                            break;
                         },
                         Err(e) => return Err(e)
                             .wrap_err("An error occured while receiving TCs from the server")
@@ -319,7 +322,7 @@ fn main() -> Result<(), Report> {
                 "Recieved non-nominal response from MechServer: {:?}", 
                 r
             ),
-            Err(e) => warn!("{}", e)
+            Err(e) => () /*warn!("{}", e)*/
         }
 
         // ---- WRITE ARCHIVES ----
@@ -393,6 +396,9 @@ impl DataStore {
             warn!("Make safe requested, cause: {:?}", cause);
             self.safe = true;
             self.safe_cause = Some(cause);
+
+            // Make loco_ctrl safe
+            self.loco_ctrl.make_safe();
         }
     }
 
@@ -405,7 +411,6 @@ impl DataStore {
     /// If safe mode was not enabled `Ok(())` is returned
     fn make_unsafe(&mut self, cause: SafeModeCause) -> Result<(), ()> {
         if !self.safe {
-            info!("Make unsafe requested, rover already unsafe");
             return Ok(())
         }
 
@@ -418,12 +423,12 @@ impl DataStore {
                     Ok(())
                 }
                 else {
-                    info!(
-                        "Make unsafe requested, root cause ({:?}) differs from response ({:?}), \
-                        rejected", 
-                        root_cause,
-                        cause
-                    );
+                    // info!(
+                    //     "Make unsafe requested, root cause ({:?}) differs from response ({:?}), \
+                    //     rejected", 
+                    //     root_cause,
+                    //     cause
+                    // );
                     Err(())
                 }
             },

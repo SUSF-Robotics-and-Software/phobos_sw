@@ -17,7 +17,7 @@ def main():
     curvs_m = np.linspace(-6.5, 6.5, 20)
 
     for curv in curvs_m:
-        script += get_ack(time_s, curv, 0.1)
+        script += get_ack(time_s, speed_ms=0.1, curv_m=curv)
         time_s += 2.0
 
     with open('scripts/loco_ctrl_test_05.prs', 'w') as f:

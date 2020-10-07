@@ -1,8 +1,11 @@
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use structopt::StructOpt;
-use comms_if::tc::Tc;
-
+use comms_if::{
+    tc::{Tc, TcResponse},
+    net::{zmq, MonitoredSocket, SocketOptions, MonitoredSocketError}, 
+};
+use color_eyre::{Result, eyre::WrapErr};
 
 // const str ascii_art = """
 //  ____  _   _  ___  ____   ___  ____
@@ -16,7 +19,7 @@ const PROMPT: &str = "[Phobos] $ ";
 const HISTORY_PATH: &str = "clr_history.txt";
 
 
-fn main() {
+fn main() -> Result<()> {
     // Rustline input
     let mut rl = Editor::<()>::new();
 
@@ -25,8 +28,27 @@ fn main() {
         println!("No history detected");
     }
 
-    // TcParser form clap
-    let tc_parser_app = Tc::clap();
+    // Create the zmq context
+    let ctx = zmq::Context::new();
+
+    // Create the socket options
+    let socket_options = SocketOptions {
+        bind: true,
+        block_on_first_connect: false,
+        recv_timeout: 200,
+        send_timeout: 10,
+        ..Default::default()
+    };
+
+    // Bind the server
+    let socket = MonitoredSocket::new(
+        &ctx,
+        zmq::REQ,
+        socket_options,
+        "tcp://*:5020"
+    ).wrap_err("Failed to create the TcServer")?;
+
+    println!("TcServer started");
 
     // Main loop
     loop {
@@ -53,7 +75,7 @@ fn main() {
                 let cmd: Vec<&str> = line.split(' ').collect();
 
                 // Get the clap matches for this TC
-                let matches = match tc_parser_app.clone().get_matches_from_safe(cmd) {
+                let tc = match Tc::from_iter_safe(cmd) {
                     Ok(m) => m,
                     Err(e) => {
                         println!("\n{:#}\n", e.message);
@@ -61,9 +83,41 @@ fn main() {
                     }
                 };
 
-                // Parse the tc
-                let tc = Tc::from_clap(&matches);
+                // Serialize the TC
+                let tc_str = serde_json::to_string(&tc)
+                    .wrap_err("Failed to serialize the TC")?;
 
+                // Send the TC
+                match socket.send(&tc_str, 0) {
+                    Ok(_) => (),
+                    Err(zmq::Error::EAGAIN) => {
+                        println!("Client not connected, TC not sent");
+                        continue;
+                    },
+                    Err(e) => return Err(e).wrap_err("Could not send TC")
+                }
+                
+
+                // Recieve response from client
+                let response = serde_json::from_str(match socket.recv_string(0){
+                    Ok(Ok(ref s)) => s,
+                    Ok(Err(_)) => {
+                        println!("Client responed with invalid UTF-8 message");
+                        continue;
+                    }
+                    Err(e) => {
+                        return Err(e).wrap_err("Could not deserialise client's response")
+                    }
+                }).wrap_err("Could not deserialise response from client")?;
+
+                // Print response message
+                match response {
+                    TcResponse::Ok => (),
+                    TcResponse::Invalid => 
+                        println!("Client responded that the send TC was invalid"),
+                    TcResponse::CannotExecute => 
+                        println!("Client responded that the sent TC could not be executed")
+                }
             }
             Err(ReadlineError::Interrupted) => {
                 
@@ -77,4 +131,6 @@ fn main() {
     }
 
     rl.save_history(HISTORY_PATH).unwrap();
+
+    Ok(())
 }
