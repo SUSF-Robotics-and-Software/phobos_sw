@@ -66,7 +66,7 @@ impl MechClient {
             heartbeat_ttl: 1000,
             heartbeat_timeout: 1000,
             linger: 1,
-            recv_timeout: 10,
+            recv_timeout: 35,
             send_timeout: 10,
             req_correlate: true,
             req_relaxed: true,

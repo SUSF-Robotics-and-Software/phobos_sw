@@ -35,10 +35,7 @@ use comms_if::{
     eqpt::mech::{MechDemsResponse, MechDems}
 };
 use params::RovExecParams;
-use rov_lib::{
-    *,
-    tc_client::{TcClient, TcClientError}
-};
+use rov_lib::{*, mech_client::MechClientError, tc_client::{TcClient, TcClientError}};
 
 mod tc_processor;
 
@@ -47,7 +44,7 @@ mod tc_processor;
 // ---------------------------------------------------------------------------
 
 // External
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use std::env;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -271,6 +268,7 @@ fn main() -> Result<(), Report> {
                         },
                         // If not connected go into safe mode
                         Err(TcClientError::NotConnected) => {
+                            error!("Connection to TcServer lost");
                             ds.make_safe(SafeModeCause::TcClientNotConnected);
                             break;
                         },
@@ -317,12 +315,20 @@ fn main() -> Result<(), Report> {
         // Send demands to mechanisms
         #[cfg(feature = "mech")]
         match mech_client.send_demands(&ds.loco_ctrl_output) {
-            Ok(MechDemsResponse::DemsOk) => (),
+            Ok(MechDemsResponse::DemsOk) => {
+                ds.make_unsafe(SafeModeCause::MechClientNotConnected).ok();
+            },
             Ok(r) => warn!(
                 "Recieved non-nominal response from MechServer: {:?}", 
                 r
             ),
-            Err(e) => () /*warn!("{}", e)*/
+            Err(MechClientError::NotConnected) => {
+                if !ds.safe {
+                    error!("Connection to the MechServer lost");
+                }
+                ds.make_safe(SafeModeCause::MechClientNotConnected);
+            }
+            Err(e) => warn!("MechClient processing error: {}", e)
         }
 
         // ---- WRITE ARCHIVES ----
@@ -382,6 +388,7 @@ enum TcSource {
 enum SafeModeCause {
     MakeSafeTc,
     TcClientNotConnected,
+    MechClientNotConnected,
 }
 
 // ---------------------------------------------------------------------------
