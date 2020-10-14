@@ -29,7 +29,7 @@
 
 #[cfg(feature = "mech")]
 use mech_client::MechClient;
-use cam_client::CamClient;
+// use cam_client::CamClient;
 use comms_if::{
     tc::TcResponse,
     eqpt::mech::{MechDemsResponse, MechDems}

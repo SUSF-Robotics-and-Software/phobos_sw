@@ -3,7 +3,7 @@ use rustyline::Editor;
 use structopt::StructOpt;
 use comms_if::{
     tc::{Tc, TcResponse},
-    net::{zmq, MonitoredSocket, SocketOptions, MonitoredSocketError}, 
+    net::{zmq, MonitoredSocket, SocketOptions}, 
 };
 use color_eyre::{Result, eyre::WrapErr};
 
