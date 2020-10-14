@@ -30,10 +30,7 @@
 #[cfg(feature = "mech")]
 use mech_client::MechClient;
 // use cam_client::CamClient;
-use comms_if::{
-    tc::TcResponse,
-    eqpt::mech::{MechDemsResponse, MechDems}
-};
+use comms_if::{eqpt::mech::{MechDemsResponse, MechDems}, tc::Tc, tc::TcResponse};
 use params::RovExecParams;
 use rov_lib::{*, mech_client::MechClientError, tc_client::{TcClient, TcClientError}};
 
@@ -68,6 +65,10 @@ use util::{
 /// Target period of one cycle.
 const CYCLE_PERIOD_S: f64 = 0.05;
 
+/// Limit of the number of times recieve errors from the mech server can be created consecutively
+/// before safe mode will be engaged.
+const MAX_MECH_RECV_ERROR_LIMIT: u64 = 5;
+
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
@@ -81,17 +82,21 @@ struct DataStore {
     /// Gives the reason for the rover being in safe mode.
     safe_cause: Option<SafeModeCause>,
 
+    
     // LocoCtrl
-
+    
     loco_ctrl: loco_ctrl::LocoCtrl,
     loco_ctrl_input: loco_ctrl::InputData,
     loco_ctrl_output: MechDems,
     loco_ctrl_status_rpt: loco_ctrl::StatusReport,
-
+    
     // Monitoring Counters
     
     /// Number of consecutive cycle overruns
-    num_consec_cycle_overruns: u64
+    num_consec_cycle_overruns: u64,
+
+    /// Number of consecutive mechanisms client recieve errors
+    num_consec_mech_recv_errors: u64
 }
 
 // ---------------------------------------------------------------------------
@@ -254,14 +259,37 @@ fn main() -> Result<(), Report> {
                 loop {
                     match client.recieve_tc() {
                         Ok(Some(tc)) => {
-                            // Process the TC
-                            tc_processor::exec(&mut ds, &tc);
+                            // Branch based on safe mode. If we are in safe mode we need to send the
+                            // cannot execute response and should not process the TC, unless it is
+                            // the make unsafe TC
+                            let response_result = match ds.safe {
+                                true => {
+                                    // Execute TC if make unsafe
+                                    match tc {
+                                        Tc::MakeUnsafe => {
+                                            tc_processor::exec(&mut ds, &tc);
+                                            client.send_response(TcResponse::Ok)
+                                        }
+                                        _ => 
+                                            client.send_response(TcResponse::CannotExecute)
+                                    }
+                                },
+                                false => {
+                                    // Process the TC
+                                    tc_processor::exec(&mut ds, &tc);
 
-                            // Send response
-                            match client.send_response(TcResponse::Ok) {
+                                    // Send response
+                                    client.send_response(TcResponse::Ok)
+                                }
+                            };
+
+                            // Print warning if couldn't send the response
+                            match response_result {
                                 Ok(_) => (),
                                 Err(e) => warn!("Could not respond to TC: {}", e)
                             }
+
+
                         },
                         Ok(None) => {
                             break
@@ -305,9 +333,8 @@ fn main() -> Result<(), Report> {
                 ds.loco_ctrl_status_rpt = r;
             },
             Err(e) => {
-                // No loco_ctrl error is unrecoverable, instead the approach 
-                // taken is to make the rover safe.
-                ds.safe = true;
+                // LocoCtrl errors usually just mean you sent the wrong TC, so just issue the
+                // warning and continue.
                 warn!("Error during LocoCtrl processing: {}", e)
             }
         };
@@ -317,6 +344,9 @@ fn main() -> Result<(), Report> {
         match mech_client.send_demands(&ds.loco_ctrl_output) {
             Ok(MechDemsResponse::DemsOk) => {
                 ds.make_unsafe(SafeModeCause::MechClientNotConnected).ok();
+
+                // Reset the recieve error counter
+                ds.num_consec_mech_recv_errors = 0;
             },
             Ok(r) => warn!(
                 "Recieved non-nominal response from MechServer: {:?}", 
@@ -328,6 +358,20 @@ fn main() -> Result<(), Report> {
                 }
                 ds.make_safe(SafeModeCause::MechClientNotConnected);
             }
+            Err(MechClientError::RecvError(_)) => {
+                ds.num_consec_mech_recv_errors += 1;
+
+                // If over the limit print error and enter safe mode
+                if ds.num_consec_mech_recv_errors > MAX_MECH_RECV_ERROR_LIMIT {
+                    if !ds.safe {
+                        error!(
+                            "Maximum number of MechClient Recieve Errors ({}) has been exceeded",
+                            MAX_MECH_RECV_ERROR_LIMIT
+                        );
+                    }
+                    ds.make_safe(SafeModeCause::MechClientNotConnected);
+                }
+            },
             Err(e) => warn!("MechClient processing error: {}", e)
         }
 
