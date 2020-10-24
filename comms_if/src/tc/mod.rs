@@ -7,6 +7,7 @@
 // ------------------------------------------------------------------------------------------------
 
 pub mod loco_ctrl;
+pub mod auto;
 
 // ------------------------------------------------------------------------------------------------
 // IMPORTS
@@ -20,7 +21,7 @@ use structopt::{StructOpt, clap::AppSettings};
 // ------------------------------------------------------------------------------------------------
 
 /// Telecommand
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, StructOpt)]
+#[derive(Debug, Clone, Serialize, Deserialize, StructOpt)]
 #[structopt(
     name = "tc",
     about = "Parse a telecommand to be sent to the rover",
@@ -42,7 +43,11 @@ pub enum Tc {
 
     /// Send a direct manouvre command to locomotion control.
     #[structopt(name = "mnvr")]
-    LocoCtrlMnvr(loco_ctrl::MnvrCmd)
+    LocoCtrlMnvr(loco_ctrl::MnvrCmd),
+
+    /// Perform a autonomous command.
+    #[structopt(name = "auto")]
+    Autonomy(auto::AutoCmd),
 }
 
 /// Response to an issued telecommand

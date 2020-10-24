@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 // External
-use log::debug;
+use log::{debug, warn};
 
 // Internal
 use comms_if::tc::Tc;
@@ -34,6 +34,9 @@ pub(crate) fn exec(ds: &mut DataStore, tc: &Tc) {
         },
         Tc::LocoCtrlMnvr(m) => {
             ds.loco_ctrl_input.cmd = Some(*m)
+        },
+        Tc::Autonomy(_) => {
+            warn!("Autonomy command is not yet supported");
         }
     }
 
