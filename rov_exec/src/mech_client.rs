@@ -7,11 +7,9 @@
 // ------------------------------------------------------------------------------------------------
 
 use comms_if::{
-    net::{zmq, MonitoredSocket, SocketOptions, MonitoredSocketError}, 
-    eqpt::mech::{MechDems, MechSensData, MechDemsResponse}
+    eqpt::mech::{MechDems, MechSensData, MechDemsResponse}, 
+    net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}
 };
-
-use crate::params::RovExecParams;
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -56,7 +54,7 @@ pub enum MechClientError {
 
 impl MechClient {
     /// Create a new instance of the mechanisms client.
-    pub fn new(ctx: &zmq::Context, params: &RovExecParams) -> Result<Self, MechClientError> {
+    pub fn new(ctx: &zmq::Context, params: &NetParams) -> Result<Self, MechClientError> {
         
         // Create the socket options
         // TODO: Move these into a parameter file

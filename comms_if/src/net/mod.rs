@@ -9,7 +9,7 @@
 
 use std::{sync::{Arc, atomic::{AtomicBool, AtomicUsize}, atomic::Ordering}, thread};
 use zmq::{Socket, Context, SocketType, SocketEvent};
-// use log::debug;
+use serde::Deserialize;
 
 // Export zmq
 pub use zmq;
@@ -105,6 +105,22 @@ pub struct SocketOptions {
 
     /// `ZMQ_HEARTBEAT_TTL`: Set the TTL (time to live) value for ZMTP heartbeats
     pub heartbeat_ttl: i32
+}
+
+/// Network related parameters for the whole system.
+#[derive(Debug, Deserialize)]
+pub struct NetParams {
+    /// Network endpoint for the mechanisms demands socket
+    pub mech_dems_endpoint: String,
+
+    /// Network endpoint for the mechanisms sensor data socket
+    pub mech_sens_endpoint: String,
+
+    /// Network endpoint for the camera socket
+    pub cam_endpoint: String,
+
+    /// Network endpoint for the telecommand client
+    pub tc_endpoint: String
 }
 
 // ------------------------------------------------------------------------------------------------

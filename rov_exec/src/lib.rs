@@ -33,5 +33,5 @@ pub mod tc_client;
 #[cfg(feature = "mech")]
 pub mod mech_client;
 
-/// Parameters - parameters for the rover executable itself
-pub mod params;
+/// Simulation client - provides data directly from the simulation (webots)
+pub mod sim_client;

@@ -5,11 +5,9 @@
 // ------------------------------------------------------------------------------------------------
 
 use comms_if::{
-    net::{zmq, MonitoredSocket, SocketOptions, MonitoredSocketError}, 
+    net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}, 
     tc::{Tc, TcResponse}
 };
-
-use crate::params::RovExecParams;
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -57,7 +55,7 @@ impl TcClient {
     /// Create a new instance of the TC Client.
     ///
     /// This function will not block until the server connects.
-    pub fn new(ctx: &zmq::Context, params: &RovExecParams) -> Result<Self, TcClientError> {
+    pub fn new(ctx: &zmq::Context, params: &NetParams) -> Result<Self, TcClientError> {
         // Create the socket options
         // TODO: Move these into a parameter file
         let socket_options = SocketOptions {

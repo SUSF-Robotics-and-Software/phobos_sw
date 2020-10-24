@@ -9,11 +9,10 @@
 use std::collections::HashMap;
 
 use comms_if::{
-    net::{zmq, MonitoredSocket, SocketOptions, MonitoredSocketError}, 
-    eqpt::cam::*
+    eqpt::cam::*, 
+    net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}
 };
 
-use crate::params::RovExecParams;
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -73,7 +72,7 @@ pub enum CamClientError {
 
 impl CamClient {
     /// Create a new instance of the camera client
-    pub fn new(ctx: &zmq::Context, params: &RovExecParams) -> Result<Self, CamClientError> {
+    pub fn new(ctx: &zmq::Context, params: &NetParams) -> Result<Self, CamClientError> {
         // Create the socket options
         // TODO: Move these into a parameter file
         let socket_options = SocketOptions {

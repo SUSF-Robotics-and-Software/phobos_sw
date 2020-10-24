@@ -1,8 +1,7 @@
 
-# ---- NETWORK ----
+# ---- ENDPOINTS ----
 
 mech_dems_endpoint = "tcp://localhost:5000"
 mech_sens_endpoint = "tcp://localhost:5001"
 cam_endpoint = "tcp://localhost:5010"
 tc_endpoint = "tcp://localhost:5020"
-

@@ -31,14 +31,19 @@
 use mech_client::MechClient;
 use cam_client::CamClient;
 use comms_if::{
+    net::NetParams, 
     eqpt::{
         mech::{MechDemsResponse, MechDems},
         cam::{CamId, ImageFormat}
     }, 
     tc::Tc, tc::TcResponse
 };
-use params::RovExecParams;
-use rov_lib::{*, cam_client::CamClientError, mech_client::MechClientError, tc_client::{TcClient, TcClientError}};
+use rov_lib::{
+    *, 
+    cam_client::CamClientError, 
+    mech_client::MechClientError, 
+    tc_client::{TcClient, TcClientError}
+};
 
 mod tc_processor;
 
@@ -147,9 +152,9 @@ fn main() -> Result<(), Report> {
 
     // ---- LOAD PARAMETERS ----
 
-    let rov_exec_params: RovExecParams = util::params::load(
-        "rov_exec.toml"
-    ).wrap_err("Could not load rov_exec params")?;
+    let rov_exec_params: NetParams = util::params::load(
+        "net.toml"
+    ).wrap_err("Could not load net params")?;
 
     info!("Exec parameters loaded");
 
