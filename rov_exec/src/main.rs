@@ -28,8 +28,11 @@
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "mech")]
-use mech_client::MechClient;
-use cam_client::CamClient;
+use mech_client::{MechClient, MechClientError};
+#[cfg(feature = "cam")]
+use cam_client::{CamClient, CamClientError};
+#[cfg(feature = "sim")]
+use sim_client::SimClient;
 use comms_if::{
     net::NetParams, 
     eqpt::{
@@ -38,12 +41,7 @@ use comms_if::{
     }, 
     tc::Tc, tc::TcResponse
 };
-use rov_lib::{
-    *, 
-    cam_client::CamClientError, 
-    mech_client::MechClientError, 
-    tc_client::{TcClient, TcClientError}
-};
+use rov_lib::{*, loc::Pose, tc_client::{TcClient, TcClientError}};
 
 mod tc_processor;
 
@@ -107,6 +105,10 @@ struct DataStore {
     /// Gives the reason for the rover being in safe mode.
     safe_cause: Option<SafeModeCause>,
 
+    // Localisation
+
+    rov_pose_lm: Option<Pose>,
+
     // LocoCtrl
     
     loco_ctrl: loco_ctrl::LocoCtrl,
@@ -152,7 +154,7 @@ fn main() -> Result<(), Report> {
 
     // ---- LOAD PARAMETERS ----
 
-    let rov_exec_params: NetParams = util::params::load(
+    let net_params: NetParams = util::params::load(
         "net.toml"
     ).wrap_err("Could not load net params")?;
 
@@ -224,7 +226,7 @@ fn main() -> Result<(), Report> {
 
     if use_tc_client {
         tc_source = TcSource::Remote(
-            TcClient::new(&zmq_ctx, &rov_exec_params)
+            TcClient::new(&zmq_ctx, &net_params)
                 .wrap_err("Failed to initialise the TcClient")?
         );
         info!("TcClient initialised");
@@ -232,7 +234,7 @@ fn main() -> Result<(), Report> {
 
     #[cfg(feature = "mech")]
     let mut mech_client = {
-        let c = MechClient::new(&zmq_ctx, &rov_exec_params)
+        let c = MechClient::new(&zmq_ctx, &net_params)
             .wrap_err("Failed to initialise MechClient")?;
         info!("MechClient initialised");
         c
@@ -240,9 +242,17 @@ fn main() -> Result<(), Report> {
 
     #[cfg(feature = "cam")]
     let mut cam_client = {
-        let c = CamClient::new(&zmq_ctx, &rov_exec_params)
+        let c = CamClient::new(&zmq_ctx, &net_params)
             .wrap_err("Failed to initialise CamClient")?;
         info!("CamClient initialised");
+        c
+    };
+
+    #[cfg(feature = "sim")]
+    let sim_client = {
+        let c = SimClient::new(&zmq_ctx, &net_params)
+            .wrap_err("Failed to initialise SimClient")?;
+        info!("SimClient initialised");
         c
     };
 
@@ -261,6 +271,12 @@ fn main() -> Result<(), Report> {
         ds.cycle_start();
 
         // ---- DATA INPUT ----
+
+        // Debug: Get pose from simulation
+        #[cfg(feature = "sim")]
+        {
+            ds.rov_pose_lm = sim_client.rov_pose_lm();
+        }
 
         // ---- TELECOMMAND PROCESSING ----
 

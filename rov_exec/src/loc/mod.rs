@@ -19,7 +19,7 @@
 ///
 /// More specifically this represents the Rover Body (RB) frame in the Local
 /// Map (LM) frame.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Pose {
 
     /// The position in the LM frame

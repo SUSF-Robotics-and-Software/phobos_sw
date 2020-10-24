@@ -104,7 +104,10 @@ pub struct SocketOptions {
     pub heartbeat_timeout: i32,
 
     /// `ZMQ_HEARTBEAT_TTL`: Set the TTL (time to live) value for ZMTP heartbeats
-    pub heartbeat_ttl: i32
+    pub heartbeat_ttl: i32,
+
+    /// `ZMQ_SUBSCRIBE`: Set the subscription topic filter for a SUB port.
+    pub subscribe: String,
 }
 
 /// Network related parameters for the whole system.
@@ -120,7 +123,10 @@ pub struct NetParams {
     pub cam_endpoint: String,
 
     /// Network endpoint for the telecommand client
-    pub tc_endpoint: String
+    pub tc_endpoint: String,
+
+    /// Network endpoint for the simulation client
+    pub sim_endpoint: String
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -314,6 +320,14 @@ impl SocketOptions {
             );
         }
 
+        // If the socket is a sub type set the sub-specific options
+        if let Ok(SocketType::SUB) = socket.get_socket_type() {
+            set_sockopts!(
+                socket,
+                (set_subscribe, self.subscribe.as_bytes())
+            );
+        }
+
         Ok(())
     }
 }
@@ -334,7 +348,8 @@ impl Default for SocketOptions {
             recv_timeout: -1,
             req_correlate: false,
             req_relaxed: false,
-            send_timeout: 0
+            send_timeout: 0,
+            subscribe: "".into()
         }
     }
 }

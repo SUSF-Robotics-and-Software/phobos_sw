@@ -34,4 +34,5 @@ pub mod tc_client;
 pub mod mech_client;
 
 /// Simulation client - provides data directly from the simulation (webots)
+#[cfg(feature = "sim")]
 pub mod sim_client;
