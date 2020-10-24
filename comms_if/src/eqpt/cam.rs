@@ -41,8 +41,8 @@ pub struct CamFrame {
     /// The format of this frame
     pub format: ImageFormat,
 
-    /// The formatted image data
-    pub data: Vec<u8>
+    /// The formatted image data, encoded in base64.
+    pub b64_data: String
 }
 
 #[derive(Clone)]
@@ -87,16 +87,23 @@ pub enum ImageFormat {
 impl CamFrame {
     /// Convert this camera frame into a camera image
     pub fn to_cam_image(&self) -> image::ImageResult<CamImage>  {
+        // Decode the image from base64 to raw bytes
+        // TODO: support decode failure
+        let raw_data = match base64::decode(self.b64_data.clone()) {
+            Ok(v) => v,
+            Err(_) => panic!("Decode error!")
+        };
+
         // Convert the data
         let image = match self.format {
             ImageFormat::Png => 
                 image::load_from_memory_with_format(
-                    &self.data, 
+                    &raw_data, 
                     image::ImageFormat::Png
                 )?,
             ImageFormat::Jpeg(_) =>
                 image::load_from_memory_with_format(
-                    &self.data, 
+                    &raw_data, 
                     image::ImageFormat::Jpeg
                 )?
         };
@@ -126,7 +133,7 @@ impl CamImage {
         Ok(CamFrame {
             timestamp: self.timestamp,
             format,
-            data
+            b64_data: base64::encode(data)
         })
     }
 }

@@ -23,6 +23,7 @@ color-eyre = "0.5"
 thiserror = "1.0"
 pyo3 = "0.12.1" # For electronics driver
 image = "0.23"
+chrono = "0.4"
 
 # Internal
 util = { path = "../util" }
@@ -30,7 +31,7 @@ comms_if = { path = "../comms_if" }
 
 [features]
 # Default feature enables all network stacks
-default = ["mech", "imu", "sim"]
+default = ["mech", "cam", "imu", "sim"]
 
 # Mechanisms network stack
 mech = []

@@ -73,6 +73,7 @@ impl MechClient {
             ..Default::default()
         };
         let sens_socket_options = SocketOptions {
+            block_on_first_connect: false,
             ..Default::default()
         };
 

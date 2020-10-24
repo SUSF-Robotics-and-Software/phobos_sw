@@ -16,3 +16,4 @@ thiserror = "1.0"
 zmq = { version = "0.9", features = ["vendored"] }
 image = "0.23"
 structopt = "0.3"
+base64 = "0.13"

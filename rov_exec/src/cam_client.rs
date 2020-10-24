@@ -109,7 +109,7 @@ impl CamClient {
     /// Sending a request while still waiting on the response to a previous request will result in
     /// an error.
     pub fn request_frames(
-        &self, 
+        &mut self, 
         cameras: Vec<CamId>, 
         format: ImageFormat
     ) -> Result<(), CamClientError> {
@@ -138,6 +138,9 @@ impl CamClient {
         self.socket.send(&request_str, 0)
             .map_err(|e| CamClientError::SendError(e))?;
 
+        // Set the awaiting response flag
+        self.awaiting_response = true;
+
         Ok(())
     }
 
@@ -147,7 +150,7 @@ impl CamClient {
     /// the client's `recv_timeout`.
     ///
     /// Receiving images while not awaiting a response to a request will result in an error.
-    pub fn recieve_frames(&self) -> Result<Option<HashMap<CamId, CamFrame>>, CamClientError> {
+    pub fn recieve_frames(&mut self) -> Result<Option<HashMap<CamId, CamFrame>>, CamClientError> {
         // If not connected return an error
         // TODO: Reset the await flag?
         if !self.socket.connected() {
@@ -171,6 +174,9 @@ impl CamClient {
             Err(e) => return Err(CamClientError::RecvError(e))
         };
 
+        // Unset the awaiting response flag
+        self.awaiting_response = false;
+
         // Deserialize the response
         Ok(serde_json::from_str(&response_str)
             .map_err(|e| CamClientError::DeserializeError(e))?
@@ -183,7 +189,7 @@ impl CamClient {
     /// the client's `recv_timeout`.
     ///
     /// Receiving images while not awaiting a response to a request will result in an error.
-    pub fn recieve_images(&self) -> Result<Option<HashMap<CamId, CamImage>>, CamClientError> {
+    pub fn recieve_images(&mut self) -> Result<Option<HashMap<CamId, CamImage>>, CamClientError> {
         // First recieve frames
         let frames = match self.recieve_frames()? {
             Some(f) => f,

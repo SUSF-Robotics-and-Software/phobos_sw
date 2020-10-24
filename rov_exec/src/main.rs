@@ -29,10 +29,16 @@
 
 #[cfg(feature = "mech")]
 use mech_client::MechClient;
-// use cam_client::CamClient;
-use comms_if::{eqpt::mech::{MechDemsResponse, MechDems}, tc::Tc, tc::TcResponse};
+use cam_client::CamClient;
+use comms_if::{
+    eqpt::{
+        mech::{MechDemsResponse, MechDems},
+        cam::{CamId, ImageFormat}
+    }, 
+    tc::Tc, tc::TcResponse
+};
 use params::RovExecParams;
-use rov_lib::{*, mech_client::MechClientError, tc_client::{TcClient, TcClientError}};
+use rov_lib::{*, cam_client::CamClientError, mech_client::MechClientError, tc_client::{TcClient, TcClientError}};
 
 mod tc_processor;
 
@@ -63,7 +69,10 @@ use util::{
 // ---------------------------------------------------------------------------
 
 /// Target period of one cycle.
-const CYCLE_PERIOD_S: f64 = 0.05;
+const CYCLE_PERIOD_S: f64 = 0.10;
+
+/// Number of cycles per second
+const CYCLE_FREQUENCY_HZ: f64 = 1.0 / CYCLE_PERIOD_S;
 
 /// Limit of the number of times recieve errors from the mech server can be created consecutively
 /// before safe mode will be engaged.
@@ -76,13 +85,23 @@ const MAX_MECH_RECV_ERROR_LIMIT: u64 = 5;
 /// Global data store for the executable.
 #[derive(Default)]
 struct DataStore {
+
+    // Cycle management
+
+    /// Number of cycles already executed
+    num_cycles: u128,
+
+    /// True if this cycle falls on a 1Hz boundary
+    is_1_hz_cycle: bool,
+
+    // Safe mode variables
+
     /// Determines if the rover is in safe mode.
     safe: bool,
     
     /// Gives the reason for the rover being in safe mode.
     safe_cause: Option<SafeModeCause>,
 
-    
     // LocoCtrl
     
     loco_ctrl: loco_ctrl::LocoCtrl,
@@ -215,7 +234,7 @@ fn main() -> Result<(), Report> {
     };
 
     #[cfg(feature = "cam")]
-    let mut _cam_client = {
+    let mut cam_client = {
         let c = CamClient::new(&zmq_ctx, &rov_exec_params)
             .wrap_err("Failed to initialise CamClient")?;
         info!("CamClient initialised");
@@ -296,7 +315,10 @@ fn main() -> Result<(), Report> {
                         },
                         // If not connected go into safe mode
                         Err(TcClientError::NotConnected) => {
-                            error!("Connection to TcServer lost");
+                            if !ds.safe {
+                                error!("Connection to TcServer lost");
+                            }
+                            
                             ds.make_safe(SafeModeCause::TcClientNotConnected);
                             break;
                         },
@@ -323,6 +345,60 @@ fn main() -> Result<(), Report> {
         };
 
         // ---- AUTONOMY PROCESSING ----
+
+        // Make image request on the 1Hz if not in safe mode
+        #[cfg(feature = "cam")]
+        if ds.is_1_hz_cycle && !ds.safe {
+            match cam_client.request_frames(
+                vec![CamId::LeftNav, CamId::RightNav],
+                ImageFormat::Png
+            ) {
+                Ok(()) => info!("Camera request sent"),
+                Err(e) => warn!("Error processing camera request: {}", e)
+            }
+        }
+
+        // Attempt to recieve cameras images
+        #[cfg(feature = "cam")]
+        match cam_client.recieve_images() {
+            Ok(Some(images)) => {
+                info!("Got images from CamServer");
+
+                let now = chrono::Utc::now();
+
+                for (cam_id, cam_image) in images {
+
+                    // Get the time difference between the image and now
+                    let time_diff_ms = now
+                        .signed_duration_since(cam_image.timestamp)
+                        .num_milliseconds();
+
+                    info!("{:?} image is {} seconds old", cam_id, (time_diff_ms as f64) * 0.001);
+
+                    // TODO: image saving should go in a separate thread
+                    // // Get image name
+                    // let name = format!(
+                    //     "{:?}_{}.png",
+                    //     cam_id,
+                    //     cam_image.timestamp.timestamp_millis()
+                    // );
+
+                    // // Get path to image to save, in the sessions directory
+                    // let mut img_path = session.session_root.clone();
+                    // img_path.push(name);
+                    
+                    // // Save image
+                    // cam_image.image.save(img_path).expect("can't save image");
+
+                }
+
+                println!("");
+                
+            },
+            Ok(None) => (),
+            Err(CamClientError::NoRequestMade) => (),
+            Err(e) => warn!("Could not get image response: {}", e)
+        }
 
         // ---- CONTROL ALGORITHM PROCESSING ----
 
@@ -406,6 +482,10 @@ fn main() -> Result<(), Report> {
                 // }
             }
         }
+
+        // Increment cycle counter
+        // TODO: put this in a DataStore::cycle_end() function?
+        ds.num_cycles += 1;
     }
 
     // ---- SHUTDOWN ----
@@ -487,11 +567,22 @@ impl DataStore {
         }
     }
 
-    /// Clears those items that need clearing at the start of a cycle.
+    /// Perform actions required at the start of a cycle.
+    ///
+    /// Clears those items that need clearing at the start of a cycle, and sets the 1Hz cycle flag.
     fn cycle_start(&mut self) {
+
+        if self.num_cycles % (CYCLE_FREQUENCY_HZ as u128) == 0 {
+            self.is_1_hz_cycle = true;
+        }
+        else {
+            self.is_1_hz_cycle = false;
+        }
         
         self.loco_ctrl_input = loco_ctrl::InputData::default();
         self.loco_ctrl_output = MechDems::default();
         self.loco_ctrl_status_rpt = loco_ctrl::StatusReport::default();
+
+
     }
 }

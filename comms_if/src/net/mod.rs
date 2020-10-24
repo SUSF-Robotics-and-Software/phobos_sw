@@ -122,6 +122,9 @@ pub enum MonitoredSocketError {
     #[error("Could not connect the socket: {0:?}")]
     CouldNotConnect(Option<zmq::Error>),
 
+    #[error("An unexpected event occured: {0:?}")]
+    UnexpectedEvent(zmq::SocketEvent),
+
     #[error("Could not read event from monitor socket: {0}")]
     EventReadError(zmq::Error),
 
@@ -201,7 +204,7 @@ impl MonitoredSocket {
                 match event {
                     SocketEvent::CONNECTED => break,
                     SocketEvent::CONNECT_DELAYED => continue,
-                    _ => return Err(MonitoredSocketError::CouldNotConnect(None))
+                    e => return Err(MonitoredSocketError::UnexpectedEvent(e))
                 }
             }
 
