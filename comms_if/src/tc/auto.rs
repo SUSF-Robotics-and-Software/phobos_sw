@@ -15,6 +15,18 @@ use structopt::StructOpt;
 /// A command that can be performed by the Autonomy system.
 #[derive(Debug, Clone, Serialize, Deserialize, StructOpt)]
 pub enum AutoCmd {
+    /// Pause the autonomy execution. Can be resumed with the `Resume` command.
+    #[structopt(name = "pause")]
+    Pause,
+    
+    /// Resume a previosly paused execution.
+    #[structopt(name = "resume")]
+    Resume,
+
+    /// Abort the currently executing autonomy command.
+    #[structopt(name = "abort")]
+    Abort,
+
     /// Follow a LocoCtrl style manouvre for a given distance.
     #[structopt(name = "mnvr")]
     Manouvre(AutoMnvrCmd),
@@ -22,6 +34,13 @@ pub enum AutoCmd {
     /// Follow the path stored in the path file at the given system path.
     #[structopt(name = "follow")]
     Follow {
+        /// The path to the path file.
+        path: PathBuf
+    },
+
+    /// Follow and check the safety of the path stored in the path file at the given system path.
+    #[structopt(name = "check")]
+    Check {
         /// The path to the path file.
         path: PathBuf
     },
