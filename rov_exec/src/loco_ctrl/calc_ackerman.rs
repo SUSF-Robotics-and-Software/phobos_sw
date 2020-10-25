@@ -132,7 +132,7 @@ impl LocoCtrl {
 
             // Calculate the desired speed at this wheel's radius from the
             // centre of rotation
-            let wheel_speed_ms = (speed_ms / curv_radius_m)
+            let wheel_speed_ms = (speed_ms / curv_radius_m.abs())
                 * (
                     (curv_radius_m - self.params.str_axis_pos_m_rb[i][1]).powi(2)
                     + self.params.str_axis_pos_m_rb[i][0].powi(2)
