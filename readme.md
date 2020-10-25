@@ -41,6 +41,12 @@ The following are required to be able to build and run the software:
 
   **Windows**: Either use anaconda, which has the dll, or place the correct 
   version of the dll in the same directory as `python37.exe`.
+
+  The following python modules are required:
+  - `pyzmq`
+  - `numpy`
+  - `scipy`
+  - `pillow`
 - `cmake` - The network library requires CMake to build, which can be downloaded
   from [https://cmake.org/](https://cmake.org/).
 
