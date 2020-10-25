@@ -35,8 +35,8 @@ pub(crate) fn exec(ds: &mut DataStore, tc: &Tc) {
         Tc::LocoCtrlMnvr(m) => {
             ds.loco_ctrl_input.cmd = Some(*m)
         },
-        Tc::Autonomy(_) => {
-            warn!("Autonomy command is not yet supported");
+        Tc::Autonomy(a) => {
+            ds.auto_cmd = Some(a.clone());
         }
     }
 

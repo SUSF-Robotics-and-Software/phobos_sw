@@ -7,6 +7,9 @@
 // MODULES
 // ------------------------------------------------------------------------------------------------
 
+/// Autonomy module - provides autonomy mode control and high level autonomy functionality.
+pub mod auto;
+
 /// Camera client - requests and recieves images from the camera server
 pub mod cam_client;
 
@@ -17,14 +20,8 @@ pub mod cam_client;
 )]
 pub mod elec_driver;
 
-/// Localisation module - provides the rover with an idea of where it is in the world
-pub mod loc;
-
 /// Locomotion control module - converts high level manouvre commands into individual wheel commands
 pub mod loco_ctrl;
-
-/// Trajectory control module - keeps the rover on the given path
-pub mod traj_ctrl;
 
 /// Telecommand client - recieves telecommands from the tc server
 pub mod tc_client;

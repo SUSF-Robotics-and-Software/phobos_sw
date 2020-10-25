@@ -19,10 +19,11 @@
 // ------------------------------------------------------------------------------------------------
 
 use std::{sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}};
+use conquer_once::Lazy;
 use log::{error, warn};
 use serde::Deserialize;
 
-use crate::loc::Pose;
+use crate::auto::loc::Pose;
 use comms_if::{
     eqpt::cam::{CamFrame, CamImage}, 
     net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}
@@ -38,6 +39,12 @@ pub struct SimClient {
     rov_pose_lm: Arc<Mutex<Option<Pose>>>,
     left_depth_map: Arc<Mutex<Option<CamImage>>>
 }
+
+// ------------------------------------------------------------------------------------------------
+// GLOBALS
+// ------------------------------------------------------------------------------------------------
+
+static SIM_CLIENT: Lazy<Mutex<Option<SimClient>>> = Lazy::new(|| Mutex::new(None));
 
 // ------------------------------------------------------------------------------------------------
 // ENUMS
@@ -64,6 +71,9 @@ pub enum SimClientError {
     #[error("Could not deserialize the response from the server: {0}")]
     DeserializeError(serde_json::Error),
 
+    #[error("The SimClient has not been initialised")]
+    NotInit
+
 }
 
 /// Data from the simulation server
@@ -86,7 +96,7 @@ enum SimData {
 
 impl SimClient {
     /// Create a new instance of the SimClient.
-    pub fn new(ctx: &zmq::Context, params: &NetParams) -> Result<Self, SimClientError> {
+    pub fn init(ctx: &zmq::Context, params: &NetParams) -> Result<(), SimClientError> {
                 // Create the socket options
         // TODO: Move these into a parameter file
         let socket_options = SocketOptions {
@@ -128,13 +138,16 @@ impl SimClient {
             )
         }));
 
-        // Create self
-        Ok(Self {
+        // Set the global
+        *SIM_CLIENT.lock().expect("SIM_CLIENT mutex poisoned") = Some(Self {
             bg_jh,
             bg_run,
             rov_pose_lm,
             left_depth_map
-        })
+        });
+
+        // Return success
+        Ok(())
     }
 
     /// Get the rover pose from the simulation.
@@ -157,6 +170,22 @@ impl SimClient {
 // ------------------------------------------------------------------------------------------------
 // FUNCTIONS
 // ------------------------------------------------------------------------------------------------
+
+/// Get the rover pose from the simulation.
+pub fn rov_pose_lm() -> Option<Pose> {
+    match *SIM_CLIENT.lock().expect("SIM_CLIENT mutex poisoned") {
+        Some(ref c) => c.rov_pose_lm(),
+        None => None
+    }
+}
+
+/// Get the left depth map from the simulation.
+pub fn left_depth_map() -> Option<CamImage> {
+    match *SIM_CLIENT.lock().expect("SIM_CLIENT mutex poisoned") {
+        Some(ref c) => c.left_depth_map(),
+        None => None
+    }
+}
 
 /// Background thread, updates the data in the SimClient when the server publishes something new.
 fn bg_thread(

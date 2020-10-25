@@ -12,8 +12,10 @@ use std::time::Instant;
 
 // Internal
 use util::maths::norm;
-use super::path::*;
-use crate::loc::Pose;
+use crate::auto::{
+    loc::Pose,
+    traj_ctrl::path::*
+};
 use comms_if::tc::loco_ctrl::MnvrCmd;
 
 // ---------------------------------------------------------------------------

@@ -39,9 +39,9 @@ use comms_if::{
         mech::{MechDemsResponse, MechDems},
         cam::{CamId, ImageFormat}
     }, 
-    tc::Tc, tc::TcResponse
+    tc::{Tc, auto::AutoCmd}, tc::TcResponse
 };
-use rov_lib::{*, loc::Pose, tc_client::{TcClient, TcClientError}};
+use rov_lib::{*, auto::AutoMgr, tc_client::{TcClient, TcClientError}};
 
 mod tc_processor;
 
@@ -105,9 +105,9 @@ struct DataStore {
     /// Gives the reason for the rover being in safe mode.
     safe_cause: Option<SafeModeCause>,
 
-    // Localisation
+    // AutoMgr
 
-    rov_pose_lm: Option<Pose>,
+    auto_cmd: Option<AutoCmd>,
 
     // LocoCtrl
     
@@ -216,6 +216,10 @@ fn main() -> Result<(), Report> {
         .wrap_err("Failed to initialise LocoCtrl")?;
     info!("LocoCtrl init complete");
 
+    let mut auto_mgr = AutoMgr::init("auto_mgr.toml")
+        .wrap_err("Failed to initialise AutoMgr")?;
+    info!("AutoMgr init complete");
+
     info!("Module initialisation complete\n");
 
     // ---- INITIALISE NETWORK ----
@@ -249,13 +253,11 @@ fn main() -> Result<(), Report> {
     };
 
     #[cfg(feature = "sim")]
-    let sim_client = {
-        let c = SimClient::new(&zmq_ctx, &net_params)
+    {
+        SimClient::init(&zmq_ctx, &net_params)
             .wrap_err("Failed to initialise SimClient")?;
         info!("SimClient initialised");
-        c
-    };
-
+    }
     info!("Network initialisation complete");
 
     // ---- MAIN LOOP ----
@@ -269,14 +271,6 @@ fn main() -> Result<(), Report> {
 
         // Clear items that need wiping at the start of the cycle
         ds.cycle_start();
-
-        // ---- DATA INPUT ----
-
-        // Debug: Get pose from simulation
-        #[cfg(feature = "sim")]
-        {
-            ds.rov_pose_lm = sim_client.rov_pose_lm();
-        }
 
         // ---- TELECOMMAND PROCESSING ----
 
@@ -367,59 +361,70 @@ fn main() -> Result<(), Report> {
 
         // ---- AUTONOMY PROCESSING ----
 
-        // Make image request on the 1Hz if not in safe mode
-        #[cfg(feature = "cam")]
-        if ds.is_1_hz_cycle && !ds.safe {
-            match cam_client.request_frames(
-                vec![CamId::LeftNav, CamId::RightNav],
-                ImageFormat::Png
-            ) {
-                Ok(()) => info!("Camera request sent"),
-                Err(e) => warn!("Error processing camera request: {}", e)
-            }
+        // Step the autonomy manager
+        let auto_loco_ctrl_cmd = auto_mgr.step(ds.auto_cmd.take())
+            .wrap_err("Error stepping the autonomy manager")?;
+
+        // If the manager is on set the loco_ctrl command in the store
+        if auto_mgr.is_on() {
+            ds.loco_ctrl_input = rov_lib::loco_ctrl::InputData {
+                cmd: auto_loco_ctrl_cmd
+            };
         }
 
-        // Attempt to recieve cameras images
-        #[cfg(feature = "cam")]
-        match cam_client.recieve_images() {
-            Ok(Some(images)) => {
-                info!("Got images from CamServer");
+        // // Make image request on the 1Hz if not in safe mode
+        // #[cfg(feature = "cam")]
+        // if ds.is_1_hz_cycle && !ds.safe {
+        //     match cam_client.request_frames(
+        //         vec![CamId::LeftNav, CamId::RightNav],
+        //         ImageFormat::Png
+        //     ) {
+        //         Ok(()) => info!("Camera request sent"),
+        //         Err(e) => warn!("Error processing camera request: {}", e)
+        //     }
+        // }
 
-                let now = chrono::Utc::now();
+        // // Attempt to recieve cameras images
+        // #[cfg(feature = "cam")]
+        // match cam_client.recieve_images() {
+        //     Ok(Some(images)) => {
+        //         info!("Got images from CamServer");
 
-                for (cam_id, cam_image) in images {
+        //         let now = chrono::Utc::now();
 
-                    // Get the time difference between the image and now
-                    let time_diff_ms = now
-                        .signed_duration_since(cam_image.timestamp)
-                        .num_milliseconds();
+        //         for (cam_id, cam_image) in images {
 
-                    info!("{:?} image is {} seconds old", cam_id, (time_diff_ms as f64) * 0.001);
+        //             // Get the time difference between the image and now
+        //             let time_diff_ms = now
+        //                 .signed_duration_since(cam_image.timestamp)
+        //                 .num_milliseconds();
 
-                    // TODO: image saving should go in a separate thread
-                    // // Get image name
-                    // let name = format!(
-                    //     "{:?}_{}.png",
-                    //     cam_id,
-                    //     cam_image.timestamp.timestamp_millis()
-                    // );
+        //             info!("{:?} image is {} seconds old", cam_id, (time_diff_ms as f64) * 0.001);
 
-                    // // Get path to image to save, in the sessions directory
-                    // let mut img_path = session.session_root.clone();
-                    // img_path.push(name);
+        //             // TODO: image saving should go in a separate thread
+        //             // // Get image name
+        //             // let name = format!(
+        //             //     "{:?}_{}.png",
+        //             //     cam_id,
+        //             //     cam_image.timestamp.timestamp_millis()
+        //             // );
+
+        //             // // Get path to image to save, in the sessions directory
+        //             // let mut img_path = session.session_root.clone();
+        //             // img_path.push(name);
                     
-                    // // Save image
-                    // cam_image.image.save(img_path).expect("can't save image");
+        //             // // Save image
+        //             // cam_image.image.save(img_path).expect("can't save image");
 
-                }
+        //         }
 
-                println!("");
+        //         println!("");
                 
-            },
-            Ok(None) => (),
-            Err(CamClientError::NoRequestMade) => (),
-            Err(e) => warn!("Could not get image response: {}", e)
-        }
+        //     },
+        //     Ok(None) => (),
+        //     Err(CamClientError::NoRequestMade) => (),
+        //     Err(e) => warn!("Could not get image response: {}", e)
+        // }
 
         // ---- CONTROL ALGORITHM PROCESSING ----
 

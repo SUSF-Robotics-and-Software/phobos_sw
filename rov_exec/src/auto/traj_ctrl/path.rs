@@ -17,7 +17,7 @@ use util::maths::norm;
 // ---------------------------------------------------------------------------
 
 /// A path defining the desired trajectory of the rover.
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Path {
     points_m_lm: Vec<[f64; 2]>
 }
