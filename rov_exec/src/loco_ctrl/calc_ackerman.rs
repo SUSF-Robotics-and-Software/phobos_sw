@@ -7,7 +7,6 @@
 // Internal imports
 use super::*;
 use util::maths::clamp;
-use log::debug;
 
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
@@ -79,9 +78,6 @@ impl LocoCtrl {
             drv_axes
         });
 
-        let test = serde_json::to_string(&crab_rad);
-        debug!("Wheel Speed: {:?}", test);
-
         Ok(())
     }
 
@@ -136,15 +132,10 @@ impl LocoCtrl {
 
             str_axes[i].abs_pos_rad = 
             (
-                (self.params.str_axis_pos_m_rb[i][0] + curv_radius_m * limited_crab_rad.sin())
+                (self.params.str_axis_pos_m_rb[i][0].abs() + curv_radius_m * limited_crab_rad.sin())
                 /
                 (curv_radius_m * limited_crab_rad.cos() - self.params.str_axis_pos_m_rb[i][1])
             ).atan();
-
-            let test = serde_json::to_string(&(str_axes[i].abs_pos_rad));
-            debug!("\nWheel angle: {:?}\n", test);
-
-
         }
 
         // Drive rate
@@ -160,8 +151,8 @@ impl LocoCtrl {
             // centre of rotation
             let wheel_speed_ms = (speed_ms / curv_radius_m.abs())
                 * (
-                    (curv_radius_m - self.params.str_axis_pos_m_rb[i][1]).powi(2)
-                    + self.params.str_axis_pos_m_rb[i][0].powi(2)
+                    (curv_radius_m * limited_crab_rad.cos() - self.params.str_axis_pos_m_rb[i][1]).powi(2)
+                    + (self.params.str_axis_pos_m_rb[i][0] + curv_radius_m * limited_crab_rad.sin()).powi(2)
                 ).sqrt();
             
             // Calculate the wheel rate by converting the speed into rads/s
