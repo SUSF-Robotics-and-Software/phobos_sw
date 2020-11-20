@@ -7,6 +7,7 @@
 // Internal imports
 use super::*;
 use util::maths::clamp;
+use log::debug;
 
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
@@ -33,17 +34,17 @@ impl LocoCtrl {
         &mut self, 
         speed_ms: f64,
         curv_m: f64, 
-        _crab_ms: f64
+        crab_rad: f64
     ) -> Result<(), super::LocoCtrlError> {
 
         // If the demanded curvature is close to zero set the target to point
         // straight ahead.
         if curv_m.abs() < self.params.ackerman_min_curvature_m {
-            self.calc_ackerman_straight(speed_ms)?;
+            self.calc_ackerman_straight(speed_ms, crab_rad)?;
         }
         // Otherwise perform the generic ackerman calculation
         else {
-            self.calc_ackerman_generic(speed_ms, curv_m)?;
+            self.calc_ackerman_generic(speed_ms, curv_m, crab_rad)?;
         }
 
         Ok(())
@@ -51,9 +52,12 @@ impl LocoCtrl {
 
     /// Calculate the ackerman outputs for a straight drive
     fn calc_ackerman_straight(
-        &mut self, speed_ms: f64
+        &mut self,
+        speed_ms: f64,
+        crab_rad: f64
     ) -> Result<(), super::LocoCtrlError> {
         // Convert the desired speed into normalised speed
+        let mut str_axes = [AxisData::default(); NUM_STR_AXES];
         let mut drv_axes = [AxisData::default(); NUM_DRV_AXES];
 
         // Calculate the required speed in wheel radians/second
@@ -63,11 +67,20 @@ impl LocoCtrl {
             drv_axes[i].rate_rads = wheel_rate_rads;
         }
 
+        for i in 0..NUM_STR_AXES {
+
+            str_axes[i].abs_pos_rad = crab_rad
+
+        }
+
         // Build the new target
         self.target_loco_config = Some(LocoConfig {
-            str_axes: [AxisData::default(); NUM_STR_AXES],
+            str_axes,
             drv_axes
         });
+
+        let test = serde_json::to_string(&crab_rad);
+        debug!("Wheel Speed: {:?}", test);
 
         Ok(())
     }
@@ -80,9 +93,10 @@ impl LocoCtrl {
     fn calc_ackerman_generic(
         &mut self,
         speed_ms: f64,
-        curv_m: f64
+        curv_m: f64,
+        crab_rad: f64
     ) -> Result<(), super::LocoCtrlError> {
-        
+
         // Axis arrays
         let mut str_axes = [AxisData::default(); NUM_STR_AXES];
         let mut drv_axes = [AxisData::default(); NUM_DRV_AXES];
@@ -94,12 +108,20 @@ impl LocoCtrl {
         //  Note: No check is required for a division by zero as this check
         //  is performed by the calling function.
         let curv_radius_m = 
-            1.0 
-            / 
+        1.0 
+        / 
+        clamp(
+            &curv_m, 
+            &(-self.params.ackerman_max_curvature_m),
+            &self.params.ackerman_max_curvature_m);
+
+        let crab_limit_margin_rad = (self.params.str_axis_pos_m_rb[0][1] / curv_radius_m).acos() - 0.01;
+
+        let limited_crab_rad =
             clamp(
-                &curv_m, 
-                &(-self.params.ackerman_max_curvature_m),
-                &self.params.ackerman_max_curvature_m);
+                &crab_rad,
+                &-crab_limit_margin_rad,
+                &crab_limit_margin_rad);
 
         // Steer axis angles
         //
@@ -114,10 +136,14 @@ impl LocoCtrl {
 
             str_axes[i].abs_pos_rad = 
             (
-                self.params.str_axis_pos_m_rb[i][0]
+                (self.params.str_axis_pos_m_rb[i][0] + curv_radius_m * limited_crab_rad.sin())
                 /
-                (curv_radius_m - self.params.str_axis_pos_m_rb[i][1])
+                (curv_radius_m * limited_crab_rad.cos() - self.params.str_axis_pos_m_rb[i][1])
             ).atan();
+
+            let test = serde_json::to_string(&(str_axes[i].abs_pos_rad));
+            debug!("\nWheel angle: {:?}\n", test);
+
 
         }
 
