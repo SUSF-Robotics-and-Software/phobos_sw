@@ -4,10 +4,7 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use comms_if::{
-    net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}, 
-    tc::{Tc, TcResponse}
-};
+use comms_if::{net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}, tc::{Tc, TcParseError, TcResponse}};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -40,7 +37,7 @@ pub enum TcClientError {
     SerializationError(serde_json::Error),
 
     #[error("Could not parse the recieved telecommand")]
-    TcParseError(serde_json::Error),
+    TcParseError(TcParseError),
 
     #[error("The server sent a message which was not valid UTF-8")]
     NonUtf8Response

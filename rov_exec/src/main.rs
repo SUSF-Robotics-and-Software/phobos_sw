@@ -343,6 +343,10 @@ fn main() -> Result<(), Report> {
                             ds.make_safe(SafeModeCause::TcClientNotConnected);
                             break;
                         },
+                        Err(TcClientError::TcParseError(e)) => {
+                            warn!("Could not parse recieved TC: {}", e);
+                            break;
+                        }
                         Err(e) => return Err(e)
                             .wrap_err("An error occured while receiving TCs from the server")
                     }
