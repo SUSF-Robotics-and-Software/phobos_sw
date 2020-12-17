@@ -7,6 +7,9 @@
 // MODULES
 // ------------------------------------------------------------------------------------------------
 
+/// Data Store - holds state of the entire rover software
+pub mod data_store;
+
 /// Camera client - requests and recieves images from the camera server
 pub mod cam_client;
 
@@ -28,6 +31,9 @@ pub mod traj_ctrl;
 
 /// Telecommand client - recieves telecommands from the tc server
 pub mod tc_client;
+
+/// Telemetry server - publishes telemetry
+pub mod tm_server;
 
 /// Mechanisms client - sends actuator demands to the mechanisms server
 #[cfg(feature = "mech")]

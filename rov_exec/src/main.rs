@@ -41,7 +41,7 @@ use comms_if::{
     }, 
     tc::Tc, tc::TcResponse
 };
-use rov_lib::{*, loc::Pose, tc_client::{TcClient, TcClientError}};
+use rov_lib::{*, data_store::{DataStore, SafeModeCause}, loc::Pose, tc_client::{TcClient, TcClientError}};
 
 mod tc_processor;
 
@@ -51,6 +51,7 @@ mod tc_processor;
 
 // External
 use log::{debug, error, info, warn};
+use tm_server::TmServer;
 use std::env;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -80,50 +81,6 @@ const CYCLE_FREQUENCY_HZ: f64 = 1.0 / CYCLE_PERIOD_S;
 /// Limit of the number of times recieve errors from the mech server can be created consecutively
 /// before safe mode will be engaged.
 const MAX_MECH_RECV_ERROR_LIMIT: u64 = 5;
-
-// ---------------------------------------------------------------------------
-// DATA STRUCTURES
-// ---------------------------------------------------------------------------
-
-/// Global data store for the executable.
-#[derive(Default)]
-struct DataStore {
-
-    // Cycle management
-
-    /// Number of cycles already executed
-    num_cycles: u128,
-
-    /// True if this cycle falls on a 1Hz boundary
-    is_1_hz_cycle: bool,
-
-    // Safe mode variables
-
-    /// Determines if the rover is in safe mode.
-    safe: bool,
-    
-    /// Gives the reason for the rover being in safe mode.
-    safe_cause: Option<SafeModeCause>,
-
-    // Localisation
-
-    rov_pose_lm: Option<Pose>,
-
-    // LocoCtrl
-    
-    loco_ctrl: loco_ctrl::LocoCtrl,
-    loco_ctrl_input: loco_ctrl::InputData,
-    loco_ctrl_output: MechDems,
-    loco_ctrl_status_rpt: loco_ctrl::StatusReport,
-    
-    // Monitoring Counters
-    
-    /// Number of consecutive cycle overruns
-    num_consec_cycle_overruns: u64,
-
-    /// Number of consecutive mechanisms client recieve errors
-    num_consec_mech_recv_errors: u64
-}
 
 // ---------------------------------------------------------------------------
 // FUNCTIONS
@@ -256,6 +213,13 @@ fn main() -> Result<(), Report> {
         c
     };
 
+    let mut tm_server = {
+        let s = TmServer::new(&zmq_ctx, &net_params)
+            .wrap_err("Failed to initialise TmServer")?;
+        info!("TmServer initialised");
+        s
+    };
+
     info!("Network initialisation complete");
 
     // ---- MAIN LOOP ----
@@ -268,7 +232,7 @@ fn main() -> Result<(), Report> {
         let cycle_start_instant = Instant::now();
 
         // Clear items that need wiping at the start of the cycle
-        ds.cycle_start();
+        ds.cycle_start(CYCLE_FREQUENCY_HZ);
 
         // ---- DATA INPUT ----
 
@@ -480,6 +444,13 @@ fn main() -> Result<(), Report> {
         // FIXME: Currently disabled as archiving isn't working quite right
         // ds.loco_ctrl.write().unwrap();
 
+        // ---- TELEMETRY ----
+
+        match tm_server.send(&ds) {
+            Ok(_) => (),
+            Err(e) => warn!("TmServer error: {}", e)
+        };
+
         // ---- CYCLE MANAGEMENT ----
 
         let cycle_dur = Instant::now() - cycle_start_instant;
@@ -532,82 +503,6 @@ enum TcSource {
     Script(ScriptInterpreter)
 }
 
-/// Gives the reason the rover has been put into safe mode
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-enum SafeModeCause {
-    MakeSafeTc,
-    TcClientNotConnected,
-    MechClientNotConnected,
-}
-
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
 // ---------------------------------------------------------------------------
-
-impl DataStore {
-
-    /// Puts the rover into safe mode with the given cause.
-    fn make_safe(&mut self, cause: SafeModeCause) {
-        if !self.safe {
-            warn!("Make safe requested, cause: {:?}", cause);
-            self.safe = true;
-            self.safe_cause = Some(cause);
-
-            // Make loco_ctrl safe
-            self.loco_ctrl.make_safe();
-        }
-    }
-
-    /// Attempts to disable the safe mode by clearing the given cause.
-    ///
-    /// Returns `Ok(())` if this cause was cleared and safe mode was disabled, or `Err(())` 
-    /// otherwise. To remove safe mode the provided cause must match the initial reason for safe 
-    /// mode being enabled.
-    ///
-    /// If safe mode was not enabled `Ok(())` is returned
-    fn make_unsafe(&mut self, cause: SafeModeCause) -> Result<(), ()> {
-        if !self.safe {
-            return Ok(())
-        }
-
-        match self.safe_cause {
-            Some(root_cause) => {
-                if cause == root_cause {
-                    self.safe = false;
-                    self.safe_cause = None;
-                    info!("Make unsafe requested, root cause match, safe mode disabled");
-                    Ok(())
-                }
-                else {
-                    // info!(
-                    //     "Make unsafe requested, root cause ({:?}) differs from response ({:?}), \
-                    //     rejected", 
-                    //     root_cause,
-                    //     cause
-                    // );
-                    Err(())
-                }
-            },
-            None => Ok(())
-        }
-    }
-
-    /// Perform actions required at the start of a cycle.
-    ///
-    /// Clears those items that need clearing at the start of a cycle, and sets the 1Hz cycle flag.
-    fn cycle_start(&mut self) {
-
-        if self.num_cycles % (CYCLE_FREQUENCY_HZ as u128) == 0 {
-            self.is_1_hz_cycle = true;
-        }
-        else {
-            self.is_1_hz_cycle = false;
-        }
-        
-        self.loco_ctrl_input = loco_ctrl::InputData::default();
-        self.loco_ctrl_output = MechDems::default();
-        self.loco_ctrl_status_rpt = loco_ctrl::StatusReport::default();
-
-
-    }
-}
