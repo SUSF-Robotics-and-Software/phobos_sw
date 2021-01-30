@@ -13,7 +13,7 @@ pub mod auto;
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use log::{info, warn};
+use log::info;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use structopt::{StructOpt, clap::AppSettings};

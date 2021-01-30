@@ -5,7 +5,7 @@
 // ------------------------------------------------------------------------------------------------
 use serde::{Serialize, Deserialize};
 
-use comms_if::{net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}, tc::{Tc, TcParseError, TcResponse}};
+use comms_if::{eqpt::cam::{CamFrame, ImageFormat}, net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}, tc::{Tc, TcParseError, TcResponse}};
 
 use crate::data_store::DataStore;
 
@@ -21,7 +21,11 @@ pub struct TmServer {
 /// Telemetry packet that is output by the server.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TmPacket {
-    pub sim_time_s: f64
+    pub sim_time_s: f64,
+
+    pub left_cam_frame: Option<CamFrame>,
+
+    pub right_cam_frame: Option<CamFrame>
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -95,7 +99,21 @@ impl TmServer {
 impl TmPacket {
     pub fn from_datastore(ds: &DataStore) -> Self {
         Self {
-            sim_time_s: ds.sim_time_s
+            sim_time_s: ds.sim_time_s,
+            left_cam_frame: match ds.left_cam_image {
+                Some(ref i) => {
+                    let frame = i.to_cam_frame(ImageFormat::Jpeg(75)).unwrap();
+                    Some(frame)
+                },
+                None => None
+            },
+            right_cam_frame: match ds.right_cam_image {
+                Some(ref i) => {
+                    let frame = i.to_cam_frame(ImageFormat::Jpeg(75)).unwrap();
+                    Some(frame)
+                },
+                None => None
+            }
         }
     }
 }

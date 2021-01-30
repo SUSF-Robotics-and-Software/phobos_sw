@@ -337,7 +337,7 @@ fn main() -> Result<(), Report> {
 
         // Make image request on the 1Hz if not in safe mode
         #[cfg(feature = "cam")]
-        if ds.is_1_hz_cycle && !ds.safe {
+        if ds.num_cycles % 5 == 0 && !ds.safe {
             match cam_client.request_frames(
                 vec![CamId::LeftNav, CamId::RightNav],
                 ImageFormat::Png
@@ -363,6 +363,12 @@ fn main() -> Result<(), Report> {
                         .num_milliseconds();
 
                     info!("{:?} image is {} seconds old", cam_id, (time_diff_ms as f64) * 0.001);
+
+                    // Set images in datastore
+                    match cam_id {
+                        CamId::LeftNav => ds.left_cam_image = Some(cam_image),
+                        CamId::RightNav => ds.right_cam_image = Some(cam_image)
+                    };
 
                     // TODO: image saving should go in a separate thread
                     // // Get image name

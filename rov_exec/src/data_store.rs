@@ -1,6 +1,6 @@
 //! # Data Store
 
-use comms_if::eqpt::mech::MechDems;
+use comms_if::eqpt::{cam::CamImage, mech::MechDems};
 use log::{info, warn};
 use util::session::Session;
 
@@ -46,6 +46,10 @@ pub struct DataStore {
     
     /// Gives the reason for the rover being in safe mode.
     pub safe_cause: Option<SafeModeCause>,
+
+    // Camera images
+    pub left_cam_image: Option<CamImage>,
+    pub right_cam_image: Option<CamImage>,
 
     // Localisation
 

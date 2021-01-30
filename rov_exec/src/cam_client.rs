@@ -62,7 +62,10 @@ pub enum CamClientError {
     ImageDeserError(CamId, image::ImageError),
 
     #[error("The server responed with a message which was not valid UTF-8")]
-    NonUtf8Response
+    NonUtf8Response,
+
+    #[error("Expected a set of frames from the camera server but got a different response instead")]
+    ExpectedFrames
 
 }
 
@@ -124,10 +127,10 @@ impl CamClient {
         }
 
         // Build the request
-        let request = CamRequest {
+        let request = CamRequest::FrameRequest(FrameRequest {
             cameras,
             format
-        };
+        });
 
         // Serialize the request
         let request_str = serde_json::to_string(&request)
@@ -177,9 +180,14 @@ impl CamClient {
         self.awaiting_response = false;
 
         // Deserialize the response
-        Ok(serde_json::from_str(&response_str)
-            .map_err(|e| CamClientError::DeserializeError(e))?
-        )
+        let response: CamResponse = serde_json::from_str(&response_str)
+            .map_err(|e| CamClientError::DeserializeError(e))?;
+        
+        // Check that the response is a `Frames` object
+        match response {
+            CamResponse::Frames(m) => Ok(Some(m)),
+            _ => Err(CamClientError::ExpectedFrames)
+        }
     }
 
     /// Recieve the images in response to a request.
