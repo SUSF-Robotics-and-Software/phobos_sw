@@ -1,0 +1,23 @@
+[package]
+name = "cam_exec"
+version = "0.1.0"
+authors = ["Duncan Hamill <duncanrhamill@googlemail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# External
+log = "0.4.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+color-eyre = "0.5"
+thiserror = "1.0"
+gstreamer = "0.16.5"
+rscam = "0.5"
+image = "0.23"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Internal
+comms_if = { path = "../comms_if" }
+util = { path = "../util" }

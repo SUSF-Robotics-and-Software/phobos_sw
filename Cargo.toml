@@ -6,6 +6,7 @@ members = [
     "gnd_exec",
     "mech_exec",
     "command_line_rover",
+    "cam_exec",
 
     # Libraries
     "comms_if",

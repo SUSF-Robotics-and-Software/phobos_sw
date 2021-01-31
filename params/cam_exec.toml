@@ -1,0 +1,13 @@
+# ---- NETWORK ----
+
+requests_endpoint = "tcp://*:5010"
+
+# ---- STREAM SETTINGS ----
+
+stream_width = 640
+stream_height = 480
+
+# ---- VIDEO DEVICE MAPS ----
+
+left_nav_video_device = "/dev/video0"
+right_nav_video_device = "/dev/video0"

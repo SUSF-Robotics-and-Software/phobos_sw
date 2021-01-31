@@ -1,0 +1,4 @@
+#!/bin/bash
+
+gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:5000/test \
+    ! decodebin ! autovideosink
