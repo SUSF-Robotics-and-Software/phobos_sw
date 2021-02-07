@@ -36,9 +36,19 @@ pub struct Pose {
 
 impl Pose {
 
-    /// Return the heading (angle to the positive LM_X axis) of the rover in
-    /// radians.
+    /// Return the heading (angle to the positive LM_X axis) of the rover in radians.
+    ///
+    /// Heading is given in the range [0, 2*pi], with 0 being in the LM_X direction.
     pub fn get_heading(&self) -> f64 {
-        2f64 * self.attitude_q_lm[3].acos()
+        // // Normalize the quaternion so it only has value in the y axis.
+        // let mut q = self.attitude_q_lm;
+        // q[0] = 0.0;
+        // q[2] = 0.0;
+        // let mag = util::maths::norm(&q, &[0.0; 4]).unwrap();
+        // q[1] /= mag;
+        // q[3] /= mag;
+
+        // 2f64 * self.attitude_q_lm[3].acos()
+        util::maths::map_pi_to_2pi(self.attitude_q_lm[1].atan2(self.attitude_q_lm[3])*2.0)
     }
 }
