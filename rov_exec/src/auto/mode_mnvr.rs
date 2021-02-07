@@ -123,7 +123,11 @@ impl MnvrState {
         // Calculate the angular distance delta
         let ang_dist_delta_rad = match self.last_pose {
             Some(last_pose) => {
-                (current_pose.get_heading() - last_pose.get_heading()).abs()
+                debug!("Hed: {:7.5}    {:7.5}", current_pose.get_heading(), last_pose.get_heading());
+                util::maths::get_ang_dist_2pi(
+                    current_pose.get_heading(), 
+                    last_pose.get_heading()
+                ).abs()
             },
             None => {
                 warn!("No last pose, angular distance change is 0 rad");
@@ -133,6 +137,7 @@ impl MnvrState {
 
         // Accumulate distances
         self.linear_distance_m += lin_dist_delta_m;
+        debug!("Ang: {:7.5} += {:7.5}", self.angular_distance_rad, ang_dist_delta_rad);
         self.angular_distance_rad += ang_dist_delta_rad;
 
         // Check end conditions
@@ -189,6 +194,12 @@ impl MnvrState {
 
         // Update last pose
         self.last_pose = Some(current_pose);
+
+        // If the command is stop clear the last pose data
+        match mnvr_cmd {
+            Some(MnvrCmd::Stop) => self.last_pose = None,
+            _ => ()
+        }
 
         // Issue the command
         Ok(mnvr_cmd)

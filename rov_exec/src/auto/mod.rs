@@ -40,6 +40,9 @@ pub mod traj_ctrl;
 /// AutoMgr Params
 pub mod params;
 
+/// Map module - provides implementations for terrain and cost maps
+pub mod map;
+
 /// Manouvre mode module.
 mod mode_mnvr;
 
@@ -223,6 +226,7 @@ impl AutoMgr {
             },
             Some(c) => {
                 warn!("Cannot execute {:?} as AutoMgr is in the Off mode", c);
+                self.auto_cmd.take();
             },
             None => ()
         }

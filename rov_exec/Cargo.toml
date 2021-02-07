@@ -25,6 +25,9 @@ pyo3 = "0.12.1" # For electronics driver
 image = "0.23"
 chrono = "0.4"
 conquer-once = "0.2"
+ndarray = { version = "0.14", features=["serde"] }
+ndarray-stats = "0.4"
+noise = "0.7"
 
 # Internal
 util = { path = "../util" }
