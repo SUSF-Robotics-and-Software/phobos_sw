@@ -36,7 +36,7 @@ def plot_grid_map(map):
     # Calculate range of X, Y, and Z data for the first layer
     x_range = (map['x_coords'].max() - map['x_coords'].min())
     y_range = (map['y_coords'].max() - map['y_coords'].min())
-    z_range = (map['data'][0].max() - map['data'][0].min())
+    z_range = (np.nanmax(map['data'][0]) - np.nanmin(map['data'][0]))
 
     # Normalize by x_range, to create an aspect ratio in which units have the
     # same physical size
@@ -45,14 +45,14 @@ def plot_grid_map(map):
         ax.set_box_aspect(aspect_ratio)
     
     # Set color maps
-    cmap = cm.get_cmap('viridis')
+    cmap = copy.copy(cm.get_cmap('viridis'))
+    cmap.set_bad('white')
     if map['is_cost_map']:
         # Set color maps
         cmap = copy.copy(cm.get_cmap('viridis'))
-        ax.set_facecolor('white')
         cmap.set_over('red')
-        cmap.set_bad('white')
         cmap.set_under('white')
+
             
     # Draw all layers, but only the selected one is visible
     for (layer, idx) in map['layer_map'].items():
@@ -67,18 +67,24 @@ def plot_grid_map(map):
         else:
             plots[layer] = ax.plot_surface(
                 map['x_grid'], map['y_grid'], map['data'][idx],
-                cmap=cmap
+                cmap=cmap,
+                vmin=np.nanmin(map['data'][idx]),
+                vmax=np.nanmax(map['data'][idx]),
+                linewidth=0,
+                antialiased=True
             )
         if layer is not selected_layer:
             plots[layer].set_visible(False)
 
     plt.title(selected_layer)
-    color_bar = plt.colorbar(plots[selected_layer], extend='both')
 
     if map['is_cost_map']:
+        color_bar = plt.colorbar(plots[selected_layer], extend='both')
         color_bar.set_ticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
         color_bar.set_ticklabels(['Unknown', 0.2, 0.4, 0.6, 0.8, 'Unsafe'])
         color_bar.set_label('Cost')
+    else:
+        plt.colorbar(plots[selected_layer])
 
     # Function to change the selected layer
     def key_press_event(event):
@@ -140,6 +146,7 @@ def load_map(path):
         map['data'] = conv_cost_map_data(map['data'])
         map['is_cost_map'] = True
     else:
+        map['data'] = conv_opt_f64(map['data'])
         map['is_cost_map'] = False
 
     # Calculate meshgrids for easy plotting
@@ -171,6 +178,20 @@ def conv_cost_map_data(data):
                 return 1.1
             else:
                 raise RuntimeError(f'Unknown CostMapData variant {val}')
+
+    return np.vectorize(conv)(data)
+
+def conv_opt_f64(data):
+    '''
+    Converts core::option::Option<f64> values into floating points values, with
+    None being np.nan
+    '''
+
+    def conv(val):
+        if val is None:
+            return np.nan
+        else:
+            return val
 
     return np.vectorize(conv)(data)
 

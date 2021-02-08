@@ -82,11 +82,10 @@ impl CostMap {
         )?;
         
         // Calculate minimum and maximum terrain height
-        let min_height = terrain_map.min(TerrainMapLayer::Height)?
-            .ok_or(GridMapError::Empty)?;
-        let max_height = terrain_map.max(TerrainMapLayer::Height)?
-            .ok_or(GridMapError::Empty)?;
+        let height_range = terrain_map.range()?;
 
+        // Dummy cost map that just takes the height, and maps it between -0.5 and 1.5. Any value
+        // above 1.0 is considered unsafe, anything below 0.0 unknown.
         cost_map.0 = terrain_map.map_into(
             TerrainMapLayer::Height,
             CostMapLayer::Total,
@@ -94,11 +93,23 @@ impl CostMap {
             |_, _, height| {
                 match height {
                     // Map heights between 0 and 1
-                    Some(h) => CostMapData::Cost(lin_map(
-                        (min_height, max_height), 
-                        (0.0, 1.0), 
-                        h
-                    )),
+                    Some(h) => {
+                        let cost = lin_map(
+                            (height_range.start, height_range.end), 
+                            (-0.5, 1.5), 
+                            h
+                        );
+
+                        if cost > 1.0 {
+                            CostMapData::Unsafe
+                        }
+                        else if cost < 0.0 {
+                            CostMapData::None
+                        }
+                        else {
+                            CostMapData::Cost(cost)
+                        }
+                    },
                     None => CostMapData::None
                 }
             }
@@ -121,19 +132,5 @@ impl Deref for CostMap {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl PartialOrd for CostMapData {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self {
-            CostMapData::None => None,
-            CostMapData::Unsafe => None,
-            CostMapData::Cost(s) => match other {
-                CostMapData::None => None,
-                CostMapData::Unsafe => None,
-                CostMapData::Cost(o) => s.partial_cmp(o)
-            }
-        }
     }
 }
