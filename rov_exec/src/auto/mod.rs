@@ -21,11 +21,11 @@ use comms_if::tc::{
     auto::AutoCmd,
     loco_ctrl::MnvrCmd,
 };
+use loc::Pose;
 use log::{info, warn};
+use nav::NavCtrl;
 
-use self::{
-    mode_mnvr::MnvrState
-};
+use self::{loc::LocMgr, mode_mnvr::MnvrState, nav::{NavCtrlType, NavError}};
 
 // ------------------------------------------------------------------------------------------------
 // MODULES
@@ -40,11 +40,20 @@ pub mod traj_ctrl;
 /// AutoMgr Params
 pub mod params;
 
+/// Defines path types
+pub mod path;
+
+/// Navigation module - provides path planning using cost maps
+pub mod nav;
+
 /// Map module - provides implementations for terrain and cost maps
 pub mod map;
 
 /// Manouvre mode module.
 mod mode_mnvr;
+
+/// Check mode module.
+mod mode_check;
 
 
 // ------------------------------------------------------------------------------------------------
@@ -66,6 +75,9 @@ pub struct AutoMgr {
 
     /// State related to the Mnvr mode.
     mnvr_state: Option<MnvrState>,
+
+    /// Navigation controller for current mode
+    nav_ctrl: Option<NavCtrlType>,
 
     /// Number of cycles spent in the current mode
     cycles_in_current_mode: u128
@@ -102,7 +114,13 @@ pub enum AutoMgrError {
     PoseUnavailable,
 
     #[error("State of the Mnvr mode is not set.")]
-    MnvrStateNotInit
+    MnvrStateNotInit,
+
+    #[error("Navigation error: {0}")]
+    NavError(NavError),
+
+    #[error("Navigation control type hasn't been initialised")]
+    NavCtrlStateNotInit
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -125,6 +143,7 @@ impl AutoMgr {
             output_mnvr_cmd: None,
             paused_from_mode: None,
             mnvr_state: None,
+            nav_ctrl: None,
             cycles_in_current_mode: 0
         })
     }
@@ -142,6 +161,25 @@ impl AutoMgr {
             AutoMgrMode::Pause => self.mode_pause()?,
             AutoMgrMode::Stop => self.mode_stop()?,
             AutoMgrMode::Mnvr => self.mode_mnvr()?,
+            AutoMgrMode::Check | AutoMgrMode::Follow | AutoMgrMode::Goto => {
+                match self.nav_ctrl {
+                    Some(ref mut nc) => {
+                        // Get and set the pose of the controller. If no pose move to pause
+                        let pose = match LocMgr::get_pose() {
+                            Some(p) => p,
+                            None => {
+                                self.pause()?;
+                                return Ok(None)
+                            }
+                        };
+                        nc.set_pose(&pose);
+                        
+                        // Step the controller
+                        nc.step()?;
+                    },
+                    None => return Err(AutoMgrError::NavCtrlStateNotInit)
+                }
+            }
             m => {
                 warn!("AutoMgr does not yet support the {:?} mode", m);
                 self.set_mode(AutoMgrMode::Stop);
