@@ -15,6 +15,7 @@ use serde::{Serialize, Deserialize};
 // ------------------------------------------------------------------------------------------------
 
 /// Terrain Map
+#[derive(Clone)]
 pub struct TerrainMap(pub(super) GridMap<Option<f64>, TerrainMapLayer>);
 
 // ------------------------------------------------------------------------------------------------
