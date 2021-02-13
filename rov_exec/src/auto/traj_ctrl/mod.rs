@@ -23,7 +23,6 @@
 
 pub mod controllers;
 pub mod params;
-pub mod path;
 pub mod state;
 
 // ---------------------------------------------------------------------------
@@ -31,7 +30,6 @@ pub mod state;
 // ---------------------------------------------------------------------------
 
 // Internal
-pub use path::*;
 pub use controllers::*;
 pub use params::Params;
 pub use state::*;

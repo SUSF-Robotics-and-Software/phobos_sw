@@ -30,6 +30,10 @@ pub struct Pose {
     pub attitude_q_lm: [f64; 4]
 }
 
+/// Provides an interface for the Localisation system of the rover.
+#[derive(Clone)]
+pub struct LocMgr;
+
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
 // ---------------------------------------------------------------------------
@@ -50,5 +54,11 @@ impl Pose {
 
         // 2f64 * self.attitude_q_lm[3].acos()
         util::maths::map_pi_to_2pi(self.attitude_q_lm[1].atan2(self.attitude_q_lm[3])*2.0)
+    }
+}
+
+impl LocMgr {
+    pub fn get_pose() -> Option<Pose> {
+        crate::sim_client::rov_pose_lm()
     }
 }

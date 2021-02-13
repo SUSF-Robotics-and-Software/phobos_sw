@@ -101,7 +101,7 @@ impl MnvrState {
         let mut mnvr_cmd: Option<MnvrCmd> = None;
 
         // Get current pose
-        let current_pose = match crate::sim_client::rov_pose_lm() {
+        let current_pose = match crate::auto::loc::LocMgr::get_pose() {
             Some(p) => p,
             None => return Err(AutoMgrError::PoseUnavailable)
         };

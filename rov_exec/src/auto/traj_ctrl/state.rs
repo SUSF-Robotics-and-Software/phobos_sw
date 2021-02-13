@@ -6,7 +6,7 @@
 
 // Internal
 use super::*;
-use crate::auto::loc::Pose;
+use crate::auto::{loc::Pose, path::*};
 use comms_if::tc::loco_ctrl::MnvrCmd;
 use util::{
     params,

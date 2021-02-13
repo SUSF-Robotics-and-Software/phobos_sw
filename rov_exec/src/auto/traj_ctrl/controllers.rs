@@ -14,7 +14,7 @@ use std::time::Instant;
 use util::maths::norm;
 use crate::auto::{
     loc::Pose,
-    traj_ctrl::path::*
+    path::*
 };
 use comms_if::tc::loco_ctrl::MnvrCmd;
 
