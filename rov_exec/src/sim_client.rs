@@ -21,6 +21,7 @@
 use std::{sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}};
 use conquer_once::Lazy;
 use log::{error, warn};
+use nalgebra::{Quaternion, UnitQuaternion, Vector3};
 use serde::Deserialize;
 
 use crate::auto::loc::Pose;
@@ -226,8 +227,10 @@ fn bg_thread(
 
                 // Buid pose struct
                 let pose = Pose {
-                    position_m_lm,
-                    attitude_q_lm
+                    position_m_lm: Vector3::from(position_m_lm),
+                    attitude_q_lm: UnitQuaternion::from_quaternion(
+                        Quaternion::from(attitude_q_lm)
+                    )
                 };
 
                 // Set the pose in the front end

@@ -147,7 +147,6 @@ mod test {
     #[test]
     fn test_get_ang_dist_2pi() {
         const TAU: f64 = std::f64::consts::TAU;
-        const PI: f64 = std::f64::consts::PI;
 
         assert_eq!(get_ang_dist_2pi(1f64, 2f64), 1f64);
         assert_eq!(get_ang_dist_2pi(2f64, 1f64), -1f64);

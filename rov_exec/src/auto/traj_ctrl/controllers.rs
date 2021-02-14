@@ -10,6 +10,7 @@
 // External
 use std::time::Instant;
 
+use nalgebra::Vector2;
 // Internal
 use util::maths::norm;
 use crate::auto::{
@@ -220,17 +221,32 @@ impl TrajControllers {
 
         // Find the point of intersection by equating the lines for the segment
         // and the lateral.
-        let mut isect_m_lm = [0f64; 2];
-        isect_m_lm[0] = (lat_intercept_m - segment.intercept_m)
-            / (lat_slope_m - segment.slope_m);
-        isect_m_lm[1] = segment.slope_m * isect_m_lm[0] + segment.intercept_m;
+        // let mut isect_m_lm = [0f64; 2];
+        // isect_m_lm[0] = (lat_intercept_m - segment.intercept_m)
+        //     / (lat_slope_m - segment.slope_m);
+        // isect_m_lm[1] = segment.slope_m * isect_m_lm[0] + segment.intercept_m;
+        let isect_x = (lat_intercept_m - segment.intercept_m) / (lat_slope_m - segment.slope_m);
+        let isect_m_lm = Vector2::new(
+            isect_x,
+            segment.slope_m * isect_x + segment.intercept_m
+        );
+
+        // Get 2D position vector of the rover
+        let pos_m_lm = pose.position_m_lm.slice(
+            (0, 0),
+            (1, 2)
+        );
+
+        // Get the distance between them
+        (isect_m_lm - pos_m_lm).norm()
 
         // The lateral error is then the distance between the intersection
         // and the rover.
         //
         // The unwrap here is safe as we are enforcing dimentions by taking
         // a slice of the position.
-        norm(&isect_m_lm, &pose.position_m_lm[0..1]).unwrap()
+        
+        // norm(&isect_m_lm, &pose.position_m_lm[0..1]).unwrap()
     }
 
     /// Calculate the heading error to the segment

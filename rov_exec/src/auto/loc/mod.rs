@@ -11,6 +11,9 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+use serde::Deserialize;
+use nalgebra::{Vector3, UnitQuaternion};
+
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
@@ -19,15 +22,15 @@
 ///
 /// More specifically this represents the Rover Body (RB) frame in the Local
 /// Map (LM) frame.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize)]
 pub struct Pose {
 
     /// The position in the LM frame
-    pub position_m_lm: [f64; 3],
+    pub position_m_lm: Vector3<f64>,
 
     /// The attitude of the rover in the LM frame. This is a quaternion that 
     /// will rotate an object from the LM frame into the RB frame.
-    pub attitude_q_lm: [f64; 4]
+    pub attitude_q_lm: UnitQuaternion<f64>
 }
 
 /// Provides an interface for the Localisation system of the rover.
@@ -44,21 +47,22 @@ impl Pose {
     ///
     /// Heading is given in the range [0, 2*pi], with 0 being in the LM_X direction.
     pub fn get_heading(&self) -> f64 {
-        // // Normalize the quaternion so it only has value in the y axis.
-        // let mut q = self.attitude_q_lm;
-        // q[0] = 0.0;
-        // q[2] = 0.0;
-        // let mag = util::maths::norm(&q, &[0.0; 4]).unwrap();
-        // q[1] /= mag;
-        // q[3] /= mag;
-
-        // 2f64 * self.attitude_q_lm[3].acos()
-        util::maths::map_pi_to_2pi(self.attitude_q_lm[1].atan2(self.attitude_q_lm[3])*2.0)
+        // TODO: verify this
+        self.attitude_q_lm.euler_angles().2
     }
 }
 
 impl LocMgr {
-    pub fn get_pose() -> Option<Pose> {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn get_pose(&mut self) -> Option<Pose> {
+        crate::sim_client::rov_pose_lm()
+    }
+
+    // TODO: make instanced
+    pub fn _get_pose() -> Option<Pose> {
         crate::sim_client::rov_pose_lm()
     }
 }

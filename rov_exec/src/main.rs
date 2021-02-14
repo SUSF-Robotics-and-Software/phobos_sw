@@ -366,11 +366,11 @@ fn main() -> Result<(), Report> {
             .wrap_err("Error stepping the autonomy manager")?;
 
         // If the manager is on set the loco_ctrl command in the store
-        if auto_mgr.is_on() {
-            ds.loco_ctrl_input = rov_lib::loco_ctrl::InputData {
-                cmd: auto_loco_ctrl_cmd
-            };
-        }
+        // if auto_mgr.is_on() {
+        //     ds.loco_ctrl_input = rov_lib::loco_ctrl::InputData {
+        //         cmd: auto_loco_ctrl_cmd
+        //     };
+        // }
 
         // // Make image request on the 1Hz if not in safe mode
         // #[cfg(feature = "cam")]
