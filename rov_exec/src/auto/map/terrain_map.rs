@@ -18,6 +18,13 @@ use serde::{Serialize, Deserialize};
 #[derive(Clone)]
 pub struct TerrainMap(pub(super) GridMap<Option<f64>, TerrainMapLayer>);
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct TerrainMapParams {
+    pub cell_size: Point2<f64>, 
+    pub num_cells: Point2<usize>, 
+    pub centre_position: Point2<f64>
+}
+
 // ------------------------------------------------------------------------------------------------
 // ENUMS
 // ------------------------------------------------------------------------------------------------
@@ -48,6 +55,14 @@ impl TerrainMap {
         )?;
 
         Ok(Self(map))
+    }
+
+    pub fn new_from_params(params: &TerrainMapParams) -> Result<Self, GridMapError> {
+        Self::new(
+            params.cell_size.clone(),
+            params.num_cells.clone(),
+            params.centre_position.clone()
+        )
     }
 
     /// Generate a random terrain map using a Perlin noise system

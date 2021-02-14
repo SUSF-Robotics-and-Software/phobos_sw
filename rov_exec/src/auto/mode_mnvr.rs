@@ -101,7 +101,7 @@ impl MnvrState {
         let mut mnvr_cmd: Option<MnvrCmd> = None;
 
         // Get current pose
-        let current_pose = match crate::auto::loc::LocMgr::get_pose() {
+        let current_pose = match crate::auto::loc::LocMgr::_get_pose() {
             Some(p) => p,
             None => return Err(AutoMgrError::PoseUnavailable)
         };
@@ -109,10 +109,11 @@ impl MnvrState {
         // Calculate the linear distance delta
         let lin_dist_delta_m = match self.last_pose {
             Some(last_pose) => {
-                util::maths::norm(
-                    &current_pose.position_m_lm, 
-                    &last_pose.position_m_lm
-                ).unwrap()
+                // util::maths::norm(
+                //     &current_pose.position_m_lm, 
+                //     &last_pose.position_m_lm
+                // ).unwrap()
+                0.0
             },
             None => {
                 warn!("No last pose, linear distance change is 0 m");
