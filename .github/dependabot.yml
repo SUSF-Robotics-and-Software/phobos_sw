@@ -7,6 +7,6 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    target-branch: "arch_rework" # TODO: Update this to master when arch_rework is finished
+    target-branch: "dev"
     reviewers:
       - "duncanrhamill"
