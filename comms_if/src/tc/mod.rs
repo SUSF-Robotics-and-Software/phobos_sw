@@ -13,7 +13,9 @@ pub mod auto;
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
+use log::info;
 use serde::{Serialize, Deserialize};
+use serde_json::Value;
 use structopt::{StructOpt, clap::AppSettings};
 
 // ------------------------------------------------------------------------------------------------
@@ -64,13 +66,57 @@ pub enum TcResponse {
     CannotExecute
 }
 
+/// Errors that can occur during parsing
+#[derive(Debug, thiserror::Error, Serialize, Deserialize)]
+pub enum TcParseError {
+    #[error("Invalid JSON: {0}")]
+    JsonError(String),
+
+    #[error("Raw TC format error: {0}")]
+    RawTcError(String)
+}
+
 // ------------------------------------------------------------------------------------------------
 // IMPLS
 // ------------------------------------------------------------------------------------------------
 
 impl Tc {
     /// Parse a TC from a given json string
-    pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
-        serde_json::from_str(json_str)
+    pub fn from_json(json_str: &str) -> Result<Self, TcParseError> {
+        // Parse the JSON string to a value
+        let json_value: Value = match serde_json::from_str(json_str) {
+            Ok(v) => v,
+            Err(e) => return Err(TcParseError::JsonError(e.to_string()))
+        };
+
+        // Print the value
+        info!("{:#?}", json_value);
+
+        // If the value is an object whos' only key is "raw_tc", the TC needs
+        // processing
+        if json_value.is_object() {
+            let json_obj = json_value.as_object().unwrap();
+            if json_obj.len() == 1 && json_obj.contains_key("raw_tc") {
+                let raw_tc = json_obj.get("raw_tc").unwrap().as_str().unwrap();
+
+                // Strip any spaces off the tc
+                let raw_tc = raw_tc.trim();
+
+                // Split on spaces to parse with structopt
+                let cmd: Vec<&str> = raw_tc.split(' ').collect();
+
+                // Get the clap matches for this TC
+                let tc = match Tc::from_iter_safe(cmd) {
+                    Ok(m) => Ok(m),
+                    Err(e) => {
+                        Err(TcParseError::RawTcError(format!("{:#}", e)))
+                    }
+                };
+
+                return tc;
+            }
+        }
+        
+        serde_json::from_str(json_str).map_err(|e| TcParseError::JsonError(e.to_string()))
     }
 }

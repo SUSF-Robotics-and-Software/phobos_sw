@@ -13,9 +13,11 @@ use image::{DynamicImage, ImageResult};
 // STRUCTS
 // ------------------------------------------------------------------------------------------------
 
-/// Request to be sent by the camera client to the server
+
+
+/// A request for an invidual frame from one or more cameras.
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CamRequest {
+pub struct FrameRequest {
     /// List of cameras to acquire a frame from
     pub cameras: Vec<CamId>,
 
@@ -23,11 +25,14 @@ pub struct CamRequest {
     pub format: ImageFormat
 }
 
-/// Response to be sent by the server to the client
+/// Settings that can be used to create camera streams for use by the operator.
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CamResponse {
-    /// Frames acquired in response to the request
-    pub frames: HashMap<CamId, CamFrame>
+pub struct StreamSettings {
+    /// The camera to stream, or None to disable the stream.
+    pub camera: Option<CamId>,
+
+    /// Address of the target to stream to, in (Host IP, Port) format.
+    pub target_addr: (String, String)
 }
 
 /// An individual frame from a camera
@@ -57,6 +62,30 @@ pub struct CamImage {
 // ------------------------------------------------------------------------------------------------
 // ENUMS
 // ------------------------------------------------------------------------------------------------
+
+/// Request to be sent by the camera client to the server
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum CamRequest {
+    /// Request an individual frame from the cameras to be sent directly back
+    /// to the client.
+    FrameRequest(FrameRequest),
+
+    /// Request to setup camera stream
+    StreamSettingsRequest(StreamSettings),
+}
+
+/// Possible responses from the camera server to the client
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum CamResponse {
+    /// A selection of CamFrames for the given cameras.
+    Frames(HashMap<CamId, CamFrame>),
+
+    /// Indicates that a StreamSettings request was OK.
+    StreamSettingsAccepted,
+
+    /// Indicates that a StreamSettings request was rejected.
+    StreamSettingsRejected
+}
 
 /// Cameras available on the rover
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, Hash, Eq, PartialEq)]
@@ -113,6 +142,22 @@ impl CamFrame {
             image
         })
     }
+
+    /// Convert an `image::DynamicImage` to a `CamFrame`.
+    pub fn from_dyn_image(
+        image: DynamicImage, 
+        target_format: ImageFormat, 
+        timestamp: DateTime<Utc>
+    ) -> ImageResult<CamFrame> {
+        // Create the CamImage
+        let cam_image = CamImage {
+            timestamp,
+            image
+        };
+
+        // Format it into a frame
+        cam_image.to_cam_frame(target_format)
+    }
 }
 
 impl CamImage {
@@ -135,5 +180,14 @@ impl CamImage {
             format,
             b64_data: base64::encode(data)
         })
+    }
+}
+
+impl Default for StreamSettings {
+    fn default() -> Self {
+        Self {
+            camera: Some(CamId::LeftNav),
+            target_addr: ("127.0.0.1".into(), "5011".into())
+        }
     }
 }

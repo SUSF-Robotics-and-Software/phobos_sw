@@ -33,17 +33,17 @@ impl LocoCtrl {
         &mut self, 
         speed_ms: f64,
         curv_m: f64, 
-        _crab_ms: f64
+        crab_rad: f64
     ) -> Result<(), super::LocoCtrlError> {
 
         // If the demanded curvature is close to zero set the target to point
         // straight ahead.
         if curv_m.abs() < self.params.ackerman_min_curvature_m {
-            self.calc_ackerman_straight(speed_ms)?;
+            self.calc_ackerman_straight(speed_ms, crab_rad)?;
         }
         // Otherwise perform the generic ackerman calculation
         else {
-            self.calc_ackerman_generic(speed_ms, curv_m)?;
+            self.calc_ackerman_generic(speed_ms, curv_m, crab_rad)?;
         }
 
         Ok(())
@@ -51,21 +51,29 @@ impl LocoCtrl {
 
     /// Calculate the ackerman outputs for a straight drive
     fn calc_ackerman_straight(
-        &mut self, speed_ms: f64
+        &mut self,
+        speed_ms: f64,
+        crab_rad: f64
     ) -> Result<(), super::LocoCtrlError> {
         // Convert the desired speed into normalised speed
+        let mut str_axes = [AxisData::default(); NUM_STR_AXES];
         let mut drv_axes = [AxisData::default(); NUM_DRV_AXES];
 
-        // Calculate the required speed in wheel radians/second
+        // Calculate the required wheel speed in radians/second
         let wheel_rate_rads = speed_ms/self.params.wheel_radius_m;
 
         for i in 0..NUM_DRV_AXES {
             drv_axes[i].rate_rads = wheel_rate_rads;
         }
 
+        // Set the wheel angles equal to the crab angle
+        for i in 0..NUM_STR_AXES {
+            str_axes[i].abs_pos_rad = crab_rad
+        }
+
         // Build the new target
         self.target_loco_config = Some(LocoConfig {
-            str_axes: [AxisData::default(); NUM_STR_AXES],
+            str_axes,
             drv_axes
         });
 
@@ -80,9 +88,10 @@ impl LocoCtrl {
     fn calc_ackerman_generic(
         &mut self,
         speed_ms: f64,
-        curv_m: f64
+        curv_m: f64,
+        crab_rad: f64
     ) -> Result<(), super::LocoCtrlError> {
-        
+
         // Axis arrays
         let mut str_axes = [AxisData::default(); NUM_STR_AXES];
         let mut drv_axes = [AxisData::default(); NUM_DRV_AXES];
@@ -93,13 +102,39 @@ impl LocoCtrl {
         //
         //  Note: No check is required for a division by zero as this check
         //  is performed by the calling function.
-        let curv_radius_m = 
+        let curv_radius_m =
             1.0 
             / 
             clamp(
-                &curv_m, 
+                &curv_m,
                 &(-self.params.ackerman_max_curvature_m),
                 &self.params.ackerman_max_curvature_m);
+
+        // Calculate the maximum crab angle in radians.
+        //
+        // Clamp the crab angle to the maximum crab value.
+        let crab_limit_margin_rad = (self.params.str_axis_pos_m_rb[0][1] / curv_radius_m).acos() * 0.99;
+
+        let limited_crab_rad =
+            clamp(
+                &crab_rad,
+                &-crab_limit_margin_rad,
+                &crab_limit_margin_rad);
+
+        // Calculate the maximum speed in meters per second.
+        //
+        // Clamp the speed to the maximum value.
+        let speed_limit_ms = (self.params.drv_max_abs_rate_rads[0] * self.params.wheel_radius_m * curv_radius_m).abs()
+            / (
+                ((curv_radius_m * limited_crab_rad.cos()).abs() + self.params.str_axis_pos_m_rb[0][1]).powi(2)
+                + ((curv_radius_m * limited_crab_rad.sin()).abs() + self.params.str_axis_pos_m_rb[0][0]).powi(2)
+            ).sqrt() * 0.99;
+
+        let limited_speed_ms =
+            clamp(
+                &speed_ms,
+                &-speed_limit_ms,
+                &speed_limit_ms);
 
         // Steer axis angles
         //
@@ -114,11 +149,10 @@ impl LocoCtrl {
 
             str_axes[i].abs_pos_rad = 
             (
-                self.params.str_axis_pos_m_rb[i][0]
+                (self.params.str_axis_pos_m_rb[i][0] + curv_radius_m * limited_crab_rad.sin())
                 /
-                (curv_radius_m - self.params.str_axis_pos_m_rb[i][1])
+                (curv_radius_m * limited_crab_rad.cos() - self.params.str_axis_pos_m_rb[i][1])
             ).atan();
-
         }
 
         // Drive rate
@@ -132,12 +166,12 @@ impl LocoCtrl {
 
             // Calculate the desired speed at this wheel's radius from the
             // centre of rotation
-            let wheel_speed_ms = (speed_ms / curv_radius_m.abs())
+            let wheel_speed_ms = (limited_speed_ms / curv_radius_m.abs())
                 * (
-                    (curv_radius_m - self.params.str_axis_pos_m_rb[i][1]).powi(2)
-                    + self.params.str_axis_pos_m_rb[i][0].powi(2)
+                    (curv_radius_m * limited_crab_rad.cos() - self.params.str_axis_pos_m_rb[i][1]).powi(2)
+                    + (self.params.str_axis_pos_m_rb[i][0] + curv_radius_m * limited_crab_rad.sin()).powi(2)
                 ).sqrt();
-            
+
             // Calculate the wheel rate by converting the speed into rads/s
             drv_axes[i].rate_rads = 
                 wheel_speed_ms / self.params.wheel_radius_m;
