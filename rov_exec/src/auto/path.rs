@@ -6,6 +6,7 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+use comms_if::tc::auto::PathSpec;
 // External
 use serde::{Serialize, Deserialize};
 use nalgebra::Vector2;
@@ -49,9 +50,23 @@ pub struct PathSegment {
 ///
 /// The first element is the curvature in 1/meters, the second the distance in meters.
 #[derive(Clone, Serialize, Deserialize)]
-pub struct AckSequence(
-    Vec<(f64, f64)>
-);
+pub struct AckSequence{
+    seq: Vec<(f64, f64)>,
+    point_sep_m: f64
+}
+
+// -----------------------------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------------------------
+
+#[derive(Debug, thiserror::Error)]
+pub enum PathError {
+    #[error("The PathSpec is invalid")]
+    InvalidPathSpec,
+
+    #[error("The PathSpec provided wasn't compatible with the type to be parsed")]
+    UnexpectedPathSpecType
+}
 
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
@@ -150,9 +165,9 @@ impl AckSequence {
     /// Convert this sequence into a standard [`Path`].
     ///
     /// If the sequence is empty `None` is returned.
-    pub fn to_path(self, start_pose: &Pose, point_sep_m: f64) -> Option<Path> {
+    pub fn to_path(self, start_pose: &Pose) -> Option<Path> {
         // If sequence is empty just return None
-        if self.0.len() == 0 {
+        if self.seq.len() == 0 {
             return None
         }
 
@@ -160,7 +175,7 @@ impl AckSequence {
         let mut path = Path::new_empty();
 
         // For each Ack in the sequence calculate the points at the given separation
-        for (curv_m, dist_m) in self.0 {
+        for (curv_m, dist_m) in self.seq {
             // If this is the first sequence the start point and heading come from the starting
             // pose, otherwise they come from the current end of the path
             let (x_0, y_0, head_rad) = match path.is_empty() {
@@ -188,10 +203,10 @@ impl AckSequence {
             let anti_head_rad = head_rad + std::f64::consts::PI/2.0;
 
             // Get a linearly spaced vector of s values (dist along ack)
-            let num_s = (dist_m / point_sep_m).ceil() as usize;
+            let num_s = (dist_m / self.point_sep_m).ceil() as usize;
             let mut s_values_m = Vec::with_capacity(num_s);
             for i in 0..num_s {
-                s_values_m.push((i as f64 * point_sep_m).min(dist_m));
+                s_values_m.push((i as f64 * self.point_sep_m).min(dist_m));
             }
 
             // Iterate over values of s, calculating a new point for the path for each one
@@ -208,6 +223,25 @@ impl AckSequence {
 
         Some(path)
     }
+
+    pub fn from_path_spec(path_spec: PathSpec) -> Result<Self, PathError> {
+        match path_spec {
+            PathSpec::AckSeq { seq, separation_m } => {
+                if seq.len() % 2 != 0 {
+                    Err(PathError::InvalidPathSpec)
+                }
+                else {
+                    Ok(Self {
+                        seq: seq.chunks(2)
+                            .map(|p| (p[0], p[1]))
+                            .collect(),
+                        point_sep_m: separation_m
+                    })
+                }
+            }
+            PathSpec::File { .. } => Err(PathError::UnexpectedPathSpecType)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -219,16 +253,19 @@ mod test {
 
     #[test]
     fn test_ack_seq() {
-        let ack_seq = AckSequence(vec![
-            (1.0, 1.57),
-            (0.5, 2.0)
-        ]);
+        let ack_seq = AckSequence {
+            seq: vec![
+                (1.0, 1.57),
+                (0.5, 2.0)
+            ],
+            point_sep_m: 0.05
+        };
 
         // Convert ack_seq to a path
         let path = ack_seq.to_path(&Pose {
             position_m_lm: Vector3::default(),
             attitude_q_lm: UnitQuaternion::from_euler_angles(0.0, 0.0, PI),
-        }, 0.05).unwrap();
+        }).unwrap();
 
         // Serialize the path and write it out so we can plot it to check it's correct
         let path_json = serde_json::to_string_pretty(&path).unwrap();

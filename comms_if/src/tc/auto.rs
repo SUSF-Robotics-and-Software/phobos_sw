@@ -33,10 +33,7 @@ pub enum AutoCmd {
 
     /// Follow the path stored in the path file at the given system path.
     #[structopt(name = "follow")]
-    Follow {
-        /// The path to the path file.
-        path: PathBuf
-    },
+    Follow (PathSpec),
 
     /// Follow and check the safety of the path stored in the path file at the given system path.
     #[structopt(name = "check")]
@@ -104,4 +101,27 @@ pub enum AutoMnvrCmd {
         /// The absolute angular distance to traverse in this manouvre.
         dist_rad: f64
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, StructOpt)]
+pub enum PathSpec {
+    /// A sequence of (curvature, distance) pairs that defines a path starting from the current
+    /// Pose.
+    #[structopt(name = "ackseq")]
+    AckSeq {
+        /// The separation between each point in the path
+        #[structopt(name = "sep")]
+        separation_m: f64,
+
+        /// The sequence of (curvature [1/m], distance [m]) pairs
+        #[structopt(required = true)]
+        seq: Vec<f64>
+    },
+
+    /// A path file to load
+    #[structopt(name = "file")]
+    File {
+        /// The path to the file to load
+        path: PathBuf
+    }
 }
