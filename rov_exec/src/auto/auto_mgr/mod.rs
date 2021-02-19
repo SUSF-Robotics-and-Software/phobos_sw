@@ -121,11 +121,12 @@ pub enum AutoMgrState {
 #[derive(Debug)]
 pub enum StackAction {
     None,
+    Abort,
     Clear,
     PushAbove(AutoMgrState),
     PushBelow(AutoMgrState),
     Pop,
-    Replace(AutoMgrState)
+    Replace(AutoMgrState),
 }
 
 /// Possible data that can be passed out of a state's step function.
@@ -185,11 +186,6 @@ impl AutoMgr {
             // If there is no top the mgr is off, but we can still accept some commands to change
             // state. 
             None => match cmd {
-                // TODO: this is testing, don't do this
-                Some(AutoCmd::Abort) => {
-                    self.stack.push_above(AutoMgrState::Stop(Stop::new()));
-                    StepOutput::none()
-                },
                 Some(AutoCmd::Manouvre(m)) => {
                     self.stack.push_above(AutoMgrState::AutoMnvr(AutoMnvr::new(m)));
                     StepOutput::none()
@@ -210,6 +206,10 @@ impl AutoMgr {
             StackAction::Clear => {
                 self.stack.clear()
             },
+            StackAction::Abort => {
+                self.stack.clear();
+                self.stack.push_above(AutoMgrState::Stop(Stop::new()))
+            }
             StackAction::PushAbove(s) => {
                 self.stack.push_above(s)
             }

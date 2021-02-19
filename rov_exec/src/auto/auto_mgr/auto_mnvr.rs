@@ -58,7 +58,7 @@ impl AutoMnvr {
                 data: StackData::None
             }),
             Some(AutoCmd::Abort) => return Ok(StepOutput {
-                action: StackAction::Replace(AutoMgrState::Stop(Stop::new())),
+                action: StackAction::Abort,
                 data: StackData::None
             }),
             Some(_) => warn!("Only Pause and Abort commands are accepted in AutoMnvr state"),
