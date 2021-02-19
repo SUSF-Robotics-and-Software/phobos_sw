@@ -36,7 +36,7 @@ pub mod states {
     pub use super::wait_new_pose::WaitNewPose;
 }
 
-use comms_if::tc::auto::AutoCmd;
+use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
 use log::{info, warn};
 use states::*;
 
@@ -131,7 +131,9 @@ pub enum StackAction {
 
 /// Possible data that can be passed out of a state's step function.
 pub enum StackData {
-    None
+    None,
+
+    LocoCtrlMnvr(MnvrCmd)
 }
 
 // ------------------------------------------------------------------------------------------------

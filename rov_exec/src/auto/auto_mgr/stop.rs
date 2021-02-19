@@ -75,6 +75,7 @@ impl Stop {
                     data: StackData::None
                 })
             }
+            None => (),
             _ => {
                 warn!(
                     "Only AutoCmd::Abort is accepted when in AutoMgrState::Stop, {:?} ignored", 

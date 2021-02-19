@@ -10,3 +10,22 @@
         }
     }
 };
+
+5.0: {
+    "Autonomy": "Abort"
+};
+
+15.0: {
+    "Autonomy": {
+        "Manouvre": {
+            "PointTurn": {
+                "rate_rads": 0.1,
+                "dist_rad": 1.57
+            }
+        }
+    }
+};
+
+20.0: {
+    "Autonomy": "Abort"
+};

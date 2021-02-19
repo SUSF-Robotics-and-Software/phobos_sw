@@ -7,7 +7,7 @@
 use serde::Deserialize;
 use crate::auto::{loc::LocMgrParams, map::TerrainMapParams};
 
-use super::{stop::StopParams, wait_new_pose::WaitNewPoseParams};
+use super::{stop::StopParams, wait_new_pose::WaitNewPoseParams, auto_mnvr::AutoMnvrParams};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -21,5 +21,7 @@ pub struct AutoMgrParams {
 
     pub stop: StopParams,
 
-    pub loc_mgr: LocMgrParams
+    pub loc_mgr: LocMgrParams,
+
+    pub auto_mnvr: AutoMnvrParams
 }
