@@ -15,10 +15,7 @@ use super::{
     StackData, 
     StepOutput, 
     params::AutoMgrParams, 
-    states::{
-        WaitNewPose,
-        Stop
-    }
+    states::Stop
 };
 
 // ------------------------------------------------------------------------------------------------

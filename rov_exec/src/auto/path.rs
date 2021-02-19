@@ -1,6 +1,6 @@
-//! # Trajectory control path
+//! # Path
 //!
-//! This module defines the path used by trajectory control.
+//! This module defines the path used by the autonomy system.
 
 // ---------------------------------------------------------------------------
 // IMPORTS
@@ -8,9 +8,7 @@
 
 // External
 use serde::{Serialize, Deserialize};
-
-// Internal
-use util::maths::norm;
+use nalgebra::Vector2;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -19,7 +17,7 @@ use util::maths::norm;
 /// A path defining the desired trajectory of the rover.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Path {
-    points_m_lm: Vec<[f64; 2]>
+    points_m_lm: Vec<Vector2<f64>>
 }
 
 /// A segment between two path points
@@ -27,10 +25,10 @@ pub struct Path {
 pub struct PathSegment {
 
     /// The target of the segment
-    pub target_m_lm: [f64; 2],
+    pub target_m_lm: Vector2<f64>,
 
     /// The start point of the segment
-    pub start_m_lm: [f64; 2],
+    pub start_m_lm: Vector2<f64>,
 
     /// The length of the segment
     pub length_m: f64,
@@ -50,7 +48,7 @@ impl Path {
     /// Create a new empty path
     pub fn new_empty() -> Self {
         Path {
-            points_m_lm: vec![]
+            points_m_lm: Vec::new()
         }
     }
 
@@ -85,10 +83,7 @@ impl Path {
         //
         // The unwrap here is safe since we know both start and target have
         // the same dimentions.
-        seg.length_m = norm(
-            &seg.target_m_lm, 
-            &seg.start_m_lm)
-            .unwrap();
+        seg.length_m = (seg.target_m_lm - seg.start_m_lm).norm();
 
         // Slope is the change in y over the change in x
         seg.slope_m = 

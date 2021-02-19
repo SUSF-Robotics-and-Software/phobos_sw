@@ -8,6 +8,7 @@
 use super::*;
 use crate::auto::{loc::Pose, path::*};
 use comms_if::tc::loco_ctrl::MnvrCmd;
+use nalgebra::Vector2;
 use util::{
     params,
     maths::norm
@@ -112,7 +113,7 @@ impl TrajCtrl {
     /// Intiailise the TrajCtrl module.
     ///
     /// Expected init data is a path to the parameter file.
-    fn init(
+    pub fn init(
         params_path: &str,
     ) -> Result<Self, TrajCtrlError> {
         // Load the parameters
@@ -144,7 +145,7 @@ impl TrajCtrl {
     ///  1. Get the current executing path segment (incrementing the target if
     ///     required.)
     ///  1. Calculating LocoCtrl command based on current position and path
-    fn proc(
+    pub fn proc(
         &mut self, 
         pose: &Pose
     ) -> Result<(Option<MnvrCmd>, StatusReport), TrajCtrlError> {
@@ -197,7 +198,7 @@ impl TrajCtrl {
         }
         
         // Check that all paths in the sequence are valid
-        let mut invalid_path_indexes: Vec<usize> = vec![];
+        let mut invalid_path_indexes: Vec<usize> = Vec::new();
         for (i, path) in seq.iter().enumerate() {
             if path.get_num_points() < 2 {
                 invalid_path_indexes.push(i);
@@ -435,9 +436,9 @@ impl TrajCtrl {
         // to find the angle between the vectors intersect->target and 
         // start->target. If the angle is 0 the distance is positive, otherwise
         // it's negative.
-        let mut long_err_m = norm(
-            &isect_m_lm, &segment.target_m_lm)
-            .unwrap();
+        let mut long_err_m = (
+            Vector2::from(isect_m_lm) - segment.target_m_lm
+        ).norm();
         
         // Get vectors
         let isect_vec = [
