@@ -1,25 +1,15 @@
-//! # AutoMgr Parameters
-
 // ------------------------------------------------------------------------------------------------
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
 use serde::Deserialize;
-use crate::auto::{loc::LocMgrParams, map::TerrainMapParams};
-
-use super::{stop::StopParams, wait_new_pose::WaitNewPoseParams};
+use super::LocSource;
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
 // ------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct AutoMgrParams {
-    pub wait_new_pose: WaitNewPoseParams,
-
-    pub terrain_map_params: TerrainMapParams,
-
-    pub stop: StopParams,
-
-    pub loc_mgr: LocMgrParams
+pub struct LocMgrParams {
+    pub source: LocSource
 }

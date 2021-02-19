@@ -7,6 +7,9 @@
 // MODULES
 // ---------------------------------------------------------------------------
 
+mod params;
+pub use params::LocMgrParams;
+
 // ---------------------------------------------------------------------------
 // IMPORTS
 // ---------------------------------------------------------------------------
@@ -22,7 +25,7 @@ use nalgebra::{Vector3, UnitQuaternion};
 ///
 /// More specifically this represents the Rover Body (RB) frame in the Local
 /// Map (LM) frame.
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
 pub struct Pose {
 
     /// The position in the LM frame
@@ -35,7 +38,22 @@ pub struct Pose {
 
 /// Provides an interface for the Localisation system of the rover.
 #[derive(Clone)]
-pub struct LocMgr;
+pub struct LocMgr {
+    source: LocSource,
+
+    pose: Option<Pose>
+}
+
+// ------------------------------------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------------------------------------
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub enum LocSource {
+    OnSet,
+    SimClient,
+    PerlocClient
+}
 
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
@@ -53,12 +71,23 @@ impl Pose {
 }
 
 impl LocMgr {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(source: LocSource) -> Self {
+        Self {
+            source,
+            pose: None
+        }
+    }
+
+    pub fn set_pose(&mut self, pose: Pose) {
+        self.pose = Some(pose);
     }
 
     pub fn get_pose(&mut self) -> Option<Pose> {
-        crate::sim_client::rov_pose_lm()
+        match self.source {
+            LocSource::OnSet => self.pose,
+            LocSource::SimClient => crate::sim_client::rov_pose_lm(),
+            _ => unimplemented!()
+        }
     }
 
     // TODO: make instanced

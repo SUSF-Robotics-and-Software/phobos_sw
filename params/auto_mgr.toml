@@ -1,3 +1,7 @@
+[loc_mgr]
+
+source = "OnSet"
+
 [terrain_map_params]
 
 cell_size = [0.1, 0.1]

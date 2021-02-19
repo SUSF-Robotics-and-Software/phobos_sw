@@ -10,10 +10,10 @@
 use std::{env, thread, time::{Duration, Instant}};
 
 use color_eyre::{Result, eyre::{eyre, WrapErr}};
-use comms_if::tc::{Tc, auto::AutoCmd};
+use comms_if::tc::{Tc, auto::{self, AutoCmd}};
 use log::{debug, info, warn};
 
-use rov_lib::{auto::AutoMgr, data_store::DataStore, tc_processor};
+use rov_lib::{auto::{AutoMgr, loc::Pose}, data_store::DataStore, tc_processor};
 use util::{host, logger::{LevelFilter, logger_init}, script_interpreter::{PendingTcs, ScriptInterpreter}, session::Session};
 
 // ------------------------------------------------------------------------------------------------
@@ -90,6 +90,9 @@ fn main() -> Result<()> {
     let mut auto_mgr = AutoMgr::init("auto_mgr.toml")
         .wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
+
+    // Set initial pose to zero
+    auto_mgr.persistant.loc_mgr.set_pose(Pose::default());
 
     // ---- MAIN LOOP ----
 

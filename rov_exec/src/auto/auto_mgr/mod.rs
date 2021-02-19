@@ -22,7 +22,7 @@ use std::fmt::Display;
 
 use self::params::AutoMgrParams;
 
-use super::{AutoMgrError, loc::LocMgr, map::{TerrainMap, TerrainMapParams}};
+use super::{AutoMgrError, loc::{LocMgr, LocSource}, map::{TerrainMap, TerrainMapParams}};
 
 // ------------------------------------------------------------------------------------------------
 // EXPORTS
@@ -148,7 +148,10 @@ impl AutoMgr {
         Ok(Self {
             params: params.clone(),
             last_stack_data: StackData::None,
-            persistant: AutoMgrPersistantData::new(&params.terrain_map_params)?,
+            persistant: AutoMgrPersistantData::new(
+                &params.terrain_map_params, 
+                params.loc_mgr.source
+            )?,
             stack: AutoMgrStack::new()
         })
     }
@@ -293,11 +296,14 @@ impl Display for AutoMgrState {
 }
 
 impl AutoMgrPersistantData {
-    pub fn new(terr_map_params: &TerrainMapParams) -> Result<Self, AutoMgrError> {
+    pub fn new(
+        terr_map_params: &TerrainMapParams, 
+        loc_source: LocSource
+    ) -> Result<Self, AutoMgrError> {
         Ok(Self {
             global_terr_map: TerrainMap::new_from_params(terr_map_params)
                 .map_err(|e| AutoMgrError::InitGlobalTerrMapError(e))?,
-            loc_mgr: LocMgr::new(),
+            loc_mgr: LocMgr::new(loc_source),
         })
     }
 }
