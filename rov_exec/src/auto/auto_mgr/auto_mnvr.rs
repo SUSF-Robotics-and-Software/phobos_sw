@@ -7,7 +7,7 @@
 use serde::Deserialize;
 
 use comms_if::tc::{auto::{AutoCmd, AutoMnvrCmd}, loco_ctrl::MnvrCmd};
-use log::{debug, warn};
+use log::{info, warn};
 
 use crate::auto::loc::Pose;
 
@@ -20,7 +20,8 @@ use super::{
     StepOutput, 
     params::AutoMgrParams, 
     states::{
-        WaitNewPose
+        WaitNewPose,
+        Stop
     }
 };
 
@@ -98,8 +99,8 @@ impl AutoMnvr {
         };
 
         
-        // Manouvre command to output
-        let mut mnvr_cmd: Option<MnvrCmd> = None;
+        // Stack output to return
+        let mut output = StepOutput::none();
         
         // Calculate the linear distance change since last pose
         let lin_dist_delta_m = match self.last_pose {
@@ -136,22 +137,24 @@ impl AutoMnvr {
                 curv_m,
                 dist_m
             } => {
-                debug!("Linear distance error: {} m", dist_m - self.linear_distance_m);
                 // If the error between the current distance and the target distance is lower than
                 // the threshold the manouvre is complete and a stop can be issued.
                 if dist_m - self.linear_distance_m
                     < 
                     params.auto_mnvr.linear_distance_threshold_m 
                 {
-                    mnvr_cmd = Some(MnvrCmd::Stop);
+                    info!("AutoMnvr complete");
+                    output.action = StackAction::Replace(AutoMgrState::Stop(Stop::new()))
                 }
                 // If not at the target and the loco_ctrl manouvre hasn't been issued yet send it
                 else if !self.loco_ctrl_cmd_issued {
-                    mnvr_cmd = Some(MnvrCmd::Ackerman {
-                        speed_ms,
-                        crab_rad,
-                        curv_m
-                    });
+                    output.data = StackData::LocoCtrlMnvr(
+                        MnvrCmd::Ackerman {
+                            speed_ms,
+                            crab_rad,
+                            curv_m
+                        }
+                    );
 
                     self.loco_ctrl_cmd_issued = true;
                 }
@@ -160,20 +163,22 @@ impl AutoMnvr {
                 rate_rads,
                 dist_rad
             } => {
-                debug!("Angular distance error: {} rad", dist_rad - angular_distance_rad);
                 // If the error between the current distance and the target distance is lower than
                 // the threshold the manouvre is complete and a stop can be issued.
                 if dist_rad - angular_distance_rad
                     < 
                     params.auto_mnvr.angular_distance_threshold_rad 
                 {
-                    mnvr_cmd = Some(MnvrCmd::Stop);
+                    info!("AutoMnvr complete");
+                    output.action = StackAction::Replace(AutoMgrState::Stop(Stop::new()))
                 }
                 // If not at the target and the loco_ctrl manouvre hasn't been issued yet send it
                 else if !self.loco_ctrl_cmd_issued {
-                    mnvr_cmd = Some(MnvrCmd::PointTurn {
-                        rate_rads
-                    });
+                    output.data = StackData::LocoCtrlMnvr(
+                        MnvrCmd::PointTurn {
+                            rate_rads
+                        }
+                    );
 
                     self.loco_ctrl_cmd_issued = true;
                 }
@@ -183,19 +188,6 @@ impl AutoMnvr {
         // Update last pose
         self.last_pose = Some(current_pose);
 
-        // If the command is stop clear the last pose data
-        match mnvr_cmd {
-            Some(MnvrCmd::Stop) => self.last_pose = None,
-            _ => ()
-        }
-
-        // Issue the command
-        Ok(StepOutput {
-            action: StackAction::None,
-            data: match mnvr_cmd {
-                Some(m) => StackData::LocoCtrlMnvr(m),
-                None => StackData::None
-            }
-        })
+        Ok(output)
     }
 }

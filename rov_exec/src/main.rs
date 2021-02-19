@@ -331,8 +331,14 @@ fn main() -> Result<(), Report> {
         // ---- AUTONOMY PROCESSING ----
 
         // Step the autonomy manager
-        let _auto_loco_ctrl_cmd = auto_mgr.step(ds.auto_cmd.take())
+        let auto_loco_ctrl_cmd = auto_mgr.step(ds.auto_cmd.take())
             .wrap_err("Error stepping the autonomy manager")?;
+
+        if auto_mgr.is_on() {
+            ds.loco_ctrl_input = rov_lib::loco_ctrl::InputData {
+                cmd: auto_loco_ctrl_cmd
+            }
+        }
 
         // If the manager is on set the loco_ctrl command in the store
         // if auto_mgr.is_on() {

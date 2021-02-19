@@ -4,11 +4,11 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use comms_if::tc::auto::AutoCmd;
+use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
 use log::{info, warn};
 use serde::Deserialize;
 use util::session;
-use crate::auto::{AutoMgrError, loc::Pose};
+use crate::{auto::{AutoMgrError, loc::Pose}};
 use super::{AutoMgrPersistantData, AutoMgrState, StackAction, StackData, StepOutput, params::AutoMgrParams, states::WaitNewPose};
 
 // ------------------------------------------------------------------------------------------------
@@ -34,6 +34,8 @@ pub struct Stop {
     /// Pose at the last stationary check
     last_pose: Option<Pose>,
 
+    /// Whether or not the stop command has been issued
+    loco_ctrl_cmd_issued: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -57,6 +59,7 @@ impl Stop {
         Self {
             stationary_start_time_s: 0.0,
             last_pose: None,
+            loco_ctrl_cmd_issued: false
         }
     }
 
@@ -149,7 +152,17 @@ impl Stop {
         }
         // Otherwise we exit, waiting for the next cycle to check again
         else {
-            Ok(StepOutput::none())
+            // If the loco ctrl command hasn't been issued we set it now
+            if !self.loco_ctrl_cmd_issued {
+                self.loco_ctrl_cmd_issued = true;
+                Ok(StepOutput {
+                    action: StackAction::None,
+                    data: StackData::LocoCtrlMnvr(MnvrCmd::Stop)
+                })
+            }
+            else {
+                Ok(StepOutput::none())
+            }
         }
     }
 }

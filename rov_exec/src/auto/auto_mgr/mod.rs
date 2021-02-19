@@ -159,7 +159,7 @@ impl AutoMgr {
         })
     }
 
-    pub fn step(&mut self, cmd: Option<AutoCmd>) -> Result<(), AutoMgrError> {
+    pub fn step(&mut self, cmd: Option<AutoCmd>) -> Result<Option<MnvrCmd>, AutoMgrError> {
 
         // Get a reference to the current top state
         let top = self.stack.top();
@@ -194,9 +194,9 @@ impl AutoMgr {
                 }
                 Some(_) => {
                     warn!("Cannot pause, resume, or abort Autonomy execution as the AutoMgr is Off");
-                    return Ok(())
+                    return Ok(None)
                 },
-                None => return Ok(())
+                None => return Ok(None)
             }
         };
 
@@ -231,11 +231,19 @@ impl AutoMgr {
             info!("AutoMgr state change to: {}", self.stack.top().unwrap());
         }
 
-        Ok(())
+        // Output data to loco_ctrl
+        Ok(match output.data {
+            StackData::None => None,
+            StackData::LocoCtrlMnvr(m) => Some(m)
+        })
     }
 
     pub fn is_off(&self) -> bool {
         self.stack.is_empty()
+    }
+
+    pub fn is_on(&self) -> bool {
+        !self.stack.is_empty()
     }
 }
 

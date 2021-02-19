@@ -1,6 +1,6 @@
 [loc_mgr]
 
-source = "OnSet"
+source = "SimClient"
 
 [terrain_map_params]
 
