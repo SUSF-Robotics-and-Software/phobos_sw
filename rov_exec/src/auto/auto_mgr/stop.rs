@@ -89,7 +89,7 @@ impl Stop {
             Some(p) => p,
             None => return Ok(StepOutput {
                 action: StackAction::PushAbove(AutoMgrState::WaitNewPose(
-                    WaitNewPose::new(params)
+                    WaitNewPose::new()
                 )),
                 data: StackData::None
             })

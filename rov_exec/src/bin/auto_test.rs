@@ -95,6 +95,8 @@ fn main() -> Result<()> {
 
     info!("Begining main loop\n");
 
+    let mut end_of_script = false;
+
     loop {
 
         // Get cycle start time
@@ -105,19 +107,19 @@ fn main() -> Result<()> {
 
         // ---- TELECOMMAND PROCESSING ----
         
-        match script_interpreter.get_pending_tcs() {
-            PendingTcs::None => (),
-            PendingTcs::Some(tc_vec) => {
-                for tc in tc_vec.iter() {
+        if !end_of_script {
+            match script_interpreter.get_pending_tcs() {
+                PendingTcs::None => (),
+                PendingTcs::Some(tc_vec) => {
                     for tc in tc_vec.iter() {
                         tc_processor::exec(&mut ds, tc);
                     }
                 }
-            }
-            // Exit if end of script reached
-            PendingTcs::EndOfScript => {
-                info!("End of TC script reached, stopping");
-                break
+                // Exit if end of script reached
+                PendingTcs::EndOfScript => {
+                    info!("End of TC script reached, waiting for AutoMgr to be in Off");
+                    end_of_script = true;
+                }
             }
         }
 
@@ -152,6 +154,12 @@ fn main() -> Result<()> {
 
         // Increment cycle counter
         ds.num_cycles += 1;
+
+        // If at the end of the script and the auto mgr is off exit
+        if end_of_script && auto_mgr.is_off() {
+            info!("End of script and AutoMgr is in Off, exiting");
+            break;
+        }
     }
 
     Ok(())

@@ -37,7 +37,7 @@ pub mod states {
 }
 
 use comms_if::tc::auto::AutoCmd;
-use log::warn;
+use log::{info, warn};
 use states::*;
 
 // ------------------------------------------------------------------------------------------------
@@ -118,13 +118,14 @@ pub enum AutoMgrState {
 }
 
 /// Actions that can be performed on the Stack at the end of a state's step function.
+#[derive(Debug)]
 pub enum StackAction {
     None,
     Clear,
     PushAbove(AutoMgrState),
     PushBelow(AutoMgrState),
     Pop,
-    PushAndPop(AutoMgrState)
+    Replace(AutoMgrState)
 }
 
 /// Possible data that can be passed out of a state's step function.
@@ -166,6 +167,16 @@ impl AutoMgr {
                     &mut self.persistant, 
                     cmd
                 )?,
+                AutoMgrState::WaitNewPose(wait) => wait.step(
+                    &self.params, 
+                    &mut self.persistant, 
+                    cmd
+                )?,
+                AutoMgrState::AutoMnvr(auto_mnvr) => auto_mnvr.step(
+                    &self.params, 
+                    &mut self.persistant, 
+                    cmd
+                )?,
                 _ => unimplemented!("The current state ({}) is unimplemented", top)
             },
             // If there is no top the mgr is off, but we can still accept some commands to change
@@ -175,6 +186,10 @@ impl AutoMgr {
                 Some(AutoCmd::Abort) => {
                     self.stack.push_above(AutoMgrState::Stop(Stop::new()));
                     StepOutput::none()
+                },
+                Some(AutoCmd::Manouvre(m)) => {
+                    self.stack.push_above(AutoMgrState::AutoMnvr(AutoMnvr::new(m)));
+                    StepOutput::none()
                 }
                 Some(_) => {
                     warn!("Cannot pause, resume, or abort Autonomy execution as the AutoMgr is Off");
@@ -183,6 +198,8 @@ impl AutoMgr {
                 None => return Ok(())
             }
         };
+
+        let is_action = output.action.is_some();
 
         // Perform any actions required by the top state
         match output.action {
@@ -199,13 +216,21 @@ impl AutoMgr {
             StackAction::Pop => {
                 self.stack.pop();
             }
-            StackAction::PushAndPop(s) => {
+            StackAction::Replace(s) => {
                 self.stack.pop();
                 self.stack.push_above(s)
             }
         }
 
+        if self.stack.top().is_some() && is_action {
+            info!("AutoMgr state change to: {}", self.stack.top().unwrap());
+        }
+
         Ok(())
+    }
+
+    pub fn is_off(&self) -> bool {
+        self.stack.is_empty()
     }
 }
 
@@ -216,7 +241,7 @@ impl AutoMgrStack {
     }
 
     /// Returns true if the stack is empty (has no states)
-    pub fn is_empty(&mut self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.0.len() == 0
     }
 
@@ -282,6 +307,15 @@ impl StepOutput {
         Self {
             action: StackAction::None,
             data: StackData::None,
+        }
+    }
+}
+
+impl StackAction {
+    pub fn is_some(&self) -> bool {
+        match self {
+            StackAction::None => false,
+            _ => true
         }
     }
 }
