@@ -1,0 +1,12 @@
+1.0: {
+    "Autonomy": {
+        "Manouvre": {
+            "Ackerman": {
+                "speed_ms": 0.1,
+                "curv_m": 1.0,
+                "crab_rad": 0.0,
+                "dist_m": 1.0
+            }
+        }
+    }
+};

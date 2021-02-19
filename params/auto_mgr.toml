@@ -1,3 +1,25 @@
+[terrain_map_params]
+
+cell_size = [0.1, 0.1]
+
+num_cells = [30, 20]
+
+centre_position = [15.0, 10.0]
+
+[wait_new_pose]
+
+max_wait_time_s = 10.0
+
+[stop]
+
+min_stationary_time_s = 5.0
+
+# 10 cm
+position_delta_max_magn_m = 0.1
+
+# 10 degrees
+attitude_delta_max_magn_rad = 0.174533
+
 [mnvr_mode_params]
 
 linear_distance_threshold_m = 0.05

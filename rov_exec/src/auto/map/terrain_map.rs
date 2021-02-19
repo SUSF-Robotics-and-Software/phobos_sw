@@ -20,9 +20,9 @@ pub struct TerrainMap(pub(super) GridMap<Option<f64>, TerrainMapLayer>);
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct TerrainMapParams {
-    pub cell_size: Point2<f64>, 
-    pub num_cells: Point2<usize>, 
-    pub centre_position: Point2<f64>
+    pub cell_size: (f64, f64), 
+    pub num_cells: (usize, usize), 
+    pub centre_position: (f64, f64)
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -59,9 +59,9 @@ impl TerrainMap {
 
     pub fn new_from_params(params: &TerrainMapParams) -> Result<Self, GridMapError> {
         Self::new(
-            params.cell_size.clone(),
-            params.num_cells.clone(),
-            params.centre_position.clone()
+            Point2::new(params.cell_size.0, params.cell_size.1),
+            Point2::new(params.num_cells.0, params.num_cells.1),
+            Point2::new(params.centre_position.0, params.centre_position.1),
         )
     }
 

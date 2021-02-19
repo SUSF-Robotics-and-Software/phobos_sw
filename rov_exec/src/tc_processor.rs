@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 // External
-use log::{debug, warn};
+use log::debug;
 
 // Internal
 use comms_if::tc::Tc;
@@ -20,7 +20,7 @@ use crate::data_store::{DataStore, SafeModeCause};
 /// Execute a telecommand.
 ///
 /// Mutates the datastore to send commands to different modules.
-pub(crate) fn exec(ds: &mut DataStore, tc: &Tc) {
+pub fn exec(ds: &mut DataStore, tc: &Tc) {
 
     // Handle different Tcs
     match tc {

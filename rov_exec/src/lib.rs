@@ -38,3 +38,6 @@ pub mod mech_client;
 /// Simulation client - provides data directly from the simulation (webots)
 #[cfg(feature = "sim")]
 pub mod sim_client;
+
+/// TC processor module - executes telecommands and mutates the datastore accordingly
+pub mod tc_processor;

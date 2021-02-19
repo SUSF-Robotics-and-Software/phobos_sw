@@ -7,14 +7,24 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::{env, time::Instant};
+use std::{env, thread, time::{Duration, Instant}};
 
 use color_eyre::{Result, eyre::{eyre, WrapErr}};
 use comms_if::tc::{Tc, auto::AutoCmd};
-use log::{debug, info};
+use log::{debug, info, warn};
 
-use rov_lib::auto::AutoMgr;
+use rov_lib::{auto::AutoMgr, data_store::DataStore, tc_processor};
 use util::{host, logger::{LevelFilter, logger_init}, script_interpreter::{PendingTcs, ScriptInterpreter}, session::Session};
+
+// ------------------------------------------------------------------------------------------------
+// CONSTANTS
+// ------------------------------------------------------------------------------------------------
+
+/// Target period of one cycle.
+const CYCLE_PERIOD_S: f64 = 0.10;
+
+/// Number of cycles per second
+const CYCLE_FREQUENCY_HZ: f64 = 1.0 / CYCLE_PERIOD_S;
 
 // ------------------------------------------------------------------------------------------------
 // MAIN
@@ -75,6 +85,8 @@ fn main() -> Result<()> {
 
     // ---- MODULE INIT ----
 
+    let mut ds = DataStore::default();
+
     let mut auto_mgr = AutoMgr::init("auto_mgr.toml")
         .wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
@@ -88,18 +100,17 @@ fn main() -> Result<()> {
         // Get cycle start time
         let cycle_start_instant = Instant::now();
 
-        // ---- TELECOMMAND PROCESSING ----
+        // Clear items that need wiping at the start of the cycle
+        ds.cycle_start(CYCLE_FREQUENCY_HZ);
 
-        let mut auto_tc: Option<AutoCmd>;
+        // ---- TELECOMMAND PROCESSING ----
         
         match script_interpreter.get_pending_tcs() {
             PendingTcs::None => (),
             PendingTcs::Some(tc_vec) => {
                 for tc in tc_vec.iter() {
-                    // TODO: add support for non-auto tcs
-                    match tc {
-                        Tc::Autonomy(a) => auto_tc = Some(a.clone()),
-                        _ => auto_tc = None
+                    for tc in tc_vec.iter() {
+                        tc_processor::exec(&mut ds, tc);
                     }
                 }
             }
@@ -110,6 +121,37 @@ fn main() -> Result<()> {
             }
         }
 
+        // ---- AUTONOMY PROCESSING ----
+
+        // Step the autonomy manager
+        let _auto_loco_ctrl_cmd = auto_mgr.step(ds.auto_cmd.take())
+            .wrap_err("Error stepping the autonomy manager")?;
+
+        // ---- CYCLE MANAGEMENT ----
+
+        let cycle_dur = Instant::now() - cycle_start_instant;
+
+        // Get sleep duration
+        match Duration::from_secs_f64(CYCLE_PERIOD_S)
+            .checked_sub(cycle_dur)
+        {
+            Some(d) => {
+                ds.num_consec_cycle_overruns = 0;
+                thread::sleep(d);
+            },
+            None => {
+                warn!(
+                    "Cycle overran by {:.06} s", 
+                    cycle_dur.as_secs_f64() 
+                        - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
+                );
+                ds.num_consec_cycle_overruns += 1;
+
+            }
+        }
+
+        // Increment cycle counter
+        ds.num_cycles += 1;
     }
 
     Ok(())
