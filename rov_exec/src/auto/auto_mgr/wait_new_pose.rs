@@ -14,6 +14,7 @@ use super::{
     StackData, 
     StepOutput, 
     params::AutoMgrParams,
+    states::Pause,
 };
 use comms_if::tc::auto::AutoCmd;
 use log::{debug, error, warn};
@@ -64,7 +65,7 @@ impl WaitNewPose {
         // Check for pause or abort commands
         match cmd {
             Some(AutoCmd::Pause) => return Ok(StepOutput {
-                action: StackAction::PushAbove(AutoMgrState::Pause),
+                action: StackAction::PushAbove(AutoMgrState::Pause(Pause::new())),
                 data: StackData::None
             }),
             Some(AutoCmd::Abort) => return Ok(StepOutput {

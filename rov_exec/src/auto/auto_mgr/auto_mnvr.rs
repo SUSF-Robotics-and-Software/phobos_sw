@@ -21,7 +21,8 @@ use super::{
     params::AutoMgrParams, 
     states::{
         WaitNewPose,
-        Stop
+        Stop,
+        Pause
     }
 };
 
@@ -76,10 +77,14 @@ impl AutoMnvr {
     ) ->  Result<StepOutput, AutoMgrError> {
         // Check for pause or abort commands
         match cmd {
-            Some(AutoCmd::Pause) => return Ok(StepOutput {
-                action: StackAction::PushAbove(AutoMgrState::Pause),
-                data: StackData::None
-            }),
+            Some(AutoCmd::Pause) => {
+                // Set loco_ctrl_cmd_issued to false, so that when we resume we'll resend it
+                self.loco_ctrl_cmd_issued = false;
+                return Ok(StepOutput {
+                    action: StackAction::PushAbove(AutoMgrState::Pause(Pause::new())),
+                    data: StackData::None
+                })
+            },
             Some(AutoCmd::Abort) => return Ok(StepOutput {
                 action: StackAction::Abort,
                 data: StackData::None

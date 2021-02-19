@@ -9,7 +9,7 @@
 
 mod auto_mnvr;
 // mod off;
-// mod pause;
+mod pause;
 mod params;
 mod stop;
 mod wait_new_pose;
@@ -30,7 +30,7 @@ use super::{AutoMgrError, loc::{LocMgr, LocSource}, map::{TerrainMap, TerrainMap
 
 pub mod states {
     // pub use super::off::Off;
-    // pub use super::pause::Pause;
+    pub use super::pause::Pause;
     pub use super::stop::Stop;
     pub use super::auto_mnvr::AutoMnvr;
     pub use super::wait_new_pose::WaitNewPose;
@@ -108,7 +108,7 @@ pub struct StepOutput {
 #[derive(Debug)]
 pub enum AutoMgrState {
     Stop(Stop),
-    Pause,
+    Pause(Pause),
     WaitNewPose(WaitNewPose),
     ImgStop,
     AutoMnvr(AutoMnvr),
@@ -173,6 +173,11 @@ impl AutoMgr {
                     &mut self.persistant, 
                     cmd
                 )?,
+                AutoMgrState::Pause(pause) => pause.step(
+                    &self.params,
+                    &mut self.persistant,
+                    cmd
+                )?,
                 AutoMgrState::WaitNewPose(wait) => wait.step(
                     &self.params, 
                     &mut self.persistant, 
@@ -180,7 +185,7 @@ impl AutoMgr {
                 )?,
                 AutoMgrState::AutoMnvr(auto_mnvr) => auto_mnvr.step(
                     &self.params, 
-                    &mut self.persistant, 
+                    &mut self.persistant,
                     cmd
                 )?,
                 _ => unimplemented!("The current state ({}) is unimplemented", top)
@@ -294,7 +299,7 @@ impl Display for AutoMgrState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AutoMgrState::Stop(_) => write!(f, "AutoMgrState::Stop"),
-            AutoMgrState::Pause => write!(f, "AutoMgrState::Pause"),
+            AutoMgrState::Pause(_) => write!(f, "AutoMgrState::Pause"),
             AutoMgrState::WaitNewPose(_) => write!(f, "AutoMgrState::WaitNewPose"),
             AutoMgrState::ImgStop => write!(f, "AutoMgrState::ImgStop"),
             AutoMgrState::AutoMnvr(_) => write!(f, "AutoMgrState::AutoMnvr"),
