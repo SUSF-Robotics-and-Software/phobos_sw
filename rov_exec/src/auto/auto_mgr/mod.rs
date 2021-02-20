@@ -22,7 +22,7 @@ use std::fmt::Display;
 
 use self::params::AutoMgrParams;
 
-use super::{AutoMgrError, loc::{LocMgr, LocSource}, map::{TerrainMap, TerrainMapParams}};
+use super::{loc::{LocMgr, LocSource}, map::{GridMapError, TerrainMap, TerrainMapParams}};
 
 // ------------------------------------------------------------------------------------------------
 // EXPORTS
@@ -104,6 +104,32 @@ pub struct StepOutput {
 // ------------------------------------------------------------------------------------------------
 // ENUMS
 // ------------------------------------------------------------------------------------------------
+
+/// Errors that can occur in the autonomy manager.
+#[derive(Debug, thiserror::Error)]
+pub enum AutoMgrError {
+
+    #[error("Failed to load AutoMgrParams: {0:?}")]
+    ParamLoadError(util::params::LoadError),
+
+    #[error("Attempted to resume from pause but no mode was found to switch to, aborting.")]
+    NoModeToResumeTo,
+
+    #[error("Could not get a pose from the localisation module.")]
+    PoseUnavailable,
+
+    #[error("State of the Mnvr mode is not set.")]
+    MnvrStateNotInit,
+
+    // #[error("Navigation error: {0}")]
+    // NavError(NavError),
+
+    #[error("Navigation control type hasn't been initialised")]
+    NavCtrlStateNotInit,
+
+    #[error("Could not initialise the global terrain map")]
+    InitGlobalTerrMapError(GridMapError)
+}
 
 #[derive(Debug)]
 pub enum AutoMgrState {

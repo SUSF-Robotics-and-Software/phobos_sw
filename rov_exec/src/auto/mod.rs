@@ -42,94 +42,14 @@ pub mod loc;
 /// Trajectory control module - keeps the rover on the given path
 pub mod traj_ctrl;
 
-// /// AutoMgr Params
-// pub mod params;
-
 /// Defines path types
 pub mod path;
 
 /// Navigation module - provides path planning using cost maps
-// pub mod nav;
+pub mod nav;
 
 /// Map module - provides implementations for terrain and cost maps
 pub mod map;
-
-// /// Manouvre mode module.
-// mod mode_mnvr;
-
-// /// Check mode module.
-// mod mode_check;
-
-
-// ------------------------------------------------------------------------------------------------
-// STRUCTS
-// ------------------------------------------------------------------------------------------------
-
-// /// The autonomy manager.
-// pub struct AutoMgr {
-//     params: params::Params,
-
-//     mode: AutoMgrMode,
-
-//     auto_cmd: Option<AutoCmd>,
-
-//     output_mnvr_cmd: Option<MnvrCmd>,
-
-//     /// The mode that a pause was executed from, and the mode that the manager will resume to.
-//     paused_from_mode: Option<AutoMgrMode>,
-
-//     /// State related to the Mnvr mode.
-//     mnvr_state: Option<MnvrState>,
-
-//     /// Navigation controller for current mode
-//     nav_ctrl: Option<NavCtrlType>,
-
-//     /// Number of cycles spent in the current mode
-//     cycles_in_current_mode: u128
-// }
-
-// ------------------------------------------------------------------------------------------------
-// ENUMS
-// ------------------------------------------------------------------------------------------------
-
-// /// The mode of the autonomny manager
-// #[derive(Debug, Copy, Clone)]
-// pub enum AutoMgrMode {
-//     Off,
-//     Pause,
-//     Stop,
-//     ImgStop,
-//     Mnvr,
-//     Follow,
-//     Check,
-//     Goto
-// }
-
-/// Errors that can occur in the autonomy manager.
-#[derive(Debug, thiserror::Error)]
-pub enum AutoMgrError {
-
-    #[error("Failed to load AutoMgrParams: {0:?}")]
-    ParamLoadError(util::params::LoadError),
-
-    #[error("Attempted to resume from pause but no mode was found to switch to, aborting.")]
-    NoModeToResumeTo,
-
-    #[error("Could not get a pose from the localisation module.")]
-    PoseUnavailable,
-
-    #[error("State of the Mnvr mode is not set.")]
-    MnvrStateNotInit,
-
-    // #[error("Navigation error: {0}")]
-    // NavError(NavError),
-
-    #[error("Navigation control type hasn't been initialised")]
-    NavCtrlStateNotInit,
-
-    #[error("Could not initialise the global terrain map")]
-    InitGlobalTerrMapError(GridMapError)
-}
 
 // ------------------------------------------------------------------------------------------------
 // IMPLS

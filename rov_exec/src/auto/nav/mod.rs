@@ -12,26 +12,10 @@
 //!
 
 // ------------------------------------------------------------------------------------------------
-// MODULES
-// ------------------------------------------------------------------------------------------------
-
-pub mod check_nav_ctrl;
-pub mod follow_nav_ctrl;
-pub mod goto_nav_ctrl;
-
-// ------------------------------------------------------------------------------------------------
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use crate::auto::{
-    map::TerrainMap,
-    loc::Pose,
-    AutoMgrMode
-};
-
-pub use check_nav_ctrl::CheckNavCtrl;
-
-use super::{AutoMgrError, map::GridMapError};
+use super::map::GridMapError;
 
 // ------------------------------------------------------------------------------------------------
 // ENUMS
@@ -44,62 +28,4 @@ pub enum NavError {
 
     #[error("An error occured while calculating cost map from terrain map")]
     CostMapCalcFailed(GridMapError)
-}
-
-#[derive(Clone)]
-pub enum NavCtrlType {
-    Check(CheckNavCtrl),
-}
-
-// ------------------------------------------------------------------------------------------------
-// TRAITS
-// ------------------------------------------------------------------------------------------------
-
-pub trait NavCtrl {
-    /// Step the controller's logic, and return an optional error
-    fn step(&mut self) -> Result<(), NavError>;
-
-    /// Set the controller's terrain map for use in the next [`step`].
-    fn set_terrain_map(&mut self, terrain_map: &TerrainMap);
-
-    /// Set the pose the controller will use for it's next [`step`].
-    fn set_pose(&mut self, pose: &Pose);
-
-    /// Get the AutoMgrMode requested by the controller.
-    /// 
-    /// If None no mode change is requested. Otherwise AutoMgr should change into the requested
-    /// mode. 
-    fn requested_auto_mgr_mode(&self) -> Option<AutoMgrMode>;
-}
-
-impl From<NavError> for AutoMgrError {
-    fn from(nav_error: NavError) -> Self {
-        Self::NavError(nav_error)
-    }
-}
-
-impl NavCtrl for NavCtrlType {
-    fn step(&mut self) -> Result<(), NavError> {
-        match self {
-            NavCtrlType::Check(ref mut c) => c.step()
-        }
-    }
-
-    fn set_terrain_map(&mut self, terrain_map: &TerrainMap) {
-        match self {
-            NavCtrlType::Check(ref mut c) => c.set_terrain_map(terrain_map)
-        }
-    }
-
-    fn set_pose(&mut self, pose: &Pose) {
-        match self {
-            NavCtrlType::Check(ref mut c) => c.set_pose(pose)
-        }
-    }
-
-    fn requested_auto_mgr_mode(&self) -> Option<AutoMgrMode> {
-        match self {
-            NavCtrlType::Check(ref c) => c.requested_auto_mgr_mode()
-        }
-    }
 }

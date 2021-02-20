@@ -8,8 +8,8 @@ use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
 use log::{info, warn};
 use serde::Deserialize;
 use util::session;
-use crate::{auto::{AutoMgrError, loc::Pose}};
-use super::{AutoMgrPersistantData, AutoMgrState, StackAction, StackData, StepOutput, params::AutoMgrParams, states::WaitNewPose};
+use crate::auto::loc::Pose;
+use super::{AutoMgrPersistantData, AutoMgrError, AutoMgrState, StackAction, StackData, StepOutput, params::AutoMgrParams, states::WaitNewPose};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
