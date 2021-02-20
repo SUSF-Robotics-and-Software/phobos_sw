@@ -8,21 +8,21 @@
 // ------------------------------------------------------------------------------------------------
 
 mod auto_mnvr;
-// mod off;
 mod pause;
 mod params;
 mod stop;
 mod wait_new_pose;
+mod follow;
 
 // ------------------------------------------------------------------------------------------------
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::fmt::Display;
+use std::{fmt::Display, unimplemented};
 
 use self::params::AutoMgrParams;
 
-use super::{loc::{LocMgr, LocSource}, map::{GridMapError, TerrainMap, TerrainMapParams}};
+use super::{loc::{LocMgr, LocSource}, map::{GridMapError, TerrainMap, TerrainMapParams}, path::PathError, traj_ctrl::TrajCtrlError};
 
 // ------------------------------------------------------------------------------------------------
 // EXPORTS
@@ -34,10 +34,11 @@ pub mod states {
     pub use super::stop::Stop;
     pub use super::auto_mnvr::AutoMnvr;
     pub use super::wait_new_pose::WaitNewPose;
+    pub use super::follow::Follow;
 }
 
 use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
-use log::{info, warn};
+use log::{error, info, warn};
 use states::*;
 
 // ------------------------------------------------------------------------------------------------
@@ -128,7 +129,13 @@ pub enum AutoMgrError {
     NavCtrlStateNotInit,
 
     #[error("Could not initialise the global terrain map")]
-    InitGlobalTerrMapError(GridMapError)
+    InitGlobalTerrMapError(GridMapError),
+
+    #[error("Error in TrajCtrl: {0}")]
+    TrajCtrlError(TrajCtrlError),
+
+    #[error("Error in Path processing: {0}")]
+    PathError(PathError)
 }
 
 #[derive(Debug)]
@@ -138,7 +145,7 @@ pub enum AutoMgrState {
     WaitNewPose(WaitNewPose),
     ImgStop,
     AutoMnvr(AutoMnvr),
-    Follow,
+    Follow(Follow),
     Check,
     Goto
 }
@@ -193,34 +200,16 @@ impl AutoMgr {
         // Step the top, and get the action required by the state
         let output = match top {
             // Call the top's step function
-            Some(top) => match top {
-                AutoMgrState::Stop(stop) => stop.step(
-                    &self.params, 
-                    &mut self.persistant, 
-                    cmd
-                )?,
-                AutoMgrState::Pause(pause) => pause.step(
-                    &self.params,
-                    &mut self.persistant,
-                    cmd
-                )?,
-                AutoMgrState::WaitNewPose(wait) => wait.step(
-                    &self.params, 
-                    &mut self.persistant, 
-                    cmd
-                )?,
-                AutoMgrState::AutoMnvr(auto_mnvr) => auto_mnvr.step(
-                    &self.params, 
-                    &mut self.persistant,
-                    cmd
-                )?,
-                _ => unimplemented!("The current state ({}) is unimplemented", top)
-            },
+            Some(top) => top.step(&self.params, &mut self.persistant, cmd),
             // If there is no top the mgr is off, but we can still accept some commands to change
             // state. 
             None => match cmd {
                 Some(AutoCmd::Manouvre(m)) => {
                     self.stack.push_above(AutoMgrState::AutoMnvr(AutoMnvr::new(m)));
+                    StepOutput::none()
+                }
+                Some(AutoCmd::Follow(p)) => {
+                    self.stack.push_above(AutoMgrState::Follow(Follow::new(p)?));
                     StepOutput::none()
                 }
                 Some(_) => {
@@ -329,9 +318,60 @@ impl Display for AutoMgrState {
             AutoMgrState::WaitNewPose(_) => write!(f, "AutoMgrState::WaitNewPose"),
             AutoMgrState::ImgStop => write!(f, "AutoMgrState::ImgStop"),
             AutoMgrState::AutoMnvr(_) => write!(f, "AutoMgrState::AutoMnvr"),
-            AutoMgrState::Follow => write!(f, "AutoMgrState::Follow"),
+            AutoMgrState::Follow(_) => write!(f, "AutoMgrState::Follow"),
             AutoMgrState::Check => write!(f, "AutoMgrState::Check"),
             AutoMgrState::Goto => write!(f, "AutoMgrState::Goto"),
+        }
+    }
+}
+
+impl AutoMgrState {
+    fn step(
+        &mut self, 
+        params: &AutoMgrParams,
+        persistant: &mut AutoMgrPersistantData, 
+        cmd: Option<AutoCmd>
+    ) -> StepOutput {
+        let out = match self {
+            AutoMgrState::Stop(stop) => stop.step(
+                params,
+                persistant,
+                cmd
+            ),
+            AutoMgrState::Pause(pause) => pause.step(
+                params,
+                persistant,
+                cmd
+            ),
+            AutoMgrState::WaitNewPose(wait) => wait.step(
+                params,
+                persistant,
+                cmd
+            ),
+            AutoMgrState::AutoMnvr(auto_mnvr) => auto_mnvr.step(
+                params,
+                persistant,
+                cmd
+            ),
+            AutoMgrState::Follow(follow) => follow.step(
+                params,
+                persistant,
+                cmd
+            ),
+            _ => unimplemented!()
+        };
+
+        // If an output is an error, we print it to the screen but we actually abort, keeping the
+        // system working
+        match out {
+            Ok(o) => o,
+            Err(e) => {
+                error!("{}", e);
+                StepOutput {
+                    action: StackAction::Abort,
+                    data: StackData::None
+                }
+            }
         }
     }
 }

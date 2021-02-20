@@ -18,9 +18,9 @@ use super::loc::Pose;
 // ---------------------------------------------------------------------------
 
 /// A path defining the desired trajectory of the rover.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Path {
-    points_m_lm: Vec<Vector2<f64>>
+    points_m: Vec<Vector2<f64>>
 }
 
 /// A segment between two path points
@@ -28,10 +28,10 @@ pub struct Path {
 pub struct PathSegment {
 
     /// The target of the segment
-    pub target_m_lm: Vector2<f64>,
+    pub target_m: Vector2<f64>,
 
     /// The start point of the segment
-    pub start_m_lm: Vector2<f64>,
+    pub start_m: Vector2<f64>,
 
     /// The length of the segment
     pub length_m: f64,
@@ -43,7 +43,10 @@ pub struct PathSegment {
     pub intercept_m: f64,
 
     /// The heading (angle to the +ve x axis) of the segment
-    pub heading_rad: f64
+    pub heading_rad: f64,
+
+    /// Unit vector pointing in the direction of the segment
+    pub direction: Vector2<f64>
 }
 
 /// A sequence of reduced (curv only) Ackermann manouvres which describes a path.
@@ -65,7 +68,10 @@ pub enum PathError {
     InvalidPathSpec,
 
     #[error("The PathSpec provided wasn't compatible with the type to be parsed")]
-    UnexpectedPathSpecType
+    UnexpectedPathSpecType,
+
+    #[error("Attempted to create a path from an empty sequence")]
+    EmptySequence
 }
 
 // ---------------------------------------------------------------------------
@@ -76,7 +82,19 @@ impl Path {
     /// Create a new empty path
     pub fn new_empty() -> Self {
         Path {
-            points_m_lm: Vec::new()
+            points_m: Vec::new()
+        }
+    }
+
+    /// Convert from a [`PathSpec`] object into a new path.
+    pub fn from_path_spec(spec: PathSpec, pose: &Pose) -> Result<Self, PathError> {
+        match spec {
+            PathSpec::AckSeq { .. } => {
+                AckSequence::from_path_spec(spec)?.to_path(pose)
+            }
+            PathSpec::File { path } => {
+                unimplemented!()
+            }
         }
     }
 
@@ -91,12 +109,12 @@ impl Path {
     ) -> Option<PathSegment> {
 
         // If the path is invalid (not enough points)
-        if self.points_m_lm.len() < 2 {
+        if self.points_m.len() < 2 {
             return None;
         }
 
         // Catch invalid targets
-        if target_index == 0 || target_index > self.points_m_lm.len() {
+        if target_index == 0 || target_index > self.points_m.len() {
             return None;
         }
 
@@ -104,17 +122,17 @@ impl Path {
         let mut seg = PathSegment::default();
 
         // Set the target and start
-        seg.target_m_lm = self.points_m_lm[target_index];
-        seg.start_m_lm = self.points_m_lm[target_index - 1];
+        seg.target_m = self.points_m[target_index];
+        seg.start_m = self.points_m[target_index - 1];
 
         // Set the length of the segment.
         //
         // The unwrap here is safe since we know both start and target have
         // the same dimentions.
-        seg.length_m = (seg.target_m_lm - seg.start_m_lm).norm();
+        seg.length_m = (seg.target_m - seg.start_m).norm();
 
-        let dx = seg.target_m_lm[0] - seg.start_m_lm[0];
-        let dy = seg.target_m_lm[1] - seg.start_m_lm[1];
+        let dx = seg.target_m[0] - seg.start_m[0];
+        let dy = seg.target_m[1] - seg.start_m[1];
         // Slope is the change in y over the change in x
         seg.slope_m = dy/dx;
 
@@ -122,8 +140,14 @@ impl Path {
         seg.heading_rad = dy.atan2(dx);
 
         // The intercept is then targ_y - slope * targ_x
-        seg.intercept_m = seg.target_m_lm[1]  
-            - seg.slope_m * seg.target_m_lm[0];
+        seg.intercept_m = seg.target_m[1]  
+            - seg.slope_m * seg.target_m[0];
+
+        // Direction vector is [dx, dy] normalized by the length
+        seg.direction = Vector2::new(
+            dx / seg.length_m,
+            dy / seg.length_m
+        );
 
         // Return the segment
         Some(seg)
@@ -135,14 +159,14 @@ impl Path {
     pub fn get_length(&self) -> Option<f64> {
         
         // If the path is invalid (not enough points)
-        if self.points_m_lm.len() < 2 {
+        if self.points_m.len() < 2 {
             return None;
         }
 
         let mut length_m = 0f64;
 
         // Length is defined as the sum of the length of all path segments
-        for i in 1..self.points_m_lm.len() {
+        for i in 1..self.points_m.len() {
             length_m += self.get_segment_to_target(i)
                 .unwrap()
                 .length_m;
@@ -153,11 +177,11 @@ impl Path {
 
     /// Get the number of points in the path
     pub fn get_num_points(&self) -> usize {
-        self.points_m_lm.len()
+        self.points_m.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.points_m_lm.len() == 0
+        self.points_m.len() == 0
     }
 }
 
@@ -165,10 +189,10 @@ impl AckSequence {
     /// Convert this sequence into a standard [`Path`].
     ///
     /// If the sequence is empty `None` is returned.
-    pub fn to_path(self, start_pose: &Pose) -> Option<Path> {
+    pub fn to_path(self, start_pose: &Pose) -> Result<Path, PathError> {
         // If sequence is empty just return None
         if self.seq.len() == 0 {
-            return None
+            return Err(PathError::EmptySequence)
         }
 
         // Create new empty path
@@ -187,7 +211,7 @@ impl AckSequence {
                     )
                 },
                 false => {
-                    let last = path.points_m_lm.last().unwrap();
+                    let last = path.points_m.last().unwrap();
                     (
                         last[0], 
                         last[1], 
@@ -198,11 +222,11 @@ impl AckSequence {
                     )
                 }
             };
-            
+
             // Precalculate the anti-heading (head + pi/2)
             let anti_head_rad = head_rad + std::f64::consts::PI/2.0;
 
-            // Get a linearly spaced vector of s values (dist along ack)
+            // Get a linearly spaced vector of s values (dist along arc of the ackermann)
             let num_s = (dist_m / self.point_sep_m).ceil() as usize;
             let mut s_values_m = Vec::with_capacity(num_s);
             for i in 0..num_s {
@@ -211,17 +235,31 @@ impl AckSequence {
 
             // Iterate over values of s, calculating a new point for the path for each one
             for s_m in s_values_m {
-                // Calculate the -sk - head value
-                let sk_phi = -s_m * curv_m - head_rad;
+                // If the curvature is approximately zero we should move in a straight line, not in
+                // a curv (the 1/curv_m below will mess this up massively).
+                if curv_m.abs() <= std::f64::EPSILON {
+                    path.points_m.push(Vector2::new(
+                        x_0 + s_m * head_rad.cos(),
+                        y_0 + s_m * head_rad.sin()
+                    ))
+                }
+                else {
+    
+                    // Calculate the -sk - head value
+                    let sk_phi = -s_m * curv_m - head_rad;
+    
+                    // Move in an arc about the centre of rotation (which is 1/curv away along the
+                    // anti_heading direction (note -ve curv will put this on the other side)).
+                    path.points_m.push(Vector2::new(
+                        x_0 + 1.0/curv_m*(anti_head_rad.cos() - sk_phi.sin()),
+                        y_0 + 1.0/curv_m*(anti_head_rad.sin() - sk_phi.cos())
+                    ));
 
-                path.points_m_lm.push(Vector2::new(
-                    x_0 + 1.0/curv_m*(anti_head_rad.cos() - sk_phi.sin()),
-                    y_0 + 1.0/curv_m*(anti_head_rad.sin() - sk_phi.cos())
-                ));
+                }
             }
         }
 
-        Some(path)
+        Ok(path)
     }
 
     pub fn from_path_spec(path_spec: PathSpec) -> Result<Self, PathError> {
@@ -256,7 +294,8 @@ mod test {
         let ack_seq = AckSequence {
             seq: vec![
                 (1.0, 1.57),
-                (0.5, 2.0)
+                (0.5, 2.0),
+                (0.0, 1.0)
             ],
             point_sep_m: 0.05
         };

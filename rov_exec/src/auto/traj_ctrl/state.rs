@@ -8,7 +8,8 @@
 use super::*;
 use crate::auto::{loc::Pose, path::*};
 use comms_if::tc::loco_ctrl::MnvrCmd;
-use nalgebra::Vector2;
+use log::{debug, info, warn};
+use nalgebra::{Vector2, Vector3};
 use util::{
     params,
     maths::norm
@@ -18,6 +19,7 @@ use util::{
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
 
+#[derive(Debug)]
 pub struct TrajCtrl {
     params: Params,
 
@@ -42,7 +44,7 @@ pub struct TrajCtrl {
 }
 
 /// The status report containing various error flags and monitoring quantities.
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct StatusReport {
     /// The lateral error to the current path segment
     pub lat_error_m: f64,
@@ -57,7 +59,13 @@ pub struct StatusReport {
     pub lat_error_limit_exceeded: bool,
 
     /// If true the limit on the heading error has been exceeded
-    pub head_error_limit_exceeded: bool
+    pub head_error_limit_exceeded: bool,
+
+    /// True if the requested path sequence has finished
+    pub sequence_finished: bool,
+
+    /// True if the sequence has been aborted
+    pub sequence_aborted: bool
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +295,7 @@ impl TrajCtrl {
         // switch to the squence finished mode and leave execution here.
         if self.path_index >= path_seq.len() {
             self.mode = TrajCtrlMode::SequenceFinished;
+            info!("Sequence finished");
             return Ok(())
         }
 
@@ -299,6 +308,9 @@ impl TrajCtrl {
             .get_segment_to_target(self.target_point_index)
             .unwrap();
 
+        debug!("Current pose: {:?}", pose);
+        debug!("Current target: {:?}", segment.target_m);
+
         // Get the command
         let mnvr_cmd = self.controllers.get_ackerman_cmd(
             &segment, &pose, &mut self.report, &self.params);
@@ -308,6 +320,12 @@ impl TrajCtrl {
             || 
             self.report.head_error_limit_exceeded 
         {
+            warn!("Limits exceeded:");
+            info!("Lateral error = {} m", self.report.lat_error_m);
+            info!("Heading error = {} rad", self.report.head_error_rad);
+
+            self.report.sequence_aborted = true;
+
             // Switch to sequence exceeded mode immediately so that we are 
             // stopped as close to the path as possible.
             self.mode = TrajCtrlMode::SequenceFinished;
@@ -343,12 +361,16 @@ impl TrajCtrl {
             None => return Err(TrajCtrlError::NoPose)
         };
 
-        // Start by calculating the heading error
+        // Start by getting the segment we want to align to
         let segment = path_seq[self.path_index]
             .get_segment_to_target(self.target_point_index)
             .unwrap();
-        let head_err_rad = pose.get_heading() 
-            - segment.slope_m.atan();
+        
+        // Get the vector pointing in the pose direction (in 2D)
+        let pose_dir = pose.forward2();
+
+        // Heading error is then the angle between the two direction vectors
+        let head_err_rad = segment.direction.angle(&pose_dir);
         
         // If the error is less than the threshold the adjustment is complete
         if head_err_rad.abs() < self.params.head_adjust_threshold_rad {
@@ -358,11 +380,23 @@ impl TrajCtrl {
             self.mode = TrajCtrlMode::FollowPath;
         }
         else {
-            // Set the turn speed. The sense of the heading error is the same
-            // as that of the turn rate, therefore if there is a positive error
-            // we need a negative turn rate to decrease that error.
+            // To determine which way to steer we need to know if the segment is to the left or
+            // right of the rover, which we can do using the cross product. If we take the 2D and
+            // extend them to 3D (with z = 0), z will be positive if the segment is to the left,
+            // and negative if to the right. We therefore take the sign of the cross.z and multiply
+            // it by our speed, giving us the rotation direction (speed is +ve ccw about Z)
+            let cross = Vector3::new(
+                pose_dir[0],
+                pose_dir[1],
+                0.0
+            ).cross(&Vector3::new(
+                segment.direction[0],
+                segment.direction[1],
+                0.0
+            ));
+
             self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
-                rate_rads: -1f64 * head_err_rad.signum() * self.params.head_adjust_rate_rads
+                rate_rads: cross[0].signum() * self.params.head_adjust_rate_rads
             });
         }
 
@@ -383,6 +417,9 @@ impl TrajCtrl {
         self.path_sequence = None;
         self.path_index = 0;
         self.target_point_index = 0;
+
+        // Set the sequence as finished
+        self.report.sequence_finished = true;
 
         // Switch to NotExecuting mode
         self.mode = TrajCtrlMode::Off;
@@ -437,17 +474,17 @@ impl TrajCtrl {
         // start->target. If the angle is 0 the distance is positive, otherwise
         // it's negative.
         let mut long_err_m = (
-            Vector2::from(isect_m_lm) - segment.target_m_lm
+            Vector2::from(isect_m_lm) - segment.target_m
         ).norm();
         
         // Get vectors
         let isect_vec = [
-            segment.target_m_lm[0] - isect_m_lm[0],
-            segment.target_m_lm[1] - isect_m_lm[1]
+            segment.target_m[0] - isect_m_lm[0],
+            segment.target_m[1] - isect_m_lm[1]
         ];
         let seg_vec = [
-            segment.target_m_lm[0] - segment.start_m_lm[0],
-            segment.target_m_lm[1] - segment.start_m_lm[0]
+            segment.target_m[0] - segment.start_m[0],
+            segment.target_m[1] - segment.start_m[0]
         ];
 
         // Get dot product

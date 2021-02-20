@@ -15,7 +15,7 @@ pub use params::LocMgrParams;
 // ---------------------------------------------------------------------------
 
 use serde::Deserialize;
-use nalgebra::{Vector3, UnitQuaternion};
+use nalgebra::{UnitQuaternion, Vector2, Vector3};
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -67,6 +67,18 @@ impl Pose {
     pub fn get_heading(&self) -> f64 {
         // TODO: verify this
         self.attitude_q_lm.euler_angles().2
+    }
+
+    /// Get the 3D unit vector in the forward direction of the rover.
+    pub fn forward3(&self) -> Vector3<f64> {
+        self.attitude_q_lm * Vector3::new(1.0, 0.0, 0.0)
+    }
+
+    /// Get the 2D unit vector in the forward direction of the rover.
+    pub fn forward2(&self) -> Vector2<f64> {
+        let f3 = self.forward3();
+        let f2 = Vector2::new(f3[0], f3[1]);
+        f2 / f2.norm()
     }
 }
 

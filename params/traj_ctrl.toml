@@ -1,0 +1,95 @@
+# ----------------------------------------------------------------------------
+# LATERAL CONTROLLERS
+# ----------------------------------------------------------------------------
+
+# Lateral controller proportional gain
+# TODO: Tune
+lat_k_p = 1.0
+
+# Lateral controller integral gain
+# TODO: Tune
+lat_k_i = 0.0
+
+# Lateral controller derivative gain
+# TODO: Tune
+lat_k_d = 0.0
+
+# ----------------------------------------------------------------------------
+# HEADING CONTROLLERS
+# ----------------------------------------------------------------------------
+
+# Heading controller proportional gain
+# TODO: Tune
+head_k_p = 1.0
+
+# Heading controller integral gain
+# TODO: Tune
+head_k_i = 0.0
+
+# Heading controller derivative gain
+# TODO: Tune
+head_k_d = 0.0
+
+# ----------------------------------------------------------------------------
+# CURV-SPEED MAP
+# ----------------------------------------------------------------------------
+
+# Curvature to speed map coefficients
+#
+# This is an array of polynomial coefficients, highest order first.
+# TODO: Verify this
+curv_speed_map_coeffs = [1.0, 0.0]
+
+# ----------------------------------------------------------------------------
+# ERROR LIMITS
+# ----------------------------------------------------------------------------
+
+# The limit on lateral error. Above this limit the path sequence will
+# be aborted.
+lat_error_limit_m = 0.2
+
+# The limit on heading error. Above this limit the path sequence will
+# be aborted.
+# ~ 30 deg.
+head_error_limit_rad = 0.5236
+
+# ----------------------------------------------------------------------------
+# HEADING ADJUST
+# ----------------------------------------------------------------------------
+
+# The rate at which to turn the rover during a heading adjustment 
+# manouvre.
+# TODO: Verify
+head_adjust_rate_rads = 0.1
+
+# The threshold under which a heading adjustment will be considered 
+# complete.
+# TODO: Verify
+head_adjust_threshold_rad = 0.01
+
+# ----------------------------------------------------------------------------
+# LOCOCTRL COMMAND LIMITS
+# ----------------------------------------------------------------------------
+
+# Curvature demand minimum limit
+# 
+# Taken from loco_ctrl.toml
+# TODO: Make more conservative
+min_curv_dem_m = -5.98
+
+# Curvature demand maximum limit
+# 
+# Taken from loco_ctrl.toml
+# TODO: Make more conservative
+max_curv_dem_m = 5.98
+
+# Minimum speed demand 
+# 
+# Always want rover to move forwards, so demand is +ve.
+# TODO: Verify this
+min_speed_dem_ms = 0.01
+
+# Maximum speed demand
+#
+# loco_ctrl.toml says max speed is 0.175m/s, being conservative.
+max_speed_dem_ms = 0.15

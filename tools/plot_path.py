@@ -39,7 +39,7 @@ def load_path(path):
     with open(path, 'r') as f:
         path = json.loads(f.read())
 
-    path = np.array(path['points_m_lm'])
+    path = np.array(path['points_m'])
 
     return path
 

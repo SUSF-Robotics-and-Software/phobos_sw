@@ -12,7 +12,7 @@ use serde::Deserialize;
 // ---------------------------------------------------------------------------
 
 /// Parameters for trajectory control
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Params {
     
     /// Lateral controller proportional gain
@@ -24,13 +24,13 @@ pub struct Params {
     /// Lateral controller derivative gain
     pub lat_k_d: f64,
 
-    /// Lateral controller proportional gain
+    /// Heading controller proportional gain
     pub head_k_p: f64,
 
-    /// Lateral controller integral gain
+    /// Heading controller integral gain
     pub head_k_i: f64,
 
-    /// Lateral controller derivative gain
+    /// Heading controller derivative gain
     pub head_k_d: f64,
 
     /// Curvature demand minimum limit

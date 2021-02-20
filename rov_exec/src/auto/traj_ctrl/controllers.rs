@@ -12,7 +12,6 @@ use std::time::Instant;
 
 use nalgebra::Vector2;
 // Internal
-use util::maths::norm;
 use crate::auto::{
     loc::Pose,
     path::*
@@ -24,6 +23,7 @@ use comms_if::tc::loco_ctrl::MnvrCmd;
 // ---------------------------------------------------------------------------
 
 /// A PID controller
+#[derive(Debug)]
 pub struct PidController {
     /// Previous instant that the error was passed in 
     prev_time: Option<Instant>,
@@ -45,6 +45,7 @@ pub struct PidController {
 }
 
 /// The trajectory controllers
+#[derive(Debug)]
 pub struct TrajControllers {
     /// Lateral error controller
     lat_ctrl: PidController,
@@ -232,9 +233,9 @@ impl TrajControllers {
         );
 
         // Get 2D position vector of the rover
-        let pos_m_lm = pose.position_m_lm.slice(
-            (0, 0),
-            (1, 2)
+        let pos_m_lm = Vector2::new(
+            pose.position_m_lm[0],
+            pose.position_m_lm[1]
         );
 
         // Get the distance between them
