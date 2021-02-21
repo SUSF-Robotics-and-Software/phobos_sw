@@ -6,7 +6,7 @@
 
 use serde::{Serialize, Deserialize};
 
-use crate::auto::{loc::Pose, path::Path};
+use crate::auto::{loc::Pose, path::Path, traj_ctrl::StatusReport};
 
 // -----------------------------------------------------------------------------------------------
 // STRUCTS
@@ -16,4 +16,5 @@ use crate::auto::{loc::Pose, path::Path};
 pub struct AutoTm {
     pub path: Option<Path>,
     pub pose: Option<Pose>,
+    pub traj_ctrl_status: Option<StatusReport>
 }

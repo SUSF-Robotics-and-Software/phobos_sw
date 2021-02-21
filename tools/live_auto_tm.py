@@ -22,6 +22,8 @@ matplotlib.use('Qt5agg')
 
 # CONSTANTS
 TM_SUB_ENDPOINT = 'tcp://localhost:5030'
+MIN_PLOT_BOX_SIZE = 1.0
+PATH_BOX_BOUNDARY = 0.2
 
 def main():
 
@@ -46,8 +48,6 @@ def main():
         if tm is not None:
             # Clear the axis
             ax.clear()
-            ax.set_xlim(-2.0, 2.0)
-            ax.set_ylim(-2.0, 2.0)
             plt.title(f'Autonomy State (t = {tm["sim_time_s"]:.2f})')
 
             if tm['auto'] is not None:
@@ -55,6 +55,37 @@ def main():
                     # Draw path
                     path = conv_path(tm['auto']['path'])
                     plot_path(path, ax)
+
+                    # Get the min/max of the path x and y
+                    path_min_x = np.min(path[:,0])
+                    path_max_x = np.max(path[:,0])
+                    path_min_y = np.min(path[:,1])
+                    path_max_y = np.max(path[:,1])
+                    path_centre_x = (path_min_x + path_max_x) / 2
+                    path_centre_y = (path_min_y + path_max_y) / 2
+
+                    # Want a square box around the path, so choose the largest
+                    # range to use
+                    path_semi_range = max(
+                        (path_max_x - path_min_x)/2, 
+                        (path_max_y - path_min_y)/2,
+                        MIN_PLOT_BOX_SIZE/2
+                    )
+
+                    # Set the limits
+                    ax.set_xlim(
+                        path_centre_x - path_semi_range - PATH_BOX_BOUNDARY,
+                        path_centre_x + path_semi_range + PATH_BOX_BOUNDARY
+                    )
+                    ax.set_ylim(
+                        path_centre_y - path_semi_range - PATH_BOX_BOUNDARY,
+                        path_centre_y + path_semi_range + PATH_BOX_BOUNDARY
+                    )
+
+                    if tm['auto']['traj_ctrl_status'] is not None:
+                        target_m = path[tm['auto']['traj_ctrl_status']['target_point_idx'], 0:2]
+                        # Highlight the target point
+                        ax.plot(target_m[0], target_m[1], 'xb')
                 if tm['auto']['pose'] is not None:
                     # Draw pose
                     r = R.from_quat(tm['auto']['pose']['attitude_q_lm'])

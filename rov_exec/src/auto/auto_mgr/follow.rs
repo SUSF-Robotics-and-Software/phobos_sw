@@ -110,6 +110,9 @@ impl Follow {
             &current_pose
         ).map_err(|e| AutoMgrError::TrajCtrlError(e))?;
 
+        // Set the traj_ctrl status in the tm
+        persistant.auto_tm.traj_ctrl_status = Some(traj_ctrl_status);
+
         // Check for TrajCtrl finishing
         if traj_ctrl_status.sequence_finished {
             if traj_ctrl_status.sequence_aborted {

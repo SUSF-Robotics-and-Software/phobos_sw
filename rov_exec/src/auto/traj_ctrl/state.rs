@@ -14,7 +14,7 @@ use util::{
     params,
     maths::norm
 };
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -46,7 +46,7 @@ pub struct TrajCtrl {
 }
 
 /// The status report containing various error flags and monitoring quantities.
-#[derive(Default, Copy, Clone, Debug, Serialize)]
+#[derive(Default, Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct StatusReport {
     /// The lateral error to the current path segment
     pub lat_error_m: f64,
@@ -67,7 +67,9 @@ pub struct StatusReport {
     pub sequence_finished: bool,
 
     /// True if the sequence has been aborted
-    pub sequence_aborted: bool
+    pub sequence_aborted: bool,
+
+    pub target_point_idx: usize
 }
 
 // ---------------------------------------------------------------------------
@@ -289,7 +291,10 @@ impl TrajCtrl {
             path_seq[self.path_index].get_num_points()
         {
             self.path_index += 1;
+            self.target_point_index = 0;
         }
+
+        self.report.target_point_idx = self.target_point_index;
 
         // If the path index is now greater than the length of the sequence
         // switch to the squence finished mode and leave execution here.

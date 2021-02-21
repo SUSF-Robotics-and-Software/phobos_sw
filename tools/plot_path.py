@@ -26,7 +26,7 @@ def plot_path(path, ax=None):
     ax.plot(path[:,0], path[:,1], '-b')
 
     # Plot the start and end points
-    ax.plot(path[0, 0], path[1, 1], 'gx')
+    ax.plot(path[0, 0], path[0, 1], 'gx')
     ax.plot(path[-1, 0], path[-1, 1], 'rx')
 
     ax.set_xlabel('X_Lm [m]')
