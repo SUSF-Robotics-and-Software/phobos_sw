@@ -12,7 +12,7 @@ use serde::Deserialize;
 // ---------------------------------------------------------------------------
 
 /// Parameters for trajectory control
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Params {
     
     /// Lateral controller proportional gain

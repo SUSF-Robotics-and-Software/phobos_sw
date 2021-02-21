@@ -9,8 +9,9 @@
 
 // External
 use std::time::Instant;
-
 use nalgebra::Vector2;
+use serde::Serialize;
+
 // Internal
 use crate::auto::{
     loc::Pose,
@@ -23,9 +24,10 @@ use comms_if::tc::loco_ctrl::MnvrCmd;
 // ---------------------------------------------------------------------------
 
 /// A PID controller
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 pub struct PidController {
     /// Previous instant that the error was passed in 
+    #[serde(skip)]
     prev_time: Option<Instant>,
 
     /// Proportional gain
@@ -45,7 +47,7 @@ pub struct PidController {
 }
 
 /// The trajectory controllers
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 pub struct TrajControllers {
     /// Lateral error controller
     lat_ctrl: PidController,

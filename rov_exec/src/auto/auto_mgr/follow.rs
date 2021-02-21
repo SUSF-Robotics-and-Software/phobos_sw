@@ -32,7 +32,7 @@ use super::{
 pub struct Follow {
     traj_ctrl: TrajCtrl,
     path_spec: PathSpec,
-    path: Option<Path>
+    path: Option<Path>,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -55,7 +55,7 @@ impl Follow {
 
     pub fn step(
         &mut self,
-        params: &AutoMgrParams,
+        _params: &AutoMgrParams,
         persistant: &mut AutoMgrPersistantData,
         cmd: Option<AutoCmd>
     ) -> Result<StepOutput, AutoMgrError> {

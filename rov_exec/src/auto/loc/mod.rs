@@ -14,7 +14,7 @@ pub use params::LocMgrParams;
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use nalgebra::{UnitQuaternion, Vector2, Vector3};
 
 // ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ use nalgebra::{UnitQuaternion, Vector2, Vector3};
 ///
 /// More specifically this represents the Rover Body (RB) frame in the Local
 /// Map (LM) frame.
-#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, Default)]
 pub struct Pose {
 
     /// The position in the LM frame

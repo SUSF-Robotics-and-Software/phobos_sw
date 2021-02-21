@@ -14,13 +14,15 @@ use util::{
     params,
     maths::norm
 };
+use serde::Serialize;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 pub struct TrajCtrl {
+    #[serde(skip)]
     params: Params,
 
     /// Executing mode
@@ -44,7 +46,7 @@ pub struct TrajCtrl {
 }
 
 /// The status report containing various error flags and monitoring quantities.
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, Debug, Serialize)]
 pub struct StatusReport {
     /// The lateral error to the current path segment
     pub lat_error_m: f64,
@@ -105,7 +107,7 @@ pub enum TrajCtrlError {
 
 /// The possible modes of execution of TrajCtrl. Each mode is handled by a 
 /// `mode_xyz` function. 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize)]
 pub enum TrajCtrlMode {
     Off,
     FollowPath,
@@ -118,6 +120,7 @@ pub enum TrajCtrlMode {
 // ---------------------------------------------------------------------------
 
 impl TrajCtrl {
+
     /// Intiailise the TrajCtrl module.
     ///
     /// Expected init data is a path to the parameter file.
@@ -174,9 +177,6 @@ impl TrajCtrl {
 
         Ok((self.output_mnvr_cmd, self.report))
     }
-}
-
-impl TrajCtrl {
 
     /// Begin executing a path sequence.
     ///
