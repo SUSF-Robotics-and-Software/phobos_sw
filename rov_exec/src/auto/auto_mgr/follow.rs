@@ -85,6 +85,9 @@ impl Follow {
             })
         };
 
+        // Set the pose in the TM
+        persistant.auto_tm.pose = Some(current_pose);
+
         // If the path hasn't been calculated yet set it
         if self.path.is_none() {
             let path = Path::from_path_spec(self.path_spec.clone(), &current_pose)
@@ -95,6 +98,9 @@ impl Follow {
             // path to simplify things.
             self.traj_ctrl.begin_path_sequence(vec![path.clone()])
                 .map_err(|e| AutoMgrError::TrajCtrlError(e))?;
+
+            // Set the path in the tm
+            persistant.auto_tm.path = Some(path.clone());
 
             self.path = Some(path);
         }

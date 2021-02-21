@@ -103,6 +103,8 @@ impl AutoMnvr {
             })
         };
 
+        // Set the pose in the TM
+        persistant.auto_tm.pose = Some(current_pose);
         
         // Stack output to return
         let mut output = StepOutput::none();

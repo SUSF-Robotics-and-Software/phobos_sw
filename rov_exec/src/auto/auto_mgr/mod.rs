@@ -13,6 +13,7 @@ mod params;
 mod stop;
 mod wait_new_pose;
 mod follow;
+pub mod tm;
 
 // ------------------------------------------------------------------------------------------------
 // IMPORTS
@@ -20,7 +21,7 @@ mod follow;
 
 use std::{fmt::Display, unimplemented};
 
-use self::params::AutoMgrParams;
+use self::{params::AutoMgrParams, tm::AutoTm};
 
 use super::{loc::{LocMgr, LocSource}, map::{GridMapError, TerrainMap, TerrainMapParams}, path::PathError, traj_ctrl::TrajCtrlError};
 
@@ -87,6 +88,9 @@ pub struct AutoMgrPersistantData {
 
     /// Instance of the [`LocMgr`] module, providing localisation source.
     pub loc_mgr: LocMgr,
+
+    /// Telemetry packet to be sent by the TM server, summarising the autonomy state.
+    pub auto_tm: AutoTm,
 }
 
 /// State stacking abstraction.
@@ -265,6 +269,10 @@ impl AutoMgr {
     pub fn is_on(&self) -> bool {
         !self.stack.is_empty()
     }
+
+    pub fn get_tm(&self) -> AutoTm {
+        self.persistant.auto_tm.clone()
+    }
 }
 
 impl AutoMgrStack {
@@ -385,6 +393,7 @@ impl AutoMgrPersistantData {
             global_terr_map: TerrainMap::new_from_params(terr_map_params)
                 .map_err(|e| AutoMgrError::InitGlobalTerrMapError(e))?,
             loc_mgr: LocMgr::new(loc_source),
+            auto_tm: AutoTm::default()
         })
     }
 }

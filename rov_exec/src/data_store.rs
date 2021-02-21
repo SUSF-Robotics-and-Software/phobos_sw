@@ -3,7 +3,7 @@
 use comms_if::{eqpt::{cam::CamImage, mech::MechDems}, tc::auto::AutoCmd};
 use log::{info, warn};
 
-use crate::{auto::loc::Pose, loco_ctrl};
+use crate::{auto::{auto_mgr::tm::AutoTm, loc::Pose}, loco_ctrl};
 
 
 // ---------------------------------------------------------------------------
@@ -64,6 +64,8 @@ pub struct DataStore {
     // Autonomy
 
     pub auto_cmd: Option<AutoCmd>,
+
+    pub auto_tm: Option<AutoTm>,
 
     // Monitoring Counters
     

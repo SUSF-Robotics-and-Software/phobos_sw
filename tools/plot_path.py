@@ -9,17 +9,21 @@ from pathlib import Path
 import json
 from pprint import pprint
 
-def plot_path(path):
+def plot_path(path, ax=None):
     '''
     Plots a path in 2D coords, x upwards
     '''
 
-    # Create axes and plot
-    fig = plt.figure()
-    ax = fig.gca()
+    # Create axes and plot if needed
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.gca()
+        show = True
+    else:
+        show = False
 
     # Plot the path
-    ax.plot(path[:,0], path[:,1])
+    ax.plot(path[:,0], path[:,1], '-b')
 
     # Plot the start and end points
     ax.plot(path[0, 0], path[1, 1], 'gx')
@@ -30,7 +34,15 @@ def plot_path(path):
 
     ax.set_aspect('equal', 'box')
 
-    plt.show()
+    if show:
+        plt.show()
+
+def conv_path(path):
+    '''
+    Converts from the rust Path struct into a simple numpy array
+    '''
+
+    return np.array(path['points_m'])
 
 def load_path(path):
     '''
@@ -39,7 +51,7 @@ def load_path(path):
     with open(path, 'r') as f:
         path = json.loads(f.read())
 
-    path = np.array(path['points_m'])
+    path = conv_path(path)
 
     return path
 

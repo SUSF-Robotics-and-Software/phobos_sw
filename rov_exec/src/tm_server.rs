@@ -7,7 +7,7 @@ use serde::{Serialize, Deserialize};
 
 use comms_if::{eqpt::cam::{CamFrame, ImageFormat}, net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}, tc::{Tc, TcParseError, TcResponse}};
 
-use crate::data_store::DataStore;
+use crate::{auto::auto_mgr::tm::AutoTm, data_store::DataStore};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -25,7 +25,9 @@ pub struct TmPacket {
 
     pub left_cam_frame: Option<CamFrame>,
 
-    pub right_cam_frame: Option<CamFrame>
+    pub right_cam_frame: Option<CamFrame>,
+
+    pub auto: Option<AutoTm>
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -113,7 +115,8 @@ impl TmPacket {
                     Some(frame)
                 },
                 None => None
-            }
+            },
+            auto: ds.auto_tm.clone()
         }
     }
 }

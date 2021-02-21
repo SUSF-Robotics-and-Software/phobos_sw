@@ -65,7 +65,7 @@ head_adjust_rate_rads = 0.1
 # The threshold under which a heading adjustment will be considered 
 # complete.
 # TODO: Verify
-head_adjust_threshold_rad = 0.01
+head_adjust_threshold_rad = 0.05
 
 # ----------------------------------------------------------------------------
 # LOCOCTRL COMMAND LIMITS

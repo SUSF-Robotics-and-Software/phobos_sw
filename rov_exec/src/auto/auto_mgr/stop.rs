@@ -98,6 +98,9 @@ impl Stop {
                 data: StackData::None
             })
         };
+
+        // Set the pose in the TM
+        persistant.auto_tm.pose = Some(current_pose);
         
         // Get the current rover time
         let current_time_s = session::get_elapsed_seconds();

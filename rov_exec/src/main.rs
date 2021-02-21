@@ -337,7 +337,8 @@ fn main() -> Result<(), Report> {
         if auto_mgr.is_on() {
             ds.loco_ctrl_input = rov_lib::loco_ctrl::InputData {
                 cmd: auto_loco_ctrl_cmd
-            }
+            };
+            ds.auto_tm = Some(auto_mgr.get_tm());
         }
 
         // If the manager is on set the loco_ctrl command in the store
