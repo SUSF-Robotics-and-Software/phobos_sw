@@ -259,6 +259,30 @@ impl AckSequence {
             }
         }
 
+        // Check for points too close together, i.e ones that may come between the start and end of
+        // different segments. Delete those
+        let mut points_to_delete = Vec::new();
+        for i in 1..path.points_m.len() {
+            // Get the segment to this target point
+            let seg = match path.get_segment_to_target(i) {
+                Some(s) => s,
+                None => continue
+            };
+
+            // If the length of the segment is less than half the separation add it to the list of
+            // points to delete
+            if seg.length_m < 0.5 * self.point_sep_m {
+                points_to_delete.push(i);
+            }
+        }
+
+        // Remove points, making sure to decrement the indices every time we remove a point
+        let mut num_removed_points = 0;
+        for i in points_to_delete {
+            path.points_m.remove(i - num_removed_points);
+            num_removed_points += 1;
+        }
+
         Ok(path)
     }
 

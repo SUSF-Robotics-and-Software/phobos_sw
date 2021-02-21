@@ -278,9 +278,9 @@ impl TrajCtrl {
         // Find longitudonal error to next target
         let long_err_m = self.get_long_error()?;
 
-        // If the error is positive we have passed the target, so increment to 
+        // If the error is negative we have passed the target, so increment to 
         // the next target
-        if long_err_m > 0f64 {
+        if long_err_m < 0f64 {
             self.target_point_index += 1;
         }
 
@@ -470,46 +470,22 @@ impl TrajCtrl {
         // and the lateral.
         let mut isect_m_lm = [0f64; 2];
         isect_m_lm[0] = (lat_intercept_m - segment.intercept_m)
-            / (lat_slope_m - segment.slope_m);
+            / (segment.slope_m - lat_slope_m);
         isect_m_lm[1] = segment.slope_m * isect_m_lm[0] + segment.intercept_m;
 
-        // The longitudonal error is then the distance between the intersection
-        // and the target. To deal with the sign issue we use the dot product
-        // to find the angle between the vectors intersect->target and 
-        // start->target. If the angle is 0 the distance is positive, otherwise
-        // it's negative.
-        let mut long_err_m = (
-            Vector2::from(isect_m_lm) - segment.target_m
-        ).norm();
+        // Get the vector from the intersection to the target
+        let isect_vec = segment.target_m - Vector2::from(isect_m_lm);
+
+        // Get the vector from the start to the target
+        let seg_vec = segment.target_m - segment.start_m;
         
-        // Get vectors
-        let isect_vec = [
-            segment.target_m[0] - isect_m_lm[0],
-            segment.target_m[1] - isect_m_lm[1]
-        ];
-        let seg_vec = [
-            segment.target_m[0] - segment.start_m[0],
-            segment.target_m[1] - segment.start_m[0]
-        ];
+        // The sign of the error is the sign of the dot of these vectors
+        let dot = isect_vec.dot(&seg_vec);
 
-        // Get dot product
-        let vec_dot = isect_vec[0] * seg_vec[0] + isect_vec[1] * seg_vec[1];
+        // The error is then the length of the intersection vector, multiplied by the sign of the
+        // dot product
+        self.report.long_error_m = isect_vec.norm() * dot.signum();
 
-        // Get modulus of each 
-        let isect_mod = norm(&[0f64; 2], &isect_vec).unwrap();
-        let seg_mod = norm(&[0f64; 2], &seg_vec).unwrap(); 
-
-        // Calculate angle
-        let vec_angle_rad = (vec_dot/(isect_mod * seg_mod)).acos();
-
-        // If the angle is not 0 invert the long_err
-        if vec_angle_rad > std::f64::consts::PI / 2f64 {
-            long_err_m *= -1f64;
-        }
-        
-        // Set the error in the status report
-        self.report.long_error_m = long_err_m;
-
-        Ok(long_err_m)
+        Ok(self.report.long_error_m)
     }
 }

@@ -4,7 +4,7 @@
 
 # Lateral controller proportional gain
 # TODO: Tune
-lat_k_p = 1.0
+lat_k_p = -5.0
 
 # Lateral controller integral gain
 # TODO: Tune
@@ -20,7 +20,7 @@ lat_k_d = 0.0
 
 # Heading controller proportional gain
 # TODO: Tune
-head_k_p = 1.0
+head_k_p = 15.0
 
 # Heading controller integral gain
 # TODO: Tune
@@ -38,7 +38,7 @@ head_k_d = 0.0
 #
 # This is an array of polynomial coefficients, highest order first.
 # TODO: Verify this
-curv_speed_map_coeffs = [1.0, 0.0]
+curv_speed_map_coeffs = [0.0, 0.05]
 
 # ----------------------------------------------------------------------------
 # ERROR LIMITS
@@ -82,6 +82,18 @@ min_curv_dem_m = -5.98
 # Taken from loco_ctrl.toml
 # TODO: Make more conservative
 max_curv_dem_m = 5.98
+
+# Crab demand minimum limit
+# 
+# ~ -80 deg
+# TODO: Make more conservative
+min_crab_dem_rad = -1.396
+
+# Crab demand maximum limit
+# 
+# ~ +80 deg
+# TODO: Make more conservative
+max_crab_dem_rad = 1.396
 
 # Minimum speed demand 
 # 

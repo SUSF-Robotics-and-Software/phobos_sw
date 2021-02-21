@@ -34,10 +34,16 @@ def main():
     tm_sub.connect(TM_SUB_ENDPOINT)
 
     # Create figure
-    fig = plt.figure()
-    ax = fig.gca()
+    fig, axs = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]})
+    ax_path = axs[0]
+    ax_errors = axs[1]
     plt.ion()
     plt.show(block=False)
+
+    # Error data, which will be added over time
+    long_err_data = np.empty((0, 2))
+    lat_err_data = np.empty((0, 2))
+    head_err_data = np.empty((0, 2))
          
     while True:
 
@@ -46,15 +52,17 @@ def main():
     
         # Draw it on the plot
         if tm is not None:
+            time = tm['sim_time_s']
+            
             # Clear the axis
-            ax.clear()
-            plt.title(f'Autonomy State (t = {tm["sim_time_s"]:.2f})')
+            ax_path.clear()
+            ax_path.title.set_text(f'Autonomy State (t = {time:.2f})')
 
             if tm['auto'] is not None:
                 if tm['auto']['path'] is not None:
                     # Draw path
                     path = conv_path(tm['auto']['path'])
-                    plot_path(path, ax)
+                    plot_path(path, ax_path)
 
                     # Get the min/max of the path x and y
                     path_min_x = np.min(path[:,0])
@@ -73,11 +81,11 @@ def main():
                     )
 
                     # Set the limits
-                    ax.set_xlim(
+                    ax_path.set_xlim(
                         path_centre_x - path_semi_range - PATH_BOX_BOUNDARY,
                         path_centre_x + path_semi_range + PATH_BOX_BOUNDARY
                     )
-                    ax.set_ylim(
+                    ax_path.set_ylim(
                         path_centre_y - path_semi_range - PATH_BOX_BOUNDARY,
                         path_centre_y + path_semi_range + PATH_BOX_BOUNDARY
                     )
@@ -85,57 +93,40 @@ def main():
                     if tm['auto']['traj_ctrl_status'] is not None:
                         target_m = path[tm['auto']['traj_ctrl_status']['target_point_idx'], 0:2]
                         # Highlight the target point
-                        ax.plot(target_m[0], target_m[1], 'xb')
+                        ax_path.plot(target_m[0], target_m[1], 'xb')
                 if tm['auto']['pose'] is not None:
                     # Draw pose
                     r = R.from_quat(tm['auto']['pose']['attitude_q_lm'])
                     forward = r.as_matrix() * np.array([1, 0, 0])
                     forward = forward[0:2, 0]
                     forward = forward / np.linalg.norm(forward)
-                    ax.quiver(
+                    ax_path.quiver(
                         tm['auto']['pose']['position_m_lm'][0],
                         tm['auto']['pose']['position_m_lm'][1],
                         forward[0],
                         forward[1]
                     )
-                pause(0.001, False)
-
-    #     def animate(i):
-    #     # Clear figure
-    #     ax.clear()
-    #     ax.set_xlim(-2.0, 2.0)
-    #     ax.set_ylim(-2.0, 2.0)
-
-    #     # Get tm data
-    #     tm = get_tm(tm_sub)
-    
-    #     # Draw it on the plot
-    #     if tm is not None:
-    #         if tm['auto'] is not None:
-    #             if tm['auto']['path'] is not None:
-    #                 # Draw path
-    #                 path = conv_path(tm['auto']['path'])
-    #                 plot_path(path, ax)
-    #             if tm['auto']['pose'] is not None:
-    #                 # Draw pose
-    #                 r = R.from_quat(tm['auto']['pose']['attitude_q_lm'])
-    #                 forward = r.as_matrix() * np.array([1, 0, 0])
-    #                 forward = forward[0, 0:2]
-    #                 forward = forward / np.linalg.norm(forward)
-    #                 ax.quiver(
-    #                     tm['auto']['pose']['position_m_lm'][0],
-    #                     tm['auto']['pose']['position_m_lm'][1],
-    #                     forward[0],
-    #                     forward[1]
-    #                 )
-
-    # ani = animation.FuncAnimation(
-    #     fig, 
-    #     animate,
-    #     interval=200,
-    #     blit=False
-    # )
-    # plt.show()
+                if tm['auto']['traj_ctrl_status'] is not None:
+                    lat_err_data = np.append(
+                        lat_err_data, 
+                        np.array([[time, tm['auto']['traj_ctrl_status']['lat_error_m']]]), axis=0
+                    )
+                    long_err_data = np.append(
+                        long_err_data, 
+                        np.array([[time, tm['auto']['traj_ctrl_status']['long_error_m']]]), axis=0
+                    )
+                    head_err_data = np.append(
+                        head_err_data, 
+                        np.array([[time, tm['auto']['traj_ctrl_status']['head_error_rad']]]), axis=0
+                    )
+                    
+                    ax_errors.clear()
+                    ax_errors.axhline()
+                    ax_errors.set_xlabel('Time [s]')
+                    ax_errors.plot(lat_err_data[:,0], lat_err_data[:,1], '-r')
+                    ax_errors.plot(long_err_data[:,0], long_err_data[:,1], '-b')
+                    ax_errors.plot(head_err_data[:,0], head_err_data[:,1], '-g')
+                pause(0.00001, False)
 
 def get_tm(tm_sub):
     '''
@@ -143,7 +134,7 @@ def get_tm(tm_sub):
     '''
 
     try: 
-        tm_str = tm_sub.recv_string(flags=zmq.NOBLOCK)
+        tm_str = tm_sub.recv_string()
         tm = json.loads(tm_str)
     except zmq.Again:
         tm = None

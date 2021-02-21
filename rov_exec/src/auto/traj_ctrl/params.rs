@@ -39,6 +39,12 @@ pub struct Params {
     /// Curvature demand minimum limit
     pub max_curv_dem_m: f64,
 
+    /// Crab demand minimum limit
+    pub min_crab_dem_rad: f64,
+
+    /// Crab demand maximum limit
+    pub max_crab_dem_rad: f64,
+
     /// Curvature to speed map coefficients
     /// 
     /// The order of these coefficients is highest power first, i.e if there
