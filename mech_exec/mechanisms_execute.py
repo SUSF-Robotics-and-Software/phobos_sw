@@ -221,7 +221,7 @@ def handle_mech(phobos, mech_rep, mech_pub):
 def main():
 
     # Create phobos and run the rover exec code
-    phobos = PhobosRover('../../params/elec_driver.toml', '../../params/loco_crtl.toml', '../../params/mech_exec.toml', '../../params/net.toml')
+    phobos = PhobosRover('../params/elec_driver.toml', '../params/loco_crtl.toml', '../params/mech_exec.toml', '../params/net.toml')
 
     run(phobos)
 
