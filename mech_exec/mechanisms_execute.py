@@ -73,7 +73,10 @@ class Mechanisms:
             servo_kit.servo[motor_setting['Channel']].actuation_range = motor_setting["Actuation_Range"]
             # Set the pulse width of the motor
             servo_kit.servo[motor_setting['Channel']].set_pulse_width_range(motor_setting["Pulse_Width"][0], motor_setting["Pulse_Width"][1])
-        return servo_kit.servo[motor_setting['Channel']]
+        
+            return servo_kit.servo[motor_setting['Channel']]
+        else:
+            return servo_kit.continuous_servo[motor_setting['Channel']]
 
     def load_setting(self, name, group):
         '''
@@ -84,7 +87,6 @@ class Mechanisms:
 
         # Dictionary containing main information about the servo
         motor_setting = {
-            "Board_ID" : self.mech_exec['board_addresses'],
             "Channel" : self.mech_exec[group.lower() + '_idx_map'][motor_idx][1],
             "Actuation_Range" : self.mech_exec['str_act_range_sk'][motor_idx],
             "Pulse_Width" : [
@@ -93,7 +95,7 @@ class Mechanisms:
             ],
             "Servo_Kit" : self.mech_exec[group.lower() + '_idx_map'][motor_idx][0]
         }
-        print(f'{name} - [{motor_setting["Board_ID"]}, {motor_setting["Channel"]}')
+        print(f'{name} - [{motor_setting["Servo_Kit"]}, {motor_setting["Channel"]}')
         return motor_setting
 
     def actuate_mech_dems(self, dems):
