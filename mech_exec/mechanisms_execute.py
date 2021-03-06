@@ -6,13 +6,16 @@ from adafruit_servokit import ServoKit
 import sys
 import signal
 
-# Global zmq info
+# Global variables, that can be killed from the sighandler
 ZMQ_CONTEXT = None
 MECH_PUB = None
 MECH_REP = None
+ROVER = None
 
-# SIGINT handler to destroy sockets on CTRL-C
-def sigint_handler(signal_number, frame):
+# signal handler to destroy sockets on CTRL-C
+def exit_sig_handler(signal_number, frame):
+    if ROVER is not None:
+        ROVER.stop()
     if MECH_PUB is not None:
         MECH_PUB.close()
     if MECH_REP is not None:
@@ -160,13 +163,6 @@ class Mechanisms:
             if group == 'Drv':
                 self.get_motor(motor, group).throttle = 0
 
-    def pose(self):
-        '''
-        Get the pose of the rover
-        '''
-        pass
-
-
 def run(mechanisms):
     '''
     Run the rover.
@@ -243,9 +239,9 @@ def main():
     signal.signal(signal.SIGINT, sigint_handler)
     signal.signal(signal.SIGTSTP, sigint_handler)
     # Create phobos and run the rover exec code
-    mechanisms = Mechanisms('../params/mech_exec.toml', '../params/loco_ctrl.toml')
+    ROVER = Mechanisms('../params/mech_exec.toml', '../params/loco_ctrl.toml')
 
-    run(mechanisms)
+    run(ROVER)
 
 if __name__ == '__main__':
 
