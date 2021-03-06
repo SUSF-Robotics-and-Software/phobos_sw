@@ -11,14 +11,16 @@ ZMQ_CONTEXT = None
 MECH_PUB = None
 MECH_REP = None
 
-# SIGKILL handler
-def sigkill_handler(signal_number, frame):
+# SIGINT handler to destroy sockets on CTRL-C
+def sigint_handler(signal_number, frame):
     if MECH_PUB is not None:
         MECH_PUB.close()
     if MECH_REP is not None:
         MECH_REP.close()
     if ZMQ_CONTEXT is not None:
         ZMQ_CONTEXT.close()
+
+    return
 
 class Mechanisms:
     def __init__(self, mech_exec_path, loco_ctrl_path):
@@ -236,9 +238,9 @@ def handle_mech(mechanisms, mech_rep, mech_pub):
 
 def main():
 
-    # SIGKILL handler that will properly close sockets on CTRL-C
+    # SIGINT handler that will properly close sockets on CTRL-C
     # TODO: add stop rover
-    signal.signal(signal.SIGKILL, sigkill_handler)
+    signal.signal(signal.SIGINT, sigint_handler)
     # Create phobos and run the rover exec code
     mechanisms = Mechanisms('../params/mech_exec.toml', '../params/loco_ctrl.toml')
 
