@@ -9,18 +9,14 @@ import sys
 RAD_TO_DEGREE_CONV = 180 / math.pi
 MAX_SPEED_RADS = 3.6458 # Maximum drive motor speed in rad/s
 # Toggle to disable/enable specific servers
-MECH_SERVER = True
-SIM_SERVER = False
 
-class PhobosRover:
-    def __init__(self, elec_driver_path, loco_ctrl_path, mech_exec_path, net_path):
+class Mechanisms:
+    def __init__(self, mech_exec_path, loco_ctrl_path):
         '''
         Main constructor, used to initialise the rover
         '''
-        self.elec_driver = toml.load(elec_driver_path)
-        self.loco_ctrl = toml.load(loco_ctrl_path)
         self.mech_exec = toml.load(mech_exec_path)
-        self.net = toml.load(net_path)
+        self.loco_ctrl = toml.load(loco_ctrl_path)
 
         self.init_eqpt()
 
@@ -61,7 +57,7 @@ class PhobosRover:
             # Set the actuation range of the motor only if it is a steer motor or a Arm motor
             servo_kit.servo[self.motor_id_dict[name]].actuation_range = self.load_setting(name, group)["Actuation_Range"]
         # Set the pulse width of the motor
-        servo_kit.servo[self.motor_id_dict[name]].set_pulse_width_range(self.load_setting(name, group)["Pulse_Width"])
+        servo_kit.servo[self.motor_id_dict[name]].set_pulse_width_range(self.load_setting(name, group)["Pulse_Width"][0], self.load_setting(name, group)["Pulse_Width"][1])
         return servo_kit.servo[self.motor_id_dict[name]]
 
     def load_setting(self, name, group):
@@ -81,11 +77,11 @@ class PhobosRover:
 
         # Dictionary containing main information about the servo
         motor_setting = {
-            "Board_ID" : self.elec_driver['board_addresses'],
-            "Channel" : self.elec_driver[group.lower() + '_idx_map'][motor_ID][1],
-            "Actuation_Range" : self.elec_driver['str_act_range_sk'][motor_ID],
-            "Pulse_Width" : [self.elec_driver['str_pw_range_min'][motor_ID], self.elec_driver['str_pw_range_max'][motor_ID]],
-            "Servo_Kit" : self.elec_driver[group.lower() + '_idx_map'][motor_ID][0]
+            "Board_ID" : self.mech_exec['board_addresses'],
+            "Channel" : self.mech_exec[group.lower() + '_idx_map'][motor_ID][1],
+            "Actuation_Range" : self.mech_exec['str_act_range_sk'][motor_ID],
+            "Pulse_Width" : [int(self.mech_exec['str_pw_range_min'][motor_ID]), int(self.mech_exec['str_pw_range_max'][motor_ID])],
+            "Servo_Kit" : self.mech_exec[group.lower() + '_idx_map'][motor_ID][0]
         }
         return motor_setting
 
@@ -129,7 +125,7 @@ class PhobosRover:
         pass
 
 
-def run(phobos):
+def run(mechanisms):
     '''
     Run the rover.
     '''
@@ -138,24 +134,12 @@ def run(phobos):
     context = zmq.Context()
 
     # Open mechanisms server
-    if MECH_SERVER:
-        mech_rep = context.socket(zmq.REP)
-        mech_rep.bind(phobos.mech_exec['demands_endpoint'])
-        mech_pub = context.socket(zmq.PUB)
-        mech_pub.bind(phobos.mech_exec['sensor_data_endpoint'])
+    mech_rep = context.socket(zmq.REP)
+    mech_rep.bind(mechanisms.mech_exec['demands_endpoint'])
+    mech_pub = context.socket(zmq.PUB)
+    mech_pub.bind(mechanisms.mech_exec['sensor_data_endpoint'])
 
-        print('MechServer started')
-    else:
-        print('MechServer disabled')
-
-    # Open sim server
-    if SIM_SERVER:
-        sim_pub = context.socket(zmq.PUB)
-        sim_pub.bind(phobos.net['sim_endpoint'])
-
-        print('SimServer started')
-    else:
-        print('SimServer disabled')
+    print('MechServer started')
 
     # Run flag
     run_controller = True
@@ -163,26 +147,20 @@ def run(phobos):
     print('Starting main control loop')
     while run_controller:
         # Run mechanisms task
-        if MECH_SERVER:
-            run_controller &= handle_mech(phobos, mech_rep, mech_pub)
+        run_controller &= handle_mech(mechanisms, mech_rep, mech_pub)
 
         sys.stdout.flush()
 
     # Close sockets
-    if MECH_SERVER:
-        mech_rep.close()
-        mech_pub.close()
-
-    if SIM_SERVER:
-        sim_pub.close()
+    mech_rep.close()
+    mech_pub.close()
 
     # Destroy context
     context.destroy()
 
-    # Tell webots we've exited
     sys.exit(0)
 
-def handle_mech(phobos, mech_rep, mech_pub):
+def handle_mech(mechanisms, mech_rep, mech_pub):
     '''
     Handle mechanisms commands and publish mech data
     '''
@@ -208,24 +186,23 @@ def handle_mech(phobos, mech_rep, mech_pub):
     if mech_dems is None:
         # If an error occured stop the rover
         if stop:
-            phobos.stop()
+            mechanisms.stop()
     else:
         # Send response to client
         mech_rep.send_string('"Dems Ok"')
 
         # Actuate
-        phobos.actuate_mech_dems(mech_dems)
+        mechanisms.actuate_mech_dems(mech_dems)
 
     return True
 
 def main():
 
     # Create phobos and run the rover exec code
-    phobos = PhobosRover('../params/elec_driver.toml', '../params/loco_ctrl.toml', '../params/mech_exec.toml', '../params/net.toml')
+    mechanisms = Mechanisms('../params/mech_exec.toml', '../params/loco_ctrl.toml')
 
-    run(phobos)
+    run(mechanisms)
 
 if __name__ == '__main__':
 
     main()
-
