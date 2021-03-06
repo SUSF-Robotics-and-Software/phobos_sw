@@ -87,7 +87,10 @@ class Mechanisms:
             "Board_ID" : self.mech_exec['board_addresses'],
             "Channel" : self.mech_exec[group.lower() + '_idx_map'][motor_idx][1],
             "Actuation_Range" : self.mech_exec['str_act_range_sk'][motor_idx],
-            "Pulse_Width" : [int(self.mech_exec['str_pw_range_min'][motor_idx]), int(self.mech_exec['str_pw_range_max'][motor_ID])],
+            "Pulse_Width" : [
+                int(self.mech_exec['str_pw_range_min'][motor_idx]), 
+                int(self.mech_exec['str_pw_range_max'][motor_idx])
+            ],
             "Servo_Kit" : self.mech_exec[group.lower() + '_idx_map'][motor_idx][0]
         }
         print(f'{act_id} - [{motor_setting["Board_ID"]}, {motor_setting["Channel"]}')
