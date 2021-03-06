@@ -28,17 +28,17 @@ class Mechanisms:
             'DrvFR': 3,
             'DrvMR': 4,
             'DrvRR': 5,
-            'StrFL': 6,
-            'StrML': 7,
-            'StrRL': 8,
-            'StrFR': 9,
-            'StrMR': 10,
-            'StrRR': 11,
-            'ArmBase': 12,
-            'ArmShoulder': 13,
-            'ArmElbow': 14,
-            'ArmWrist': 15,
-            'ArmGrabber': 16
+            'StrFL': 0,
+            'StrML': 1,
+            'StrRL': 2,
+            'StrFR': 3,
+            'StrMR': 4,
+            'StrRR': 5,
+            'ArmBase': 0,
+            'ArmShoulder': 1,
+            'ArmElbow': 2,
+            'ArmWrist': 3,
+            'ArmGrabber': 4
         }
 
     def init_eqpt(self):
@@ -96,9 +96,25 @@ class Mechanisms:
             # Get the motor group
             group = act_id[:3]
 
-            if group == 'Str' or group == 'Arm':
+            if group == 'Str':
+                rad_to_sk_map = self.mech_exec['str_ang_rad_to_sk_coeffs'][
+                    self.motor_id_dict[act_id]
+                ]
+                pos_sk = rad_to_sk_map[0] * position_rad + rad_to_sk_map[1]
+                # Clamp to min/max values
+                pos_sk = max(
+                    self.mech_exec['str_ang_max_sk'][self.motor_id_dict[act_id]],
+                    min(
+                        self.mech_exec['str_ang_min_sk'][self.motor_id_dict[act_id]]
+                        rate_sk
+                    )
+                )
                 # Set the position of the servo in degreee, the demands give the position in radians so RAD_TO_DEGREE_CONV is used to convert
-                self.get_motor(act_id, group).angle = position_rad * RAD_TO_DEGREE_CONV
+                self.get_motor(act_id, group).angle = \
+                        
+            elif group == 'Arm':
+                # TODO
+                continue
 
         # Actuate speed demands
         for act_id, speed_rads in dems['speed_rads'].items():
@@ -106,7 +122,19 @@ class Mechanisms:
             group = act_id[:3]
 
             if group == 'Drv':
-                self.get_motor(act_id, group).throttle = speed_rads / MAX_SPEED_RADS
+                rate_to_sk_map = self.mech_exec['drv_rate_norm_to_sk_coeffs'][
+                    self.motor_id_dict[act_id]
+                ]
+                rate_sk = rate_to_sk_map[0] * speed_rads + rate_to_sk_map[1]
+                # Clamp to min/max values
+                rate_sk = max(
+                    self.mech_exec['drv_rate_max_sk'][self.motor_id_dict[act_id]],
+                    min(
+                        self.mech_exec['drv_rate_min_sk'][self.motor_id_dict[act_id]]
+                        rate_sk
+                    )
+                )
+                self.get_motor(act_id, group).throttle = rate_sk
 
     def stop(self):
         '''
