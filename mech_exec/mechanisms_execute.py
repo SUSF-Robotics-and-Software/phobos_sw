@@ -109,6 +109,7 @@ class Mechanisms:
                         pos_sk
                     )
                 )
+                print(f'{acd_id}: {pos_sk}')
                 # Set the position of the servo in degreee, the demands give the position in radians so RAD_TO_DEGREE_CONV is used to convert
                 self.get_motor(act_id, group).angle = pos_sk                        
             elif group == 'Arm':
@@ -133,6 +134,7 @@ class Mechanisms:
                         rate_sk
                     )
                 )
+                print(f'{acd_id}: {rate_sk}')
                 self.get_motor(act_id, group).throttle = rate_sk
 
     def stop(self):
