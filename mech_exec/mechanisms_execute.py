@@ -69,8 +69,8 @@ class Mechanisms:
         if group == "Str" or group == "Arm":
             # Set the actuation range of the motor only if it is a steer motor or a Arm motor
             servo_kit.servo[motor_setting['Channel']].actuation_range = motor_setting["Actuation_Range"]
-        # Set the pulse width of the motor
-        servo_kit.servo[motor_setting['Channel']].set_pulse_width_range(motor_setting["Pulse_Width"][0], motor_setting["Pulse_Width"][1])
+            # Set the pulse width of the motor
+            servo_kit.servo[motor_setting['Channel']].set_pulse_width_range(motor_setting["Pulse_Width"][0], motor_setting["Pulse_Width"][1])
         return servo_kit.servo[motor_setting['Channel']]
 
     def load_setting(self, name, group):
