@@ -37,6 +37,16 @@ str_idx_map = [
     [1, 6]
 ]
 
+# TODO - dummy
+arm_idx_map = [
+    [0, 0],
+    [0, 0], 
+    [0, 0], 
+    [0, 0],
+    [0, 0],
+    [0, 0]
+]
+
 # Drive normalised rate coefficients. Normalised are in -1 to 1 range and the
 # ServoKit uses the same range so the coeffs are [1, 0] (i.e. sk = norm + 0).
 #
