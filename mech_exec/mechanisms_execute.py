@@ -105,7 +105,7 @@ class Mechanisms:
                 pos_sk = max(
                     self.mech_exec['str_ang_max_sk'][self.motor_id_dict[act_id]],
                     min(
-                        self.mech_exec['str_ang_min_sk'][self.motor_id_dict[act_id]]
+                        self.mech_exec['str_ang_min_sk'][self.motor_id_dict[act_id]],
                         rate_sk
                     )
                 )
@@ -130,7 +130,7 @@ class Mechanisms:
                 rate_sk = max(
                     self.mech_exec['drv_rate_max_sk'][self.motor_id_dict[act_id]],
                     min(
-                        self.mech_exec['drv_rate_min_sk'][self.motor_id_dict[act_id]]
+                        self.mech_exec['drv_rate_min_sk'][self.motor_id_dict[act_id]],
                         rate_sk
                     )
                 )
