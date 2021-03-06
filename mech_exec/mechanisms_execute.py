@@ -176,6 +176,7 @@ def run(mechanisms):
     '''
     Run the rover.
     '''
+    global MECH_REP, MECH_PUB, ZMQ_CONTEXT
 
     # Create zmq context
     ZMQ_CONTEXT = zmq.Context()
@@ -245,6 +246,7 @@ def handle_mech(mechanisms, mech_rep, mech_pub):
     return True
 
 def main():
+    global ROVER
 
     # SIGINT handler that will properly close sockets on CTRL-C/Z
     signal.signal(signal.SIGINT, exit_sig_handler)
