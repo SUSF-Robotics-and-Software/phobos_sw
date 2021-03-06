@@ -115,9 +115,9 @@ class Mechanisms:
                 pos_sk = rad_to_sk_map[0] * position_rad + rad_to_sk_map[1]
                 # Clamp to min/max values
                 pos_sk = max(
-                    self.mech_exec['str_ang_max_sk'][self.motor_id_dict[act_id]],
+                    self.mech_exec['str_ang_min_sk'][self.motor_id_dict[act_id]],
                     min(
-                        self.mech_exec['str_ang_min_sk'][self.motor_id_dict[act_id]],
+                        self.mech_exec['str_ang_max_sk'][self.motor_id_dict[act_id]],
                         pos_sk
                     )
                 )
@@ -140,9 +140,9 @@ class Mechanisms:
                 rate_sk = rate_to_sk_map[0] * speed_rads + rate_to_sk_map[1]
                 # Clamp to min/max values
                 rate_sk = max(
-                    self.mech_exec['drv_rate_max_sk'][self.motor_id_dict[act_id]],
+                    self.mech_exec['drv_rate_min_sk'][self.motor_id_dict[act_id]],
                     min(
-                        self.mech_exec['drv_rate_min_sk'][self.motor_id_dict[act_id]],
+                        self.mech_exec['drv_rate_max_sk'][self.motor_id_dict[act_id]],
                         rate_sk
                     )
                 )
@@ -238,9 +238,10 @@ def handle_mech(mechanisms, mech_rep, mech_pub):
 
 def main():
 
-    # SIGINT handler that will properly close sockets on CTRL-C
+    # SIGINT handler that will properly close sockets on CTRL-C/Z
     # TODO: add stop rover
     signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGTSTP, sigint_handler)
     # Create phobos and run the rover exec code
     mechanisms = Mechanisms('../params/mech_exec.toml', '../params/loco_ctrl.toml')
 
