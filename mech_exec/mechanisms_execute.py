@@ -190,7 +190,7 @@ def handle_mech(mechanisms, mech_rep, mech_pub):
             mechanisms.stop()
     else:
         # Send response to client
-        mech_rep.send_string('"Dems Ok"')
+        mech_rep.send_string('"DemsOk"')
 
         # Actuate
         mechanisms.actuate_mech_dems(mech_dems)
