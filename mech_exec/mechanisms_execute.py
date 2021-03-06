@@ -20,6 +20,8 @@ def sigint_handler(signal_number, frame):
     if ZMQ_CONTEXT is not None:
         ZMQ_CONTEXT.close()
 
+    sys.exit(0)
+
     return
 
 class Mechanisms:
