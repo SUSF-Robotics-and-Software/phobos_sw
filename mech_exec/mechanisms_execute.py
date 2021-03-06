@@ -78,24 +78,17 @@ class Mechanisms:
         Loads the parameters for a given motor
         '''
         # This variable is used to track the index in which a specific motor is inside the given list (of parameters) in the toml file
-        motor_ID = -1
-        if self.motor_id_dict[name] <= 5:
-            motor_ID = self.motor_id_dict[name]
-
-        elif self.motor_id_dict[name] >= 6 and self.motor_id_dict[name] <= 11:
-            motor_ID = self.motor_id_dict[name] - 6
-
-        elif self.motor_id_dict[name] >= 12:
-            motor_ID = self.motor_id_dict[name] - 12
+        motor_idx = self.motor_id_dict[name]
 
         # Dictionary containing main information about the servo
         motor_setting = {
             "Board_ID" : self.mech_exec['board_addresses'],
-            "Channel" : self.mech_exec[group.lower() + '_idx_map'][motor_ID][1],
-            "Actuation_Range" : self.mech_exec['str_act_range_sk'][motor_ID],
-            "Pulse_Width" : [int(self.mech_exec['str_pw_range_min'][motor_ID]), int(self.mech_exec['str_pw_range_max'][motor_ID])],
-            "Servo_Kit" : self.mech_exec[group.lower() + '_idx_map'][motor_ID][0]
+            "Channel" : self.mech_exec[group.lower() + '_idx_map'][motor_idx][1],
+            "Actuation_Range" : self.mech_exec['str_act_range_sk'][motor_idx],
+            "Pulse_Width" : [int(self.mech_exec['str_pw_range_min'][motor_idx]), int(self.mech_exec['str_pw_range_max'][motor_ID])],
+            "Servo_Kit" : self.mech_exec[group.lower() + '_idx_map'][motor_idx][0]
         }
+        print(f'{act_id} - [{motor_setting["Board_ID"]}, {motor_setting["Channel"]}')
         return motor_setting
 
     def actuate_mech_dems(self, dems):
