@@ -169,7 +169,8 @@ class Mechanisms:
 
             if group == 'Drv':
                 print(f'STOP {motor}')
-                self.get_motor(motor, group).throttle = 0
+                self.get_motor(motor, group).throttle = \
+                    self.mech_exec['drv_rate_norm_to_sk_coeffs'][self.motor_id_dict[motor]][1]
 
 def run(mechanisms):
     '''
