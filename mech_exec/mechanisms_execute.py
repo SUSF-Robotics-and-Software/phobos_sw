@@ -93,7 +93,7 @@ class Mechanisms:
             ],
             "Servo_Kit" : self.mech_exec[group.lower() + '_idx_map'][motor_idx][0]
         }
-        print(f'{act_id} - [{motor_setting["Board_ID"]}, {motor_setting["Channel"]}')
+        print(f'{name} - [{motor_setting["Board_ID"]}, {motor_setting["Channel"]}')
         return motor_setting
 
     def actuate_mech_dems(self, dems):
