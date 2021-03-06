@@ -4,11 +4,21 @@ import toml
 import math
 from adafruit_servokit import ServoKit
 import sys
+import signal
 
-# CONSTANTS
-RAD_TO_DEGREE_CONV = 180 / math.pi
-MAX_SPEED_RADS = 3.6458 # Maximum drive motor speed in rad/s
-# Toggle to disable/enable specific servers
+# Global zmq info
+ZMQ_CONTEXT = None
+MECH_PUB = None
+MECH_REP = None
+
+# SIGKILL handler
+def sigkill_handler(signal_number, frame):
+    if MECH_PUB is not None:
+        MECH_PUB.close()
+    if MECH_REP is not None:
+        MECH_REP.close()
+    if ZMQ_CONTEXT is not None:
+        ZMQ_CONTEXT.close()
 
 class Mechanisms:
     def __init__(self, mech_exec_path, loco_ctrl_path):
@@ -109,7 +119,7 @@ class Mechanisms:
                         pos_sk
                     )
                 )
-                print(f'{acd_id}: {pos_sk}')
+                print(f'{act_id}: {pos_sk}')
                 # Set the position of the servo in degreee, the demands give the position in radians so RAD_TO_DEGREE_CONV is used to convert
                 self.get_motor(act_id, group).angle = pos_sk                        
             elif group == 'Arm':
@@ -134,7 +144,7 @@ class Mechanisms:
                         rate_sk
                     )
                 )
-                print(f'{acd_id}: {rate_sk}')
+                print(f'{act_id}: {rate_sk}')
                 self.get_motor(act_id, group).throttle = rate_sk
 
     def stop(self):
@@ -161,13 +171,13 @@ def run(mechanisms):
     '''
 
     # Create zmq context
-    context = zmq.Context()
+    ZMQ_CONTEXT = zmq.Context()
 
     # Open mechanisms server
-    mech_rep = context.socket(zmq.REP)
-    mech_rep.bind(mechanisms.mech_exec['demands_endpoint'])
-    mech_pub = context.socket(zmq.PUB)
-    mech_pub.bind(mechanisms.mech_exec['sensor_data_endpoint'])
+    MECH_REP = ZMQ_CONTEXT.socket(zmq.REP)
+    MECH_REP.bind(mechanisms.mech_exec['demands_endpoint'])
+    MECH_PUB = ZMQ_CONTEXT.socket(zmq.PUB)
+    MECH_PUB.bind(mechanisms.mech_exec['sensor_data_endpoint'])
 
     print('MechServer started')
 
@@ -182,13 +192,11 @@ def run(mechanisms):
         sys.stdout.flush()
 
     # Close sockets
-    mech_rep.close()
-    mech_pub.close()
+    MECH_REP.close()
+    MECH_PUB.close()
 
     # Destroy context
-    context.destroy()
-
-    sys.exit(0)
+    ZMQ_CONTEXT.destroy()
 
 def handle_mech(mechanisms, mech_rep, mech_pub):
     '''
@@ -228,6 +236,9 @@ def handle_mech(mechanisms, mech_rep, mech_pub):
 
 def main():
 
+    # SIGKILL handler that will properly close sockets on CTRL-C
+    # TODO: add stop rover
+    signal.signal(signal.SIGKILL, sigkill_handler)
     # Create phobos and run the rover exec code
     mechanisms = Mechanisms('../params/mech_exec.toml', '../params/loco_ctrl.toml')
 
