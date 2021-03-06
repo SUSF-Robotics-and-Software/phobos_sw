@@ -51,14 +51,15 @@ class Mechanisms:
         '''
         This function returns the servo that needs to be used
         '''
+        motor_setting = self.load_setting(name, group)
         # Determine which servo kit needs to be used and in which board this servo is located
-        servo_kit = self.servo_kits[self.load_setting(name, group)['Servo_Kit']]
+        servo_kit = self.servo_kits[motor_setting['Servo_Kit']]
         if group == "Str" or group == "Arm":
             # Set the actuation range of the motor only if it is a steer motor or a Arm motor
-            servo_kit.servo[self.motor_id_dict[name]].actuation_range = self.load_setting(name, group)["Actuation_Range"]
+            servo_kit.servo[motor_setting['Channel']].actuation_range = motor_setting["Actuation_Range"]
         # Set the pulse width of the motor
-        servo_kit.servo[self.motor_id_dict[name]].set_pulse_width_range(self.load_setting(name, group)["Pulse_Width"][0], self.load_setting(name, group)["Pulse_Width"][1])
-        return servo_kit.servo[self.motor_id_dict[name]]
+        servo_kit.servo[motor_setting['Channel']].set_pulse_width_range(motor_setting["Pulse_Width"][0], motor_setting["Pulse_Width"][1])
+        return servo_kit.servo[motor_setting['Channel']]
 
     def load_setting(self, name, group):
         '''
