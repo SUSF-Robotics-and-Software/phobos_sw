@@ -16,6 +16,7 @@ ROVER = None
 # signal handler to destroy sockets on CTRL-C
 def exit_sig_handler(signal_number, frame):
     if ROVER is not None:
+        print('ROVER SHOULD STOP HERE PLS')
         ROVER.stop()
         # Sleep a little to let the command get out
         time.sleep(1)
@@ -242,7 +243,6 @@ def handle_mech(mechanisms, mech_rep, mech_pub):
 def main():
 
     # SIGINT handler that will properly close sockets on CTRL-C/Z
-    # TODO: add stop rover
     signal.signal(signal.SIGINT, exit_sig_handler)
     signal.signal(signal.SIGTSTP, exit_sig_handler)
     # Create phobos and run the rover exec code
