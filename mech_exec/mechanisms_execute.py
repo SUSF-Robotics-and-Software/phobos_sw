@@ -5,6 +5,7 @@ import math
 from adafruit_servokit import ServoKit
 import sys
 import signal
+import time
 
 # Global variables, that can be killed from the sighandler
 ZMQ_CONTEXT = None
@@ -16,6 +17,8 @@ ROVER = None
 def exit_sig_handler(signal_number, frame):
     if ROVER is not None:
         ROVER.stop()
+        # Sleep a little to let the command get out
+        time.sleep(0.1)
     if MECH_PUB is not None:
         MECH_PUB.close()
     if MECH_REP is not None:
@@ -188,6 +191,9 @@ def run(mechanisms):
         run_controller &= handle_mech(mechanisms, MECH_REP, MECH_PUB)
 
         sys.stdout.flush()
+
+    # Stop the rover
+    mechanisms.stop()
 
     # Close sockets
     MECH_REP.close()
