@@ -15,6 +15,7 @@ ROVER = None
 
 # signal handler to destroy sockets on CTRL-C
 def exit_sig_handler(signal_number, frame):
+    print('EXIT HANDLER')
     if ROVER is not None:
         print('ROVER SHOULD STOP HERE PLS')
         ROVER.stop()
@@ -160,6 +161,8 @@ class Mechanisms:
         '''
         Bring the rover to a complete stop.
         '''
+
+        print('Mechanisms.stop() called')
 
         for motor in self.motor_id_dict.keys():
             group = motor[:3]
