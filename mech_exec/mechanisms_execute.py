@@ -251,6 +251,8 @@ def main():
     # Create phobos and run the rover exec code
     ROVER = Mechanisms('../params/mech_exec.toml', '../params/loco_ctrl.toml')
 
+    ROVER.stop()
+
     run(ROVER)
 
 if __name__ == '__main__':
