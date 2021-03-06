@@ -31,7 +31,7 @@ comms_if = { path = "../comms_if" }
 
 [features]
 # Default feature enables all network stacks
-default = ["mech", "cam", "imu"]
+default = ["mech", "imu"]
 
 # Mechanisms network stack
 mech = []
