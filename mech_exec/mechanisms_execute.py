@@ -10,7 +10,7 @@ RAD_TO_DEGREE_CONV = 180 / math.pi
 MAX_SPEED_RADS = 3.6458 # Maximum drive motor speed in rad/s
 # Toggle to disable/enable specific servers
 MECH_SERVER = True
-SIM_SERVER = True
+SIM_SERVER = False
 
 class PhobosRover:
     def __init__(self, elec_driver_path, loco_ctrl_path, mech_exec_path, net_path):
@@ -48,8 +48,8 @@ class PhobosRover:
     def init_eqpt(self):
         self.channels = 16
         # Start a servo kit with 16 channels available for each board
-        self.servo_kits = [ServoKit(channels=self.channels, address=0x40, frequency=60),
-                           ServoKit(channels=self.channels, address=0x41, frequency=60)]
+        self.servo_kits = [ServoKit(channels=self.channels, address=0x40),
+                           ServoKit(channels=self.channels, address=0x41)]
 
     def get_motor(self, name, group):
         '''
@@ -140,9 +140,9 @@ def run(phobos):
     # Open mechanisms server
     if MECH_SERVER:
         mech_rep = context.socket(zmq.REP)
-        mech_rep.bind(phobos.net['mech_dems_endpoint'])
+        mech_rep.bind(phobos.mech_exec['demands_endpoint'])
         mech_pub = context.socket(zmq.PUB)
-        mech_pub.bind(phobos.net['mech_sens_endpoint'])
+        mech_pub.bind(phobos.mech_exec['sensor_data_endpoint'])
 
         print('MechServer started')
     else:
