@@ -236,8 +236,8 @@ def main():
 
     # SIGINT handler that will properly close sockets on CTRL-C/Z
     # TODO: add stop rover
-    signal.signal(signal.SIGINT, sigint_handler)
-    signal.signal(signal.SIGTSTP, sigint_handler)
+    signal.signal(signal.SIGINT, exit_sig_handler)
+    signal.signal(signal.SIGTSTP, exit_sig_handler)
     # Create phobos and run the rover exec code
     ROVER = Mechanisms('../params/mech_exec.toml', '../params/loco_ctrl.toml')
 
