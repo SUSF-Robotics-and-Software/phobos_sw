@@ -58,8 +58,10 @@ class Mechanisms:
     def init_eqpt(self):
         self.channels = 16
         # Start a servo kit with 16 channels available for each board
-        self.servo_kits = [ServoKit(channels=self.channels, address=0x40),
-                           ServoKit(channels=self.channels, address=0x41)]
+        self.servo_kits = [
+            ServoKit(channels=self.channels, address=self.mech_exec['board_addresses'][0]),
+            ServoKit(channels=self.channels, address=self.mech_exec['board_addresses'][1])
+        ]
 
     def get_motor(self, name, group):
         '''
@@ -95,7 +97,6 @@ class Mechanisms:
             ],
             "Servo_Kit" : self.mech_exec[group.lower() + '_idx_map'][motor_idx][0]
         }
-        print(f'{name} - [{motor_setting["Servo_Kit"]}, {motor_setting["Channel"]}')
         return motor_setting
 
     def actuate_mech_dems(self, dems):
@@ -121,7 +122,6 @@ class Mechanisms:
                         pos_sk
                     )
                 )
-                print(f'{act_id}: {pos_sk}')
                 # Set the position of the servo in degreee, the demands give the position in radians so RAD_TO_DEGREE_CONV is used to convert
                 self.get_motor(act_id, group).angle = pos_sk                        
             elif group == 'Arm':
