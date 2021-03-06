@@ -106,12 +106,11 @@ class Mechanisms:
                     self.mech_exec['str_ang_max_sk'][self.motor_id_dict[act_id]],
                     min(
                         self.mech_exec['str_ang_min_sk'][self.motor_id_dict[act_id]],
-                        rate_sk
+                        pos_sk
                     )
                 )
                 # Set the position of the servo in degreee, the demands give the position in radians so RAD_TO_DEGREE_CONV is used to convert
-                self.get_motor(act_id, group).angle = \
-                        
+                self.get_motor(act_id, group).angle = pos_sk                        
             elif group == 'Arm':
                 # TODO
                 continue
