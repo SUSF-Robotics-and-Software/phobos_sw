@@ -18,7 +18,7 @@ def exit_sig_handler(signal_number, frame):
     if ROVER is not None:
         ROVER.stop()
         # Sleep a little to let the command get out
-        time.sleep(0.1)
+        time.sleep(1)
     if MECH_PUB is not None:
         MECH_PUB.close()
     if MECH_REP is not None:
@@ -164,8 +164,8 @@ class Mechanisms:
             group = motor[:3]
 
             if group == 'Drv':
-                self.get_motor(motor, group).throttle = \
-                    self.mech_exec['drv_rate_norm_to_sk_coeffs'][self.motor_id_dict[motor]][1]
+                print(f'STOP {motor}')
+                self.get_motor(motor, group).throttle = 0
 
 def run(mechanisms):
     '''
