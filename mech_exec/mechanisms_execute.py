@@ -19,8 +19,6 @@ def exit_sig_handler(signal_number, frame):
     if ROVER is not None:
         print('ROVER SHOULD STOP HERE PLS')
         ROVER.stop()
-        # Sleep a little to let the command get out
-        time.sleep(1)
     if MECH_PUB is not None:
         print('CLOSE PUB')
         MECH_PUB.close()
@@ -32,8 +30,6 @@ def exit_sig_handler(signal_number, frame):
         ZMQ_CONTEXT.destory()
 
     sys.exit(0)
-
-    return
 
 class Mechanisms:
     def __init__(self, mech_exec_path, loco_ctrl_path):
