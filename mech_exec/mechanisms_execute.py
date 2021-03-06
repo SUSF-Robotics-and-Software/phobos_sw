@@ -22,11 +22,14 @@ def exit_sig_handler(signal_number, frame):
         # Sleep a little to let the command get out
         time.sleep(1)
     if MECH_PUB is not None:
+        print('CLOSE PUB')
         MECH_PUB.close()
     if MECH_REP is not None:
+        print('CLOSE REP')
         MECH_REP.close()
     if ZMQ_CONTEXT is not None:
-        ZMQ_CONTEXT.close()
+        print('CONTEXT DESTROY')
+        ZMQ_CONTEXT.destory()
 
     sys.exit(0)
 
