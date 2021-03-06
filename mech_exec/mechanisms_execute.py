@@ -189,7 +189,7 @@ def run(mechanisms):
     print('Starting main control loop')
     while run_controller:
         # Run mechanisms task
-        run_controller &= handle_mech(mechanisms, MECH_REP, mech_pub)
+        run_controller &= handle_mech(mechanisms, MECH_REP, MECH_PUB)
 
         sys.stdout.flush()
 
