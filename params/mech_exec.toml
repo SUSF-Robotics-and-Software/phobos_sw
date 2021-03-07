@@ -86,7 +86,7 @@ str_ang_max_sk = [270.0, 270.0, 270.0, 270.0, 270.0, 270.0]
 str_act_range_sk = [270.0, 270.0, 270.0, 270.0, 270.0, 270.0]
 
 # Steering minimum pulse width
-str_pw_range_min = [1150, 1250, 1150, 1100, 1250, 1250]
+str_pw_range_min = [1250, 1250, 1100, 1150, 1250, 1150]
 
 # Steering maximum pulse width
 str_pw_range_max = [2000, 2000, 2000, 2000, 2000, 2000]
