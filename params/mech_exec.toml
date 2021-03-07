@@ -78,12 +78,12 @@ str_ang_rad_to_sk_coeffs = [
 
 # Min and max drive rates
 str_ang_min_sk = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-str_ang_max_sk = [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+str_ang_max_sk = [180.0, 180.0, 270.0, 180.0, 180.0, 180.0]
 
 # Steering motor configurations
 
 # Steering actuator range
-str_act_range_sk = [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+str_act_range_sk = [180.0, 180.0, 270.0, 180.0, 180.0, 180.0]
 
 # Steering minimum pulse width
 str_pw_range_min = [1250, 1250, 1100, 1150, 1250, 1150]
