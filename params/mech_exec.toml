@@ -19,22 +19,22 @@ board_addresses = [64, 65]
 
 # Drive axis motor maps. First index is board index, second is motor.
 drv_idx_map = [
-    [0, 0],
+    [0, 2],
     [0, 1], 
-    [0, 2], 
-    [1, 0],
+    [0, 0], 
+    [1, 2],
     [1, 1],
-    [1, 2]
+    [1, 0]
 ]
 
 # Steer axis motor maps. First index is board index, second is motor.
 str_idx_map = [
-    [0, 4],
+    [0, 6],
     [0, 5], 
-    [0, 6], 
-    [1, 4],
+    [0, 4], 
+    [1, 6],
     [1, 5],
-    [1, 6]
+    [1, 4]
 ]
 
 # TODO - dummy
@@ -53,12 +53,12 @@ arm_idx_map = [
 # Note right hand motors have their sense reversed as they will drive the wrong
 # way otherwise.
 drv_rate_norm_to_sk_coeffs = [
-    [0.4, +0.1], 
-    [0.4, +0.1], 
-    [0.4, +0.1], 
-    [-0.4, +0.05], 
-    [-0.4, +0.065], 
-    [-0.4, +0.05]
+    [-0.4, -0.1], 
+    [-0.4, -0.1], 
+    [-0.4, -0.1], 
+    [+0.4, -0.05], 
+    [+0.4, -0.065], 
+    [+0.4, -0.05]
 ]
 
 # Min and max drive rates
