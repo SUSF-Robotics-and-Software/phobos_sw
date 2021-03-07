@@ -12,9 +12,7 @@ ROVER = None
 
 # signal handler to destroy sockets on CTRL-C
 def exit_sig_handler(signal_number, frame):
-    print('EXIT HANDLER')
     if ROVER is not None:
-        print('ROVER SHOULD STOP HERE PLS')
         ROVER.stop()
 
     sys.exit(0)
@@ -155,7 +153,6 @@ class Mechanisms:
             group = motor[:3]
 
             if group == 'Drv':
-                print(f'STOP {motor}')
                 self.get_motor(motor, group).throttle = \
                     self.mech_exec['drv_rate_norm_to_sk_coeffs'][self.motor_id_dict[motor]][1]
 
