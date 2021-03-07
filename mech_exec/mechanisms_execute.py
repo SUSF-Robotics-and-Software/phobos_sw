@@ -9,13 +9,13 @@ import time
 
 # Global variables, that can be killed from the sighandler
 ROVER = None
+# Global flag to stop execution
+STOP_EXEC = False
 
 # signal handler to destroy sockets on CTRL-C
 def exit_sig_handler(signal_number, frame):
-    if ROVER is not None:
-        ROVER.stop()
-
-    sys.exit(0)
+    global STOP_EXEC
+    STOP_EXEC = True
 
 class Mechanisms:
     def __init__(self, mech_exec_path, loco_ctrl_path):
@@ -160,6 +160,7 @@ def run(mechanisms):
     '''
     Run the rover.
     '''
+    global STOP_EXEC
 
     # Create zmq context
     ZMQ_CONTEXT = zmq.Context()
@@ -181,6 +182,9 @@ def run(mechanisms):
         run_controller &= handle_mech(mechanisms, MECH_REP, MECH_PUB)
 
         sys.stdout.flush()
+
+        # Check global stop flag
+        run_controller &= not STOP_EXEC
 
     # Stop the rover
     mechanisms.stop()
