@@ -8,9 +8,6 @@ import signal
 import time
 
 # Global variables, that can be killed from the sighandler
-ZMQ_CONTEXT = None
-MECH_PUB = None
-MECH_REP = None
 ROVER = None
 
 # signal handler to destroy sockets on CTRL-C
@@ -19,15 +16,6 @@ def exit_sig_handler(signal_number, frame):
     if ROVER is not None:
         print('ROVER SHOULD STOP HERE PLS')
         ROVER.stop()
-    if MECH_PUB is not None:
-        print('CLOSE PUB')
-        MECH_PUB.close()
-    if MECH_REP is not None:
-        print('CLOSE REP')
-        MECH_REP.close()
-    if ZMQ_CONTEXT is not None:
-        print('CONTEXT DESTROY')
-        ZMQ_CONTEXT.destory()
 
     sys.exit(0)
 
@@ -175,7 +163,6 @@ def run(mechanisms):
     '''
     Run the rover.
     '''
-    global MECH_REP, MECH_PUB, ZMQ_CONTEXT
 
     # Create zmq context
     ZMQ_CONTEXT = zmq.Context()
