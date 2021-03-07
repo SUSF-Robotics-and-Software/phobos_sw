@@ -115,6 +115,7 @@ class Mechanisms:
                         pos_sk
                     )
                 )
+                print(f'{act_id}: raw: {position_rad}, sk: {pos_sk}')
                 # Set the position of the servo in degreee, the demands give the position in radians so RAD_TO_DEGREE_CONV is used to convert
                 self.get_motor(act_id, group).angle = pos_sk                        
             elif group == 'Arm':
