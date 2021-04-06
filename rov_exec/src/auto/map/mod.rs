@@ -26,4 +26,4 @@ mod cost_map;
 
 pub use grid_map::{GridMap, GridMapError, Point2};
 pub use terrain_map::{TerrainMap, TerrainMapLayer, TerrainMapParams};
-pub use cost_map::{CostMap, CostMapLayer};
+pub use cost_map::{CostMap, CostMapLayer, CostMapParams};

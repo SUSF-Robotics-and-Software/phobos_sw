@@ -80,7 +80,7 @@ fn main() -> Result<()> {
     }
     // If no arguments error out
     else {
-        return Err(eyre!("Expected either path to TC script as only argument"));
+        return Err(eyre!("Expected path to TC script as only argument"));
     }
 
     // ---- MODULE INIT ----

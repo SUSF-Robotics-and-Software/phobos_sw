@@ -11,8 +11,8 @@
 
 use std::{collections::HashMap, fs, hash::Hash, io, ops::Deref, path::Path};
 
-use ndarray::{Array1, Array2, Array3, arr1, s};
-use ndarray_stats::{QuantileExt, errors::MinMaxError};
+use ndarray::{Array1, Array2, Array3, ArrayView2, arr1, s};
+use ndarray_stats::errors::MinMaxError;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 // ------------------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ where
 /// A grid-based map containing many layers of information.
 ///
 /// Based on [grid_map](https://github.com/ANYbotics/grid_map) by ANYbotics.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GridMap<T, L>
 where
     T: Clone,
@@ -60,7 +60,7 @@ where
 
 /// A simpler version of GridMap which minimises the data serialized
 #[derive(Serialize, Deserialize)]
-struct SerializableGridMap<T, L>
+pub(super) struct SerializableGridMap<T, L>
 where
     L: Hash + Eq
 {
@@ -241,6 +241,18 @@ where
         Ok(&mut self.data[[layer_idx, cell.x(), cell.y()]])
     }
 
+    pub fn get_layer(&self, layer: L) -> Result<ArrayView2<T>, GridMapError> {
+        let layer_idx = self.layer_index(layer)?;
+
+        Ok(self.data.slice(s![layer_idx, .., ..]))
+    }
+
+    pub fn get_layer_owned(&self, layer: L) -> Result<Array2<T>, GridMapError> {
+        let layer_idx = self.layer_index(layer)?;
+
+        Ok(self.data.slice(s![layer_idx, .., ..]).to_owned())
+    }
+
     pub fn cell_position(&self, cell: &Point2<usize>) -> Result<Point2<f64>, GridMapError> {
         // Check cell in map
         if !self.cell_in_map(cell) {
@@ -341,20 +353,22 @@ where
     T: Clone + PartialOrd,
     L: Hash + Eq + Clone
 {
-    pub fn min(&self, layer: L) -> Result<T, GridMapError> {
-        let layer_idx = self.layer_index(layer)?;
+    pub fn min(&self, _layer: L) -> Result<T, GridMapError> {
+        todo!();
+        // let layer_idx = self.layer_index(layer)?;
 
-        self.data.slice(s![layer_idx, .., ..]).min()
-            .map_err(|e| GridMapError::MinMaxError(e))
-            .map(|v| v.clone())
+        // self.data.slice(s![layer_idx, .., ..]).min()
+        //     .map_err(|e| GridMapError::MinMaxError(e))
+        //     .map(|v| v.clone())
     }
 
-    pub fn max(&self, layer: L) -> Result<T, GridMapError> {
-        let layer_idx = self.layer_index(layer)?;
+    pub fn max(&self, _layer: L) -> Result<T, GridMapError> {
+        todo!();
+        // let layer_idx = self.layer_index(layer)?;
 
-        self.data.slice(s![layer_idx, .., ..]).max()
-            .map_err(|e| GridMapError::MinMaxError(e))
-            .map(|v| v.clone())
+        // self.data.slice(s![layer_idx, .., ..]).max()
+        //     .map_err(|e| GridMapError::MinMaxError(e))
+        //     .map(|v| v.clone())
     }
 }
 
@@ -391,7 +405,7 @@ where
     T: Clone,
     L: Hash + Eq + Clone
 {
-    fn from_grid_map(map: &GridMap<T, L>) -> Self {
+    pub(super) fn from_grid_map(map: &GridMap<T, L>) -> Self {
         Self {
             data_type: std::any::type_name::<T>().into(),
             cell_size: (map.cell_size.x(), map.cell_size.y()),
@@ -402,7 +416,7 @@ where
         }
     }
 
-    fn to_grid_map(self) -> Result<GridMap<T, L>, GridMapError> {
+    pub(super) fn to_grid_map(self) -> Result<GridMap<T, L>, GridMapError> {
         let mut lms: Vec<(&L, &usize)> = self.layer_map.iter().collect();
         lms.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap());
         let layers: Vec<L> = lms.iter().map(|v| v.0.clone()).collect();
@@ -452,6 +466,15 @@ where
 {
     fn from(array: Array1<T>) -> Self {
         Self(array)
+    }
+}
+
+impl<T> From<(T, T)> for Point2<T>
+where 
+    T: Copy + Clone
+{
+    fn from(tuple: (T, T)) -> Self {
+        Point2::new(tuple.0, tuple.1)
     }
 }
 

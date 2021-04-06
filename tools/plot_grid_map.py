@@ -149,6 +149,11 @@ def load_map(path):
         map['data'] = conv_opt_f64(map['data'])
         map['is_cost_map'] = False
 
+        # DEBUGGING - add gradient layer
+        # map['layer_map']['Gradient'] = 1
+        # grads = np.gradient(map['data'][0])
+        # map['data'] = np.array([map['data'][0], np.sqrt(grads[0]**2 + grads[1]**2)])
+
     # Calculate meshgrids for easy plotting
     axis_length = map['num_cells'] * map['cell_size']
     ul_pos = map['centre_position'] + 0.5 * axis_length

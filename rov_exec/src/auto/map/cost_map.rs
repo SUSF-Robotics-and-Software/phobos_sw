@@ -6,18 +6,23 @@
 
 use std::ops::Deref;
 
-use super::{GridMap, GridMapError, Point2, TerrainMap, TerrainMapLayer};
-use ndarray::Array2;
-use serde::{Serialize, Deserialize};
-use util::maths::lin_map;
+use super::{GridMap, GridMapError, Point2, TerrainMap, TerrainMapLayer, grid_map::SerializableGridMap};
+use ndarray::{Array2, Zip, s};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
 // ------------------------------------------------------------------------------------------------
 
 /// Cost Map
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CostMap(pub(super) GridMap<CostMapData, CostMapLayer>);
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CostMapParams {
+    /// Maximum safe gradient value, in dy/dx.
+    pub max_safe_gradient: f64
+}
 
 // ------------------------------------------------------------------------------------------------
 // ENUMS
@@ -70,7 +75,10 @@ impl CostMap {
     }
 
     /// Calculate the cost map from the given terrain map
-    pub fn calculate(terrain_map: &TerrainMap) -> Result<Self, GridMapError> {
+    pub fn calculate(
+        params: CostMapParams, 
+        terrain_map: &TerrainMap
+    ) -> Result<Self, GridMapError> {
         let mut cost_map = Self::new(
             terrain_map.0.cell_size.clone(),
             terrain_map.0.num_cells.clone(),
@@ -79,52 +87,83 @@ impl CostMap {
 
         cost_map.0.set_layer(
             CostMapLayer::Gradient,
-            Self::calculate_gradient(terrain_map)?
+            Self::calculate_gradient(params, terrain_map)?
         )?;
         
-        // Calculate minimum and maximum terrain height
-        let height_range = terrain_map.range()?;
-
-        // Dummy cost map that just takes the height, and maps it between -0.5 and 1.5. Any value
-        // above 1.0 is considered unsafe, anything below 0.0 unknown.
-        cost_map.0 = terrain_map.map_into(
-            TerrainMapLayer::Height,
+        // Calculate the total layer by summing all other layers
+        cost_map.0.set_layer(
             CostMapLayer::Total,
-            &cost_map.0,
-            |_, _, height| {
-                match height {
-                    // Map heights between 0 and 1
-                    Some(h) => {
-                        let cost = lin_map(
-                            (height_range.start, height_range.end), 
-                            (-0.5, 1.5), 
-                            h
-                        );
-
-                        if cost > 1.0 {
-                            CostMapData::Unsafe
-                        }
-                        else if cost < 0.0 {
-                            CostMapData::None
-                        }
-                        else {
-                            CostMapData::Cost(cost)
-                        }
-                    },
-                    None => CostMapData::None
-                }
-            }
+            cost_map.0.get_layer_owned(CostMapLayer::Gradient)?
         )?;
 
         Ok(cost_map)
     }
 
     /// Calculate the gradient cost of the given terrain map
-    fn calculate_gradient(terrain_map: &TerrainMap) -> Result<Array2<CostMapData>, GridMapError> {
-        Ok(Array2::from_elem(
+    fn calculate_gradient(
+        params: CostMapParams, 
+        terrain_map: &TerrainMap
+    ) -> Result<Array2<CostMapData>, GridMapError> {
+        let mut gradient = Array2::from_elem(
             (terrain_map.num_cells.x(), terrain_map.num_cells.y()), 
             CostMapData::Unsafe
-        ))
+        );
+
+        // First a simple finite differencing algorithm.
+        Zip::from(terrain_map
+                .get_layer(TerrainMapLayer::Height)?
+                .windows((3, 3)) 
+            )
+            .and(gradient.slice_mut(
+                s![1..terrain_map.num_cells.x() - 1, 1..terrain_map.num_cells.y() - 1]
+            ))
+            .for_each(|window, grad| {
+                // Calculate dh/dx and dh/dy by comparing neighbours in each direction
+                let dh_dx = match (window[[2, 1]], window[[0, 1]]) {
+                    (Some(a), Some(b)) => Some((a - b)/(2.0 * terrain_map.cell_size.x())),
+                    _ => None,
+                };
+                let dh_dy = match (window[[1, 2]], window[[1, 0]]) {
+                    (Some(a), Some(b)) => Some((a - b)/(2.0 * terrain_map.cell_size.y())),
+                    _ => None,
+                };
+
+                // Get gradient as the magnitude of the total vector, or as the magnitude
+                // of the single vector if there's one missing, or none otherwise
+                *grad = match (dh_dx, dh_dy) {
+                    (Some(x), Some(y)) => {
+                        // Check if cost is above max
+                        let cost = (x*x + y*y).sqrt();
+                        if cost > params.max_safe_gradient {
+                            CostMapData::Unsafe
+                        }
+                        else {
+                            CostMapData::Cost(cost)
+                        }
+                    },
+                    (Some(x), None) => {
+                        // Check if cost is above max
+                        if x > params.max_safe_gradient {
+                            CostMapData::Unsafe
+                        }
+                        else {
+                            CostMapData::Cost(x)
+                        }
+                    },
+                    (None, Some(y)) => {
+                        // Check if cost is above max
+                        if y > params.max_safe_gradient {
+                            CostMapData::Unsafe
+                        }
+                        else {
+                            CostMapData::Cost(y)
+                        }
+                    },
+                    _ => CostMapData::None
+                }
+            });
+
+        Ok(gradient)
     }
 }
 
@@ -133,5 +172,31 @@ impl Deref for CostMap {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Serialize for CostMap {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer 
+    {
+        // Convert to a SerializableCostMap
+        let ser = SerializableGridMap::from_grid_map(&self);
+
+        ser.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CostMap {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de> 
+    {
+        // Deserialize into a SerializableGridMap
+        let ser: SerializableGridMap<CostMapData, CostMapLayer> 
+            = SerializableGridMap::deserialize(deserializer)?;
+
+        // Convert to cost map
+        Ok(CostMap(ser.to_grid_map().expect("Couldn't deserialize grid map to CostMap")))
     }
 }

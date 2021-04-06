@@ -10,6 +10,11 @@ num_cells = [30, 20]
 
 centre_position = [15.0, 10.0]
 
+[cost_map_params]
+
+# Corresponds to 25 deg
+max_safe_gradient = 0.4663
+
 [wait_new_pose]
 
 max_wait_time_s = 10.0
