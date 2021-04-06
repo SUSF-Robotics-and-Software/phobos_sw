@@ -20,7 +20,7 @@ use super::loc::Pose;
 /// A path defining the desired trajectory of the rover.
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Path {
-    points_m: Vec<Vector2<f64>>
+    pub points_m: Vec<Vector2<f64>>
 }
 
 /// A segment between two path points

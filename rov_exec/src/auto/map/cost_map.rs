@@ -1,4 +1,17 @@
 //! # Cost Map
+//!
+//! If a ground path is provided it will have two boundaries placed around it. Between the path and
+//! the first boundary `cost_onset_semi_width_m` no additional cost is added to the cost map.
+//! The added cost then increases from 0 to `max_added_cost` at `max_cost_semi_width_m`.
+//! ```text
+//! GROUND PATH
+//!    ┌┐
+//!    ││    │                             │
+//! ──►├│    │     max_cost_semi_width     │◄──
+//!    ││    │                             │
+//! ──►├│    │◄── cost_onset_semi_width_m  │
+//!    ││    │                             │
+//! ```
 
 // ------------------------------------------------------------------------------------------------
 // INCLUDES
@@ -6,9 +19,13 @@
 
 use std::ops::Deref;
 
+use crate::auto::path::Path;
+
 use super::{GridMap, GridMapError, Point2, TerrainMap, TerrainMapLayer, grid_map::SerializableGridMap};
+use nalgebra::Vector2;
 use ndarray::{Array2, Zip, s};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use util::quadtree::{Quad, QuadTree};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -21,7 +38,18 @@ pub struct CostMap(pub(super) GridMap<CostMapData, CostMapLayer>);
 #[derive(Debug, Clone, Deserialize)]
 pub struct CostMapParams {
     /// Maximum safe gradient value, in dy/dx.
-    pub max_safe_gradient: f64
+    pub max_safe_gradient: f64,
+
+    /// The distance (semi_width) from a potential ground planned path at which a cost will begin
+    /// to be added to the cost map.
+    pub cost_onset_semi_width_m: f64,
+
+    /// The distance (semi_width) from a potential ground planned path at which the maximum added
+    /// cost will be applied.
+    pub max_cost_semi_width_m: f64,
+
+    /// The maximum cost added to the cost map by a potential ground planned path.
+    pub max_added_cost: f64
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -32,7 +60,8 @@ pub struct CostMapParams {
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug, Serialize, Deserialize)]
 pub enum CostMapLayer {
     Total,
-    Gradient
+    Gradient,
+    GroundPlannedPath
 }
 
 /// Possible values of the cost map
@@ -67,7 +96,7 @@ impl CostMap {
             cell_size,
             num_cells,
             centre_position,
-            &[CostMapLayer::Total, CostMapLayer::Gradient],
+            &[CostMapLayer::Total, CostMapLayer::Gradient, CostMapLayer::GroundPlannedPath],
             CostMapData::None
         )?;
 
@@ -76,7 +105,7 @@ impl CostMap {
 
     /// Calculate the cost map from the given terrain map
     pub fn calculate(
-        params: CostMapParams, 
+        params: &CostMapParams, 
         terrain_map: &TerrainMap
     ) -> Result<Self, GridMapError> {
         let mut cost_map = Self::new(
@@ -99,9 +128,102 @@ impl CostMap {
         Ok(cost_map)
     }
 
+    pub fn apply_ground_planned_path(
+        &mut self,
+        params: &CostMapParams,
+        path: &Path
+    ) -> Result<(), GridMapError> {
+
+        // We're going to be testing all points in the map against all points in the path. Doing
+        // this with linear searches would take a very long time, so we're going to use a quadtree
+        // of the path points instead.
+        let mut path_quadtree = QuadTree::new(Quad::new(
+            self.centre_position.clone().into(),
+            (self.cell_size.x() * self.num_cells.x() as f64)
+                .max(self.cell_size.y() * self.num_cells.y() as f64) / 2.0
+        ));
+
+        // Insert all points in the path. If any point won't go into the quadtree then we will
+        // return an error saying the point isn't in the map
+        for &point in path.points_m.iter() {
+            path_quadtree.insert(point).map_err(|_| GridMapError::OutsideMap)?;
+        }
+
+        // Precompute the value for max cost, as we have to check if it's greater than one, in
+        // which case it's considered unsafe
+        let max_cost_val: CostMapData;
+        if params.max_added_cost >= 1.0 {
+            max_cost_val = CostMapData::Unsafe;
+        }
+        else {
+            max_cost_val = CostMapData::Cost(params.max_added_cost);
+        }
+
+        // Iterate over all points in the map, and determine if the point is within the bounds.
+        self.0.map_in_place(
+            CostMapLayer::GroundPlannedPath,
+            |_, pos, _| {
+
+                let pos_vec2: Vector2<f64> = pos.into();
+
+                // Start by querying the quadtree to see if there are any path points in a quad
+                // around the current point of half_width equal to the max semi_width
+                let query_quad = Quad::new(
+                    pos_vec2.clone(), 
+                    params.max_cost_semi_width_m
+                );
+                let points_in_quad = path_quadtree.query_in_quad(query_quad);
+
+                // If there are no points in that search quad the cost for this cell is the max
+                // cost, since we're too far away from the path
+                if points_in_quad.len() == 0 {
+                    return max_cost_val
+                }
+                
+                // Otherwise we might be in range of the path, so find the closest point.
+                println!("---- STARTING SEARCH FOR CLOSEST POINT ----");
+                let mut closest_point = (points_in_quad[0] - pos_vec2).norm();
+                for point in points_in_quad.iter() {
+                    let dist = (point - pos_vec2).norm();
+                    println!("Point: {} m", dist);
+                    if dist < closest_point {
+                        closest_point = dist
+                    }
+                }
+
+                // Assign cost based on the distance to the closest point. If it's less than the
+                // onset distance the cost is zero, if it's greater than the max distance it's the
+                // max cost. If it's between it's a linear map between the two.
+                if closest_point < params.cost_onset_semi_width_m {
+                    CostMapData::Cost(0.0)
+                }
+                else if closest_point > params.max_cost_semi_width_m {
+                    max_cost_val
+                }
+                else {
+                    let cost = util::maths::lin_map(
+                        (params.cost_onset_semi_width_m, params.max_cost_semi_width_m), 
+                        (0.0, params.max_added_cost), 
+                        closest_point
+                    );
+
+                    // Clamp cost to the unsafe value of 1.0
+                    if cost >= 1.0 {
+                        CostMapData::Unsafe
+                    }
+                    else {
+                        CostMapData::Cost(cost)
+                    }
+                }
+            }
+        )?;
+
+        Ok(())
+    }
+
     /// Calculate the gradient cost of the given terrain map
     fn calculate_gradient(
-        params: CostMapParams, 
+        params: &CostMapParams, 
         terrain_map: &TerrainMap
     ) -> Result<Array2<CostMapData>, GridMapError> {
         let mut gradient = Array2::from_elem(

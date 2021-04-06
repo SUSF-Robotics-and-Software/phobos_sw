@@ -8,6 +8,7 @@
 // ------------------------------------------------------------------------------------------------
 
 mod auto_mnvr;
+mod check;
 mod pause;
 mod params;
 mod stop;
@@ -23,7 +24,11 @@ use std::{fmt::Display, unimplemented};
 
 use self::{params::AutoMgrParams, tm::AutoTm};
 
-use super::{loc::{LocMgr, LocSource}, map::{GridMapError, TerrainMap, TerrainMapParams}, path::PathError, traj_ctrl::TrajCtrlError};
+use super::{
+    loc::{LocMgr, LocSource}, 
+    map::{GridMapError, TerrainMap, TerrainMapParams}, 
+    path::PathError, traj_ctrl::TrajCtrlError
+};
 
 // ------------------------------------------------------------------------------------------------
 // EXPORTS
@@ -36,6 +41,7 @@ pub mod states {
     pub use super::auto_mnvr::AutoMnvr;
     pub use super::wait_new_pose::WaitNewPose;
     pub use super::follow::Follow;
+    pub use super::check::Check;
 }
 
 use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
@@ -154,7 +160,7 @@ pub enum AutoMgrState {
     ImgStop,
     AutoMnvr(AutoMnvr),
     Follow(Follow),
-    Check,
+    Check(Check),
     Goto
 }
 
@@ -222,6 +228,10 @@ impl AutoMgr {
                 }
                 Some(AutoCmd::Follow(p)) => {
                     self.stack.push_above(AutoMgrState::Follow(Follow::new(p)?));
+                    StepOutput::none()
+                }
+                Some(AutoCmd::Check(p)) => {
+                    self.stack.push_above(AutoMgrState::Check(Check::new(p)?));
                     StepOutput::none()
                 }
                 Some(_) => {
@@ -335,7 +345,7 @@ impl Display for AutoMgrState {
             AutoMgrState::ImgStop => write!(f, "AutoMgrState::ImgStop"),
             AutoMgrState::AutoMnvr(_) => write!(f, "AutoMgrState::AutoMnvr"),
             AutoMgrState::Follow(_) => write!(f, "AutoMgrState::Follow"),
-            AutoMgrState::Check => write!(f, "AutoMgrState::Check"),
+            AutoMgrState::Check(_) => write!(f, "AutoMgrState::Check"),
             AutoMgrState::Goto => write!(f, "AutoMgrState::Goto"),
         }
     }
@@ -370,6 +380,11 @@ impl AutoMgrState {
                 cmd
             ),
             AutoMgrState::Follow(follow) => follow.step(
+                params,
+                persistant,
+                cmd
+            ),
+            AutoMgrState::Check(check) => check.step(
                 params,
                 persistant,
                 cmd

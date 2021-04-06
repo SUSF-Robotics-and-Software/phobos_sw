@@ -14,6 +14,7 @@ pub mod params;
 pub mod session;
 pub mod script_interpreter;
 pub mod time;
+pub mod quadtree;
 
 // ---------------------------------------------------------------------------
 // REEXPORTS

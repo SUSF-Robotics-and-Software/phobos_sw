@@ -37,10 +37,7 @@ pub enum AutoCmd {
 
     /// Follow and check the safety of the path stored in the path file at the given system path.
     #[structopt(name = "check")]
-    Check {
-        /// The path to the path file.
-        path: PathBuf
-    },
+    Check(PathSpec),
 
     /// Autonomously navigate to the given coordinates in the LocalMap frame.
     #[structopt(name = "goto")]

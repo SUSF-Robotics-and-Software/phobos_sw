@@ -13,7 +13,9 @@ import argparse
 import json
 import copy
 
-def plot_grid_map(map):
+from plot_path import load_path, plot_path
+
+def plot_grid_map(map, paths):
     '''
     Plots the given grid map in an interactive way.
     '''
@@ -64,6 +66,8 @@ def plot_grid_map(map):
                 vmin=0.0,
                 vmax=1.0
             )
+            for path in paths:
+                plot_path(path, ax=ax)
         else:
             plots[layer] = ax.plot_surface(
                 map['x_grid'], map['y_grid'], map['data'][idx],
@@ -150,9 +154,9 @@ def load_map(path):
         map['is_cost_map'] = False
 
         # DEBUGGING - add gradient layer
-        # map['layer_map']['Gradient'] = 1
-        # grads = np.gradient(map['data'][0])
-        # map['data'] = np.array([map['data'][0], np.sqrt(grads[0]**2 + grads[1]**2)])
+        map['layer_map']['Gradient'] = 1
+        grads = np.gradient(map['data'][0])
+        map['data'] = np.array([map['data'][0], np.sqrt(grads[0]**2 + grads[1]**2)])
 
     # Calculate meshgrids for easy plotting
     axis_length = map['num_cells'] * map['cell_size']
@@ -204,15 +208,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Plot a grid map')
     parser.add_argument(
         'grid_map_path',
-        metavar='PATH', 
+        metavar='MAP', 
         type=str, 
         nargs=1,
         help='Path to the grid map JSON file to plot'
+    )
+    parser.add_argument(
+        'paths',
+        metavar='PATHS',
+        nargs='*',
+        help='Path to one or more JSON files describing paths'
     )
 
     args = parser.parse_args()
 
     map = load_map(Path(args.grid_map_path[0]))
+    paths = [load_path(path) for path in args.paths]
 
-    plot_grid_map(map)
+    plot_grid_map(map, paths)
 

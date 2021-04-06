@@ -11,6 +11,7 @@
 
 use std::{collections::HashMap, fs, hash::Hash, io, ops::Deref, path::Path};
 
+use nalgebra::{Scalar, Vector2};
 use ndarray::{Array1, Array2, Array3, ArrayView2, arr1, s};
 use ndarray_stats::errors::MinMaxError;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -212,7 +213,7 @@ where
     pub fn get(&self, layer: L, cell: &Point2<usize>) -> Result<T, GridMapError> {
         let layer_idx = self.layer_index(layer)?;
 
-        Ok(self.data[[layer_idx, cell.x(), cell.y()]].clone())
+        Ok(self.data[[layer_idx, cell.y(), cell.x()]].clone())
     }
 
     pub fn get_position(&self, layer: L, position: &Point2<f64>) -> Result<T, GridMapError> {
@@ -220,13 +221,13 @@ where
 
         let cell = self.position_to_cell(position)?;
 
-        Ok(self.data[[layer_idx, cell.x(), cell.y()]].clone())
+        Ok(self.data[[layer_idx, cell.y(), cell.x()]].clone())
     }
 
     pub fn get_mut(&mut self, layer: L, cell: &Point2<usize>) -> Result<&mut T, GridMapError> {
         let layer_idx = self.layer_index(layer)?;
 
-        Ok(&mut self.data[[layer_idx, cell.x(), cell.y()]])
+        Ok(&mut self.data[[layer_idx, cell.y(), cell.x()]])
     }
 
     pub fn get_position_mut(
@@ -238,7 +239,7 @@ where
 
         let cell = self.position_to_cell(position)?;
 
-        Ok(&mut self.data[[layer_idx, cell.x(), cell.y()]])
+        Ok(&mut self.data[[layer_idx, cell.y(), cell.x()]])
     }
 
     pub fn get_layer(&self, layer: L) -> Result<ArrayView2<T>, GridMapError> {
@@ -310,13 +311,32 @@ where
 
         for (idx, t) in out.data.slice_mut(s![layer_idx, .., ..]).indexed_iter_mut() {
             // Get cell index and position
-            let cell = Point2::new(idx.0, idx.1);
+            let cell = Point2::new(idx.1, idx.0);
             let pos = self.cell_position(&cell)?;
 
             *t = f(cell, pos, t.clone());
         }
 
         Ok(out)
+    }
+
+    pub fn map_in_place<F: Fn(Point2<usize>, Point2<f64>, T) -> T>(
+        &mut self, 
+        layer: L, 
+        f: F
+    ) -> Result<(), GridMapError> {
+        let layer_idx = self.layer_index(layer)?;
+        let const_map = self.clone();
+
+        for (idx, t) in self.data.slice_mut(s![layer_idx, .., ..]).indexed_iter_mut() {
+            // Get cell index and position
+            let cell = Point2::new(idx.1, idx.0);
+            let pos = const_map.cell_position(&cell)?;
+
+            *t = f(cell, pos, t.clone());
+        }
+
+        Ok(())
     }
 
     /// Maps data from one grid map into another.
@@ -338,7 +358,7 @@ where
 
         for (idx, t) in out.data.slice_mut(s![into_layer_idx, .., ..]).indexed_iter_mut() {
             // Get cell index and position
-            let cell = Point2::new(idx.0, idx.1);
+            let cell = Point2::new(idx.1, idx.0);
             let pos = self.cell_position(&cell)?;
 
             *t = f(cell.clone(), pos, self.get(from_layer.clone(), &cell)?);
@@ -475,6 +495,15 @@ where
 {
     fn from(tuple: (T, T)) -> Self {
         Point2::new(tuple.0, tuple.1)
+    }
+}
+
+impl<T> From<Point2<T>> for Vector2<T> 
+where 
+    T: Copy + Clone + Scalar
+{
+    fn from(point: Point2<T>) -> Self {
+        Self::new(point.x(), point.y())
     }
 }
 
