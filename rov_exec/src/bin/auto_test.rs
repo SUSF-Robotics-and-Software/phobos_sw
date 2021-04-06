@@ -87,7 +87,7 @@ fn main() -> Result<()> {
 
     let mut ds = DataStore::default();
 
-    let mut auto_mgr = AutoMgr::init("auto_mgr.toml")
+    let mut auto_mgr = AutoMgr::init("auto_mgr.toml", session)
         .wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
 

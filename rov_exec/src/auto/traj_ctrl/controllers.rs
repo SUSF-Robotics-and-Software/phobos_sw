@@ -20,6 +20,8 @@ use crate::auto::{
 };
 use comms_if::tc::loco_ctrl::MnvrCmd;
 
+use super::TrajCtrlTuningOutput;
+
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
@@ -148,16 +150,19 @@ impl TrajControllers {
         segment: &PathSegment, 
         pose: &Pose,
         report: &mut super::StatusReport,
+        tuning_output: &mut super::TrajCtrlTuningOutput,
         params: &super::Params
     ) -> MnvrCmd {
 
         // Calculate lateral error
         let lat_err_m = self.calc_lat_error(segment, pose);
         report.lat_error_m = lat_err_m;
+        tuning_output.lat_error_m = lat_err_m;
 
         // Calcualte heading error
         let head_err_rad = self.calc_head_error(segment, pose);
         report.head_error_rad = head_err_rad;
+        tuning_output.head_error_rad = head_err_rad;
 
         // Enforce limits on heading and lateral errors
         if lat_err_m.abs() > params.lat_error_limit_m {
@@ -175,6 +180,9 @@ impl TrajControllers {
         // Apply limits to curv and crab demands
         crab_dem_rad = crab_dem_rad.clamp(params.min_crab_dem_rad, params.max_crab_dem_rad);
         curv_dem_m = curv_dem_m.clamp(params.min_curv_dem_m, params.max_curv_dem_m);
+
+        tuning_output.lat_ctrl = crab_dem_rad;
+        tuning_output.head_ctrl = curv_dem_m;
 
         // Calculate speed demand
         let mut speed_dem_ms = 0f64;

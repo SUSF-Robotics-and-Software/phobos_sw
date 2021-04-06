@@ -10,10 +10,7 @@ use crate::auto::{loc::Pose, path::*};
 use comms_if::tc::loco_ctrl::MnvrCmd;
 use log::{debug, info, warn};
 use nalgebra::{Vector2, Vector3};
-use util::{
-    params,
-    maths::norm
-};
+use util::{params, session};
 use serde::{Serialize, Deserialize};
 
 // ---------------------------------------------------------------------------
@@ -42,7 +39,10 @@ pub struct TrajCtrl {
     target_point_index: usize,
 
     /// Controller objects used to calculate manouvre commands
-    controllers: TrajControllers
+    controllers: TrajControllers,
+
+    /// Output used to tune the system
+    tuning_output: TrajCtrlTuningOutput,
 }
 
 /// The status report containing various error flags and monitoring quantities.
@@ -70,6 +70,27 @@ pub struct StatusReport {
     pub sequence_aborted: bool,
 
     pub target_point_idx: usize
+}
+
+#[derive(Default, Clone, Debug, Serialize)]
+pub struct TrajCtrlTuningOutput {
+    /// The time
+    pub time_s: f64,
+
+    /// The lateral error to the current path segment
+    pub lat_error_m: f64,
+
+    /// Longitudonal error from the current target point
+    pub long_error_m: f64,
+
+    /// The heading error to the current path segment
+    pub head_error_rad: f64,
+
+    /// Output from the lateral error controller
+    pub lat_ctrl: f64,
+
+    /// Output from the heading error controller
+    pub head_ctrl: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -148,7 +169,8 @@ impl TrajCtrl {
             report: StatusReport::default(),
             path_sequence: None,
             path_index: 0,
-            target_point_index: 0
+            target_point_index: 0,
+            tuning_output: TrajCtrlTuningOutput::default()
         })
     }
 
@@ -167,6 +189,7 @@ impl TrajCtrl {
         self.input_pose = Some(*pose);
         self.output_mnvr_cmd = None;
         self.report = StatusReport::default();
+        self.tuning_output.time_s = session::get_elapsed_seconds();
 
         // Mode execution. Each of the mode functions returns either the mode
         // to switch to or an error
@@ -278,6 +301,8 @@ impl TrajCtrl {
         // Find longitudonal error to next target
         let long_err_m = self.get_long_error()?;
 
+        self.tuning_output.long_error_m = long_err_m;
+
         // If the error is negative we have passed the target, so increment to 
         // the next target
         if long_err_m < 0f64 {
@@ -313,12 +338,14 @@ impl TrajCtrl {
             .get_segment_to_target(self.target_point_index)
             .unwrap();
 
-        debug!("Current pose: {:?}", pose);
-        debug!("Current target: {:?}", segment.target_m);
-
         // Get the command
         let mnvr_cmd = self.controllers.get_ackerman_cmd(
-            &segment, &pose, &mut self.report, &self.params);
+            &segment, 
+            &pose, 
+            &mut self.report, 
+            &mut self.tuning_output,
+            &self.params
+        );
 
         // Check for error exceedance
         if self.report.lat_error_limit_exceeded 

@@ -5,6 +5,8 @@
 // -----------------------------------------------------------------------------------------------
 
 use comms_if::tc::auto::{AutoCmd, PathSpec};
+use std::fs::File;
+use csv::Writer;
 use log::{error, info, warn};
 
 use crate::auto::{path::Path, traj_ctrl::TrajCtrl};
@@ -33,6 +35,7 @@ pub struct Follow {
     traj_ctrl: TrajCtrl,
     path_spec: PathSpec,
     path: Option<Path>,
+    tuning_writer: Option<Writer<File>>
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -49,7 +52,8 @@ impl Follow {
         Ok(Self {
             traj_ctrl,
             path_spec,
-            path: None
+            path: None,
+            tuning_writer: None
         })
     }
 
@@ -103,6 +107,17 @@ impl Follow {
             persistant.auto_tm.path = Some(path.clone());
 
             self.path = Some(path);
+            
+            // // Create a new CSV to store the tuning output for this path
+            // self.tuning_writer = Some({
+            //     let file_name = format!(
+            //         "{:?}/traj_ctrl_tuning_{:.0}.csv", 
+            //         persistant.session.arch_root, 
+            //         util::session::get_elapsed_seconds()
+            //     );
+
+            //     Writer::from_path(&file_name).unwrap()
+            // });
         }
 
         // Step TrajCtrl
@@ -112,6 +127,12 @@ impl Follow {
 
         // Set the traj_ctrl status in the tm
         persistant.auto_tm.traj_ctrl_status = Some(traj_ctrl_status);
+
+        // Write tuning data out
+        // match self.tuning_writer {
+        //     Some(w) => w.serialize(&self.traj_ctrl.tuning_output),
+        //     None => ()
+        // }
 
         // Check for TrajCtrl finishing
         if traj_ctrl_status.sequence_finished {

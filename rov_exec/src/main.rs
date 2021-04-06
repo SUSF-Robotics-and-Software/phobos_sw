@@ -173,7 +173,7 @@ fn main() -> Result<(), Report> {
         .wrap_err("Failed to initialise LocoCtrl")?;
     info!("LocoCtrl init complete");
 
-    let mut auto_mgr = AutoMgr::init("auto_mgr.toml")
+    let mut auto_mgr = AutoMgr::init("auto_mgr.toml", session.clone())
         .wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
 

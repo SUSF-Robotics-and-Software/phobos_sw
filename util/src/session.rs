@@ -34,6 +34,7 @@ const TIMESTAMP_FORMAT: &'static str = "%Y%m%d_%H%M%S";
 // ---------------------------------------------------------------------------
 
 /// A struct storing information about the current session
+#[derive(Clone)]
 pub struct Session {
     /// The root directory for this session
     pub session_root: PathBuf,

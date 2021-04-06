@@ -29,6 +29,7 @@ nalgebra = { version = "0.24", features = ["serde-serialize"] }
 ndarray = { version = "0.14", features = ["serde"] }
 ndarray-stats = "0.4"
 noise = "0.7"
+csv = "1.1"
 
 # Internal
 util = { path = "../util" }

@@ -41,6 +41,7 @@ pub mod states {
 use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
 use log::{error, info, warn};
 use states::*;
+use util::session::Session;
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -79,7 +80,7 @@ pub struct AutoMgr {
     /// next.
     /// 
     /// See [`AutoMgrStack`] for more information.
-    stack: AutoMgrStack
+    stack: AutoMgrStack,
 }
 
 pub struct AutoMgrPersistantData {
@@ -91,6 +92,9 @@ pub struct AutoMgrPersistantData {
 
     /// Telemetry packet to be sent by the TM server, summarising the autonomy state.
     pub auto_tm: AutoTm,
+
+    /// A copy of the global session data.
+    pub session: Session
 }
 
 /// State stacking abstraction.
@@ -178,7 +182,7 @@ pub enum StackData {
 // ------------------------------------------------------------------------------------------------
 
 impl AutoMgr {
-    pub fn init(params_path: &str) -> Result<Self, AutoMgrError> {
+    pub fn init(params_path: &str, session: Session) -> Result<Self, AutoMgrError> {
         // Load parameters
         let params: AutoMgrParams = match util::params::load(params_path) {
             Ok(p) => p,
@@ -190,13 +194,17 @@ impl AutoMgr {
             last_stack_data: StackData::None,
             persistant: AutoMgrPersistantData::new(
                 &params.terrain_map_params, 
-                params.loc_mgr.source
+                params.loc_mgr.source,
+                session
             )?,
             stack: AutoMgrStack::new()
         })
     }
 
-    pub fn step(&mut self, cmd: Option<AutoCmd>) -> Result<Option<MnvrCmd>, AutoMgrError> {
+    pub fn step(
+        &mut self, 
+        cmd: Option<AutoCmd>
+    ) -> Result<Option<MnvrCmd>, AutoMgrError> {
 
         // Get a reference to the current top state
         let top = self.stack.top();
@@ -387,13 +395,15 @@ impl AutoMgrState {
 impl AutoMgrPersistantData {
     pub fn new(
         terr_map_params: &TerrainMapParams, 
-        loc_source: LocSource
+        loc_source: LocSource,
+        session: Session
     ) -> Result<Self, AutoMgrError> {
         Ok(Self {
             global_terr_map: TerrainMap::new_from_params(terr_map_params)
                 .map_err(|e| AutoMgrError::InitGlobalTerrMapError(e))?,
             loc_mgr: LocMgr::new(loc_source),
-            auto_tm: AutoTm::default()
+            auto_tm: AutoTm::default(),
+            session
         })
     }
 }
