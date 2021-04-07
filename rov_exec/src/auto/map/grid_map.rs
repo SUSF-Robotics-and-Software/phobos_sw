@@ -213,7 +213,7 @@ where
     pub fn get(&self, layer: L, cell: &Point2<usize>) -> Result<T, GridMapError> {
         let layer_idx = self.layer_index(layer)?;
 
-        Ok(self.data[[layer_idx, cell.y(), cell.x()]].clone())
+        Ok(self.data[[layer_idx, cell.x(), cell.y()]].clone())
     }
 
     pub fn get_position(&self, layer: L, position: &Point2<f64>) -> Result<T, GridMapError> {
@@ -221,13 +221,13 @@ where
 
         let cell = self.position_to_cell(position)?;
 
-        Ok(self.data[[layer_idx, cell.y(), cell.x()]].clone())
+        Ok(self.data[[layer_idx, cell.x(), cell.y()]].clone())
     }
 
     pub fn get_mut(&mut self, layer: L, cell: &Point2<usize>) -> Result<&mut T, GridMapError> {
         let layer_idx = self.layer_index(layer)?;
 
-        Ok(&mut self.data[[layer_idx, cell.y(), cell.x()]])
+        Ok(&mut self.data[[layer_idx, cell.x(), cell.y()]])
     }
 
     pub fn get_position_mut(
@@ -239,7 +239,7 @@ where
 
         let cell = self.position_to_cell(position)?;
 
-        Ok(&mut self.data[[layer_idx, cell.y(), cell.x()]])
+        Ok(&mut self.data[[layer_idx, cell.x(), cell.y()]])
     }
 
     pub fn get_layer(&self, layer: L) -> Result<ArrayView2<T>, GridMapError> {

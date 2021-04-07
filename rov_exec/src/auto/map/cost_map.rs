@@ -133,6 +133,17 @@ impl CostMap {
         params: &CostMapParams,
         path: &Path
     ) -> Result<(), GridMapError> {
+        // According to bench_cost_map linear search faster than my quadtree implementation. I
+        // belive it's because my impl of quadtree is slow, but for now we're just going to go
+        // with the linear approach instead of quadtree.
+        self.apply_ground_planned_path_linear(params, path)
+    }
+
+    pub fn apply_ground_planned_path_quadtree(
+        &mut self,
+        params: &CostMapParams,
+        path: &Path
+    ) -> Result<(), GridMapError> {
 
         // We're going to be testing all points in the map against all points in the path. Doing
         // this with linear searches would take a very long time, so we're going to use a quadtree
@@ -172,8 +183,8 @@ impl CostMap {
                     pos_vec2.clone(), 
                     params.max_cost_semi_width_m
                 );
-                let points_in_quad = path_quadtree.query_in_quad(query_quad);
-
+                let points_in_quad = path_quadtree.query_in_quad(&query_quad);
+                
                 // If there are no points in that search quad the cost for this cell is the max
                 // cost, since we're too far away from the path
                 if points_in_quad.len() == 0 {
@@ -181,11 +192,9 @@ impl CostMap {
                 }
                 
                 // Otherwise we might be in range of the path, so find the closest point.
-                println!("---- STARTING SEARCH FOR CLOSEST POINT ----");
                 let mut closest_point = (points_in_quad[0] - pos_vec2).norm();
                 for point in points_in_quad.iter() {
                     let dist = (point - pos_vec2).norm();
-                    println!("Point: {} m", dist);
                     if dist < closest_point {
                         closest_point = dist
                     }
@@ -216,6 +225,89 @@ impl CostMap {
                     }
                 }
             }
+        )?;
+
+        Ok(())
+    }
+
+    pub fn apply_ground_planned_path_linear(
+        &mut self,
+        params: &CostMapParams,
+        path: &Path
+    ) -> Result<(), GridMapError> {
+        // This is going to use a simple linear search over all path points for every cell in the
+        // map, so no need to calc a quadtree at the start
+
+        // Precompute the value for max cost, as we have to check if it's greater than one, in
+        // which case it's considered unsafe
+        let max_cost_val: CostMapData;
+        if params.max_added_cost >= 1.0 {
+            max_cost_val = CostMapData::Unsafe;
+        }
+        else {
+            max_cost_val = CostMapData::Cost(params.max_added_cost);
+        }
+
+        self.0.map_in_place(
+            CostMapLayer::GroundPlannedPath, 
+            |_, pos, _| {
+                let pos_vec2: Vector2<f64> = pos.into();
+
+                // Start by querying the quadtree to see if there are any path points in a quad
+                // around the current point of half_width equal to the max semi_width
+                let query_quad = Quad::new(
+                    pos_vec2.clone(), 
+                    params.max_cost_semi_width_m
+                );
+
+                // Find all points within the max distance
+                let mut points_in_quad = Vec::new();
+                for point in path.points_m.iter() {
+                    if query_quad.contains(point) {
+                        points_in_quad.push(point.clone());
+                    }
+                }
+
+                // If there are no points in that search quad the cost for this cell is the max
+                // cost, since we're too far away from the path
+                if points_in_quad.len() == 0 {
+                    return max_cost_val
+                }
+                
+                // Otherwise we might be in range of the path, so find the closest point.
+                let mut closest_point = (points_in_quad[0] - pos_vec2).norm();
+                for point in points_in_quad.iter() {
+                    let dist = (point - pos_vec2).norm();
+                    if dist < closest_point {
+                        closest_point = dist
+                    }
+                }
+
+                // Assign cost based on the distance to the closest point. If it's less than the
+                // onset distance the cost is zero, if it's greater than the max distance it's the
+                // max cost. If it's between it's a linear map between the two.
+                if closest_point < params.cost_onset_semi_width_m {
+                    CostMapData::Cost(0.0)
+                }
+                else if closest_point > params.max_cost_semi_width_m {
+                    max_cost_val
+                }
+                else {
+                    let cost = util::maths::lin_map(
+                        (params.cost_onset_semi_width_m, params.max_cost_semi_width_m), 
+                        (0.0, params.max_added_cost), 
+                        closest_point
+                    );
+
+                    // Clamp cost to the unsafe value of 1.0
+                    if cost >= 1.0 {
+                        CostMapData::Unsafe
+                    }
+                    else {
+                        CostMapData::Cost(cost)
+                    }
+                }
+            } 
         )?;
 
         Ok(())

@@ -7,6 +7,8 @@
 // IMPORTS
 // -----------------------------------------------------------------------------------------------
 
+use std::fmt::{Debug, Formatter};
+use serde::{Serialize, Deserialize};
 use nalgebra::Vector2;
 
 // -----------------------------------------------------------------------------------------------
@@ -21,14 +23,14 @@ pub const CAPACITY: usize = 4;
 // -----------------------------------------------------------------------------------------------
 
 /// Represents a quad with a centre and half-width.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Quad {
     centre: Vector2<f64>,
     half_width: f64
 }
 
 /// An implementation of a QuadTree
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QuadTree {
     /// The bounds of this node
     boundary: Quad,
@@ -74,20 +76,31 @@ impl Quad {
 
     /// Returns `true` if `point` is inside this [`Quad`]
     pub fn contains(&self, point: &Vector2<f64>) -> bool {
-        (self.centre[0] - self.half_width) < point[0]
+        (self.centre[0] - self.half_width) <= point[0]
         && (self.centre[0] + self.half_width) > point[0]
-        && (self.centre[1] - self.half_width) < point[1]
+        && (self.centre[1] - self.half_width) <= point[1]
         && (self.centre[1] + self.half_width) > point[1]
     }
 
     /// Returns `true` if `other` intersects with this [`Quad`].
     pub fn intersects(&self, other: &Quad) -> bool {
-        // This is done by testing all the vertices of the other quad to see if any of them lie in
-        // self.
-        self.contains(&(other.centre + Vector2::new(other.half_width, other.half_width)))
-        || self.contains(&(other.centre + Vector2::new(other.half_width, -other.half_width)))
-        || self.contains(&(other.centre + Vector2::new(-other.half_width, other.half_width)))
-        || self.contains(&(other.centre - Vector2::new(other.half_width, other.half_width)))
+        other.centre[0] - other.half_width > self.centre[0] + self.half_width
+        || other.centre[0] + other.half_width < self.centre[0] - self.half_width
+        || other.centre[1] + other.half_width > self.centre[1] - self.half_width
+        || other.centre[1] - other.half_width < self.centre[1] + self.half_width
+    }
+}
+
+impl Debug for Quad {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f, 
+            "Quad [{}, {}; {}, {}]", 
+            self.centre[0] - self.half_width,
+            self.centre[0] + self.half_width,
+            self.centre[1] - self.half_width,
+            self.centre[1] + self.half_width
+        )
     }
 }
 
@@ -117,10 +130,18 @@ impl QuadTree {
             return Ok(())
         }
 
-        // Otherwis subdivide if needed
+        // Otherwise subdivide if needed
         if self.north_west.is_none() {
             self.subdivide();
+
+            // Remove all points from self and put them into the children
+            let my_points = self.points.clone();
+            self.points.clear();
+            for point in my_points {
+                self.insert(point).ok();
+            }
         }
+
 
         // And add the point to the first quad it will fit into
         match self.north_west {
@@ -151,8 +172,8 @@ impl QuadTree {
         unreachable!("The point couldn't be added to the quad tree, for some unknown reason")
     }
 
-    /// Return a list of all points within the given quad.
-    pub fn query_in_quad(&self, quad: Quad) -> Vec<Vector2<f64>> {
+    /// Return a list of all points within the given [`Quad`].
+    pub fn query_in_quad(&self, quad: &Quad) -> Vec<Vector2<f64>> {
         
         // Create points list
         let mut points = Vec::new();
@@ -176,19 +197,19 @@ impl QuadTree {
 
         // Otherwise search the children
         match self.north_west {
-            Some(ref qt) => points.extend(qt.query_in_quad(quad)),
+            Some(ref qt) => points.extend(&qt.query_in_quad(quad)),
             None => unreachable!()
         }
         match self.north_east {
-            Some(ref qt) => points.extend(qt.query_in_quad(quad)),
+            Some(ref qt) => points.extend(&qt.query_in_quad(quad)),
             None => unreachable!()
         }
         match self.south_west {
-            Some(ref qt) => points.extend(qt.query_in_quad(quad)),
+            Some(ref qt) => points.extend(&qt.query_in_quad(quad)),
             None => unreachable!()
         }
         match self.south_east {
-            Some(ref qt) => points.extend(qt.query_in_quad(quad)),
+            Some(ref qt) => points.extend(&qt.query_in_quad(quad)),
             None => unreachable!()
         }
 
@@ -214,5 +235,67 @@ impl QuadTree {
             self.boundary.centre + Vector2::new(hw, -hw),
             hw
         ))));
+    }
+
+    /// Returns the number of points stored in the quadtree, including in all children
+    pub fn len(&self) -> usize {
+        let mut len = self.points.len();
+
+        match self.north_west {
+            Some(ref qt) => len += qt.len(),
+            None => ()
+        }
+        match self.north_east {
+            Some(ref qt) => len += qt.len(),
+            None => ()
+        }
+        match self.south_west {
+            Some(ref qt) => len += qt.len(),
+            None => ()
+        }
+        match self.south_east {
+            Some(ref qt) => len += qt.len(),
+            None => ()
+        }
+
+        return len;
+    }
+}
+
+// -----------------------------------------------------------------------------------------------
+// TESTS
+// -----------------------------------------------------------------------------------------------
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_query() -> Result<(), Box<dyn std::error::Error>> {
+
+        // Build bounding quad
+        let bounding_quad = Quad::new([5.0, 5.0].into(), 5.0);
+
+        println!("Bounding quad is {:?}", bounding_quad);
+
+        // Build quadtree
+        let mut qt = QuadTree::new(bounding_quad);
+
+        // Insert a known group of points into the tree
+        for val in 1..9 {
+            println!("Adding for {}, {}", val, val);
+            qt.insert([val as f64, val as f64].into())?;
+            qt.insert([val as f64, 1.0].into())?;
+            qt.insert([1.0, val as f64].into())?;
+        }
+
+        // Test many queries of these points, to confirm we're getting what we expect
+        let mut query_quad = Quad::new([1.5, 1.5].into(), 1.0);
+        assert_eq!(qt.query_in_quad(&query_quad).len(), 6);
+
+        query_quad = Quad::new([5.0, 5.0].into(), 2.0);
+        assert_eq!(qt.query_in_quad(&query_quad).len(), 5);
+
+        Ok(())
     }
 }

@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     let ground_planned_path = Path::from_path_spec(
         PathSpec::AckSeq {
             separation_m: 0.05,
-            seq: vec![1.0, 2.0, -1.0, 4.0],
+            seq: vec![0.5, 3.1415, 0.0, 4.0, -0.5, 3.1415, 0.0, 2.0, -0.5, 3.1415, 0.0, 6.0]
         },
         &Pose {
             position_m_lm: Vector3::new(

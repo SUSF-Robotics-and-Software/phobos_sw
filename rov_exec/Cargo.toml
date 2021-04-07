@@ -12,6 +12,13 @@ path = "src/lib.rs"
 name = "rov_exec"
 path = "src/main.rs"
 
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "bench_cost_map"
+harness = false
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
