@@ -190,6 +190,14 @@ where
         Ok(())
     }
 
+    pub fn set_layer_value(&mut self, layer: L, value: T) -> Result<(), GridMapError> {
+        let layer_idx = self.layer_index(layer)?;
+
+        self.data.slice_mut(s![layer_idx, .., ..]).fill(value);
+
+        Ok(())
+    }
+
     fn layer_index(&self, layer: L) -> Result<usize, GridMapError> {
         match self.layer_map.get(&layer) {
             Some(l) => Ok(*l),

@@ -13,7 +13,22 @@ centre_position = [15.0, 10.0]
 [cost_map_params]
 
 # Corresponds to 25 deg
-max_safe_gradient = 0.4663
+max_safe_gradient = 0.4668
+
+# Set at 1/max_safe_gradient so that cost will increase linearly with gradient
+# up to the unsafe value
+gradient_cost_factor = 2.1422
+
+# At rover width, so could be driving with either wheel side on the path and
+# incurr no additional cost.
+gnd_path_cost_onset_semi_width_m = 0.304
+
+# At 4 rover widths, so the rover could drive up to this far away from the path
+max_gnd_path_cost_semi_width_m = 1.216
+
+# Assigned so that, in extreme cases, the rover is still allowed outside the
+# path if it is the only way to continue
+max_gnd_path_added_cost = 0.8
 
 [wait_new_pose]
 

@@ -22,7 +22,7 @@ pub mod tm;
 
 use std::{fmt::Display, unimplemented};
 
-use self::{params::AutoMgrParams, tm::AutoTm};
+pub use self::{params::AutoMgrParams, tm::AutoTm};
 
 use super::{
     loc::{LocMgr, LocSource}, 

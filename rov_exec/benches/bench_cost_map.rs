@@ -16,9 +16,10 @@ fn cost_map_benchmark(c: &mut Criterion) {
     // CostMapParams
     let cost_map_params = CostMapParams {
         max_safe_gradient: 0.4668,
-        cost_onset_semi_width_m: 0.2,
-        max_cost_semi_width_m: 1.0,
-        max_added_cost: 1.0,
+        gradient_cost_factor: 2.1422,
+        gnd_path_cost_onset_semi_width_m: 0.2,
+        max_gnd_path_cost_semi_width_m: 1.0,
+        max_gnd_path_added_cost: 1.0,
     };
 
     

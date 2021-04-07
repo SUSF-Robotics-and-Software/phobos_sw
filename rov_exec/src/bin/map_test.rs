@@ -5,21 +5,20 @@
 // ------------------------------------------------------------------------------------------------
 
 use comms_if::tc::auto::PathSpec;
-use rov_lib::auto::{map::{CostMap, CostMapParams, Point2, TerrainMap, TerrainMapLayer}, path::Path, loc::Pose};
+use rov_lib::auto::{
+    auto_mgr::AutoMgrParams, 
+    map::{CostMap, Point2, TerrainMap, TerrainMapLayer}, 
+    path::Path, loc::Pose
+};
 use color_eyre::Result;
 use nalgebra::{Vector3, UnitQuaternion};
+use util::params;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    // CostMapParams
-    let cost_map_params = CostMapParams {
-        max_safe_gradient: 0.4668,
-        cost_onset_semi_width_m: 0.2,
-        max_cost_semi_width_m: 1.0,
-        max_added_cost: 1.0,
-    };
-
+    // CostMapParams, loaded from automgr params
+    let auto_mgr_params: AutoMgrParams = params::load("auto_mgr.toml")?;
     
     // Generate a random terrain map
     let terrain_map = TerrainMap::generate_random(
@@ -65,8 +64,8 @@ fn main() -> Result<()> {
     terrain_map.save("random_terr_map.json")?;
 
     // Calculate the cost map from that
-    let mut cost_map = CostMap::calculate(&cost_map_params, &terrain_map)?;
-    cost_map.apply_ground_planned_path(&cost_map_params, &ground_planned_path)?;
+    let mut cost_map = CostMap::calculate(&auto_mgr_params.cost_map_params, &terrain_map)?;
+    cost_map.apply_ground_planned_path(&auto_mgr_params.cost_map_params, &ground_planned_path)?;
 
     // Save the map
     cost_map.save("random_cost_map.json")?;
