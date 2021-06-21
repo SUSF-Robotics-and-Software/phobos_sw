@@ -25,8 +25,8 @@ fn cost_map_benchmark(c: &mut Criterion) {
     
     // Generate a random terrain map
     let terrain_map = TerrainMap::generate_random(
-        Point2::new(0.1, 0.1), 
-        Point2::new(100, 100), 
+        Point2::new(0.05, 0.05), 
+        Point2::new(200, 200), 
         Point2::new(5.0, 5.0),
         Point2::new(0.1, 0.1),
         Point2::new(0.0, 0.0)

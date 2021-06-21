@@ -1,6 +1,6 @@
 //! # Rover library.
 //!
-//! This library allows other crates in the workspace to access items defined inside the rover 
+//! This library allows other crates in the workspace to access items defined inside the rover
 //! crate.
 
 // ------------------------------------------------------------------------------------------------
@@ -17,7 +17,7 @@ pub mod cam_client;
 
 /// Electronics driver - controls the motors via the mot borads
 #[deprecated(
-    since = "0.2",
+    since = "0.2.0",
     note = "Replaced by MechExec/sim in architecture rework"
 )]
 pub mod elec_driver;

@@ -152,27 +152,47 @@ impl TerrainMap {
                 }
 
                 // Calculate polar form of the difference between the rover's position and this
-                // cell's position.
-                let diff = Point2::new(
-                    pos.x() - position.x(), 
-                    pos.y() - position.y()
-                );
+                // cell's position. To prevent clipping of cells close to the rover we must test
+                // the extremes of the cell rather than the centre of the cell.
+                let cell_points = vec![
+                    Point2::new(pos.x() + self.cell_size.x(), pos.y() + self.cell_size.y()),
+                    Point2::new(pos.x() - self.cell_size.x(), pos.y() + self.cell_size.y()),
+                    Point2::new(pos.x() + self.cell_size.x(), pos.y() - self.cell_size.y()),
+                    Point2::new(pos.x() - self.cell_size.x(), pos.y() - self.cell_size.y())
+                ];
 
-                let radius = (diff.x().powi(2) + diff.y().powi(2)).sqrt();
-                let theta = diff.y().atan2(diff.x()) + heading;
+                let mut in_fov = false;
+                for point in cell_points {
+                    let diff = Point2::new(
+                        point.x() - position.x(), 
+                        point.y() - position.y()
+                    );
+    
+                    let radius = (diff.x().powi(2) + diff.y().powi(2)).sqrt();
+                    let theta = diff.y().atan2(diff.x()) + heading;
+    
+                    // Check radius is within the view range
+                    if radius < view_range.start || radius > view_range.end {
+                        break;
+                    }
+    
+                    // Check the theta is within the field of view
+                    if theta.abs() > field_of_view/2.0 {
+                        break;
+                    }
 
-                // Check radius is whithin the view range
-                if radius < view_range.start || radius > view_range.end {
-                    return None;
+                    // If we got through both these checks the cell is in the field of view
+                    in_fov = true;
                 }
 
-                // Check the theta is within the field of view
-                if theta.abs() > field_of_view/2.0 {
-                    return None;
+                // Finally if any of the cell corners were in the FOV we keep the height around,
+                // otherwise the cell is None
+                if in_fov {
+                    height
                 }
-
-                // Finally if all tests have passed return the height
-                return height
+                else {
+                    None
+                }
             }
         )?;
 

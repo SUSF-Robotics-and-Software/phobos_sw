@@ -9,7 +9,7 @@
 // INCLUDES
 // ------------------------------------------------------------------------------------------------
 
-use std::{collections::HashMap, fs, hash::Hash, io, ops::Deref, path::Path};
+use std::{collections::HashMap, fs, hash::Hash, io, ops::{Deref, DerefMut}, path::Path};
 
 use nalgebra::{Scalar, Vector2};
 use ndarray::{Array1, Array2, Array3, ArrayView2, arr1, s};
@@ -515,6 +515,15 @@ where
     }
 }
 
+impl<T> From<Vector2<T>> for Point2<T>
+where 
+    T: Copy + Clone + Scalar
+{
+    fn from(vec: Vector2<T>) -> Self {
+        Self::new(vec.x, vec.y)
+    }
+}
+
 impl<T> Deref for Point2<T>
 where 
     T: Copy + Clone
@@ -523,6 +532,15 @@ where
 
     fn deref(&self) -> &Self::Target {
         &self.0    
+    }
+}
+
+impl<T> DerefMut for Point2<T>
+where 
+    T: Copy + Clone
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
