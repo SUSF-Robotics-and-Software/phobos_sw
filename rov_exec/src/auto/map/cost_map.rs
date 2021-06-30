@@ -23,7 +23,6 @@ use crate::auto::path::Path;
 
 use super::{TerrainMap, TerrainMapLayer};
 use cell_map::{CellMap, CellMapParams, Error as CellMapError, Layer};
-use log::debug;
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 use util::{convert::Convert, quadtree::Quad};
@@ -130,10 +129,6 @@ impl CostMap {
         let mut map = Self::new(terrain_map.params(), cost_map_params);
 
         map.calculate_gradient(terrain_map)?;
-
-        // cost_map
-        //     .0
-        //     .set_layer_value(CostMapLayer::GroundPlannedPath, CostMapData::Cost(0.0))?;
 
         map.calculate_total()?;
 
@@ -296,6 +291,9 @@ impl CostMap {
         let map_ptr: *const CellMap<CostMapLayer, CostMapData> = &self.map;
 
         for ((_, idx), cost) in self.map.iter_mut().layer(CostMapLayer::Total).indexed() {
+            // Initialise total to zero
+            *cost = CostMapData::Cost(0.0);
+
             // Unwrap is safe here since the iterator is guaranteed to not produce any `idx` not in
             // the map.
             //
@@ -303,8 +301,8 @@ impl CostMap {
             // so we can safely access these while holding a mutable reference to the cost layer.
             unsafe {
                 let map = &*map_ptr;
-                (*cost).add(&map.get(CostMapLayer::Gradient, idx).unwrap());
-                (*cost).add(&map.get(CostMapLayer::GroundPlannedPath, idx).unwrap());
+                cost.add(&map.get(CostMapLayer::Gradient, idx).unwrap());
+                cost.add(&map.get(CostMapLayer::GroundPlannedPath, idx).unwrap());
             }
         }
 
@@ -368,7 +366,7 @@ impl CostMapData {
     pub fn add(&mut self, other: &CostMapData) {
         use CostMapData::*;
 
-        *self = match (self.clone(), other) {
+        *self = match (*self, other) {
             (None, _) => None,
             (_, None) => None,
             (Unsafe, _) => Unsafe,
@@ -393,7 +391,7 @@ impl CostMapData {
     pub fn add_without_max(&mut self, other: &CostMapData) {
         use CostMapData::*;
 
-        *self = match (self.clone(), other) {
+        *self = match (*self, other) {
             (None, _) => None,
             (_, None) => None,
             (Unsafe, _) => Unsafe,
