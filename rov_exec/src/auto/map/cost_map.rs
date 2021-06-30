@@ -23,6 +23,7 @@ use crate::auto::path::Path;
 
 use super::{TerrainMap, TerrainMapLayer};
 use cell_map::{CellMap, CellMapParams, Error as CellMapError, Layer};
+use log::debug;
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 use util::{convert::Convert, quadtree::Quad};
@@ -178,6 +179,7 @@ impl CostMap {
             // cost, since we're too far away from the path
             if points_in_quad.is_empty() {
                 *cost = max_cost_val;
+                continue;
             }
 
             // Otherwise we might be in range of the path, so find the closest point.

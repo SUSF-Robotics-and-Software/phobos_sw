@@ -14,6 +14,7 @@ import json
 import copy
 
 from plot_path import load_path, plot_path
+from cell_map import CellMap
 
 def plot_grid_map(map, paths):
     '''
@@ -24,13 +25,11 @@ def plot_grid_map(map, paths):
     print('Press n to view next layer, b for previous layer')
 
     plots = {}
-    sorted_layers = sorted(map['layer_map'].items(), key=lambda item: item[1])
-    sorted_layers = [i[0] for i in sorted_layers]
-    selected_layer = sorted_layers[0]
+    selected_layer = map['cm'].layers[0]
 
     # Create the figure and axis
     fig = plt.figure()
-    if map['is_cost_map']:
+    if map['data_type'] == 'CostMap':
         ax = fig.gca()
     else:
         ax = fig.gca(projection='3d')
@@ -38,29 +37,30 @@ def plot_grid_map(map, paths):
     # Calculate range of X, Y, and Z data for the first layer
     x_range = (map['x_coords'].max() - map['x_coords'].min())
     y_range = (map['y_coords'].max() - map['y_coords'].min())
-    z_range = (np.nanmax(map['data'][0]) - np.nanmin(map['data'][0]))
+    z_range = (
+        np.nanmax(map['cm'].data[selected_layer]) - np.nanmin(map['cm'].data[selected_layer])
+    )
 
     # Normalize by x_range, to create an aspect ratio in which units have the
     # same physical size
     aspect_ratio = [1, y_range/x_range, z_range/x_range]
-    if not map['is_cost_map']:
+    if not map['data_type'] == 'CostMap':
         ax.set_box_aspect(aspect_ratio)
     
     # Set color maps
     cmap = copy.copy(cm.get_cmap('viridis'))
     cmap.set_bad('white')
-    if map['is_cost_map']:
+    if map['data_type'] == 'CostMap':
         # Set color maps
         cmap = copy.copy(cm.get_cmap('viridis'))
         cmap.set_over('red')
         cmap.set_under('white')
 
-            
     # Draw all layers, but only the selected one is visible
-    for (layer, idx) in map['layer_map'].items():
-        if map['is_cost_map']:
+    for layer in map['cm'].layers:
+        if map['data_type'] == 'CostMap':
             plots[layer] = ax.pcolormesh(
-                map['x_grid'], map['y_grid'], map['data'][idx],
+                map['x_grid'], map['y_grid'], map['cm'].data[layer],
                 cmap=cmap,
                 shading='auto',
                 vmin=0.0,
@@ -70,10 +70,10 @@ def plot_grid_map(map, paths):
                 plot_path(path, ax=ax)
         else:
             plots[layer] = ax.plot_surface(
-                map['x_grid'], map['y_grid'], map['data'][idx],
+                map['x_grid'], map['y_grid'], map['cm'].data[layer],
                 cmap=cmap,
-                vmin=np.nanmin(map['data'][idx]),
-                vmax=np.nanmax(map['data'][idx]),
+                vmin=np.nanmin(map['cm'].data[layer]),
+                vmax=np.nanmax(map['cm'].data[layer]),
                 linewidth=0,
                 antialiased=True
             )
@@ -82,7 +82,7 @@ def plot_grid_map(map, paths):
 
     plt.title(selected_layer)
 
-    if map['is_cost_map']:
+    if map['data_type'] == 'CostMap':
         color_bar = plt.colorbar(plots[selected_layer], extend='both')
         color_bar.set_ticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
         color_bar.set_ticklabels(['Unknown', 0.2, 0.4, 0.6, 0.8, 'Unsafe'])
@@ -100,16 +100,16 @@ def plot_grid_map(map, paths):
 
         n = None
         p = None
-        for i, l in enumerate(sorted_layers):
+        for i, l in enumerate(map['cm'].layers):
             if l == selected_layer:
                 if i == 0:
-                    p = sorted_layers[-1]
+                    p = map['cm'].layers[-1]
                 else:
-                    p = sorted_layers[i - 1]
-                if i == len(sorted_layers) - 1:
-                    n = sorted_layers[0]
+                    p = map['cm'].layers[i - 1]
+                if i == len(map['cm'].layers) - 1:
+                    n = map['cm'].layers[0]
                 else:
-                    n = sorted_layers[i + 1]
+                    n = map['cm'].layers[i + 1]
 
         if event.key == 'n':
             plots[selected_layer].set_visible(False)
@@ -135,38 +135,41 @@ def load_map(path):
     print(f'Loading map from {path}')
 
     with open(path, 'r') as f:
-        map = json.loads(f.read())
+        raw = json.loads(f.read())
 
-    # Change array-like data into numpy arrays
+    # Cost maps etc. contain parameters in them as well, so we have to actually
+    # find the map bit, which will be named `map`.
+    if 'map' in raw and 'data' not in raw:
+        # Load the cell map
+        cm = CellMap.from_raw_json(raw['map'])
+    else:
+        cm = CellMap.from_raw_json(raw)
+
+
+    # Create container
+    map = dict()
+    map['cm'] = cm
     map['path'] = path
-    map['data'] = np.reshape(map['data']['data'], map['data']['dim'])
-    map['num_cells'] = np.array(map['num_cells'])
-    map['cell_size'] = np.array(map['cell_size'])
-    map['centre_position'] = np.array(map['centre_position'])
 
     # Convert data from Rust-types to numpy types based on the data type name
     # given in the cost map
-    if map['data_type'] == 'rov_lib::auto::map::cost_map::CostMapData':
-        map['data'] = conv_cost_map_data(map['data'])
-        map['is_cost_map'] = True
+    if 'cost_map_params' in raw:
+        for layer in map['cm'].layers:
+            map['cm'].data[layer] = conv_cost_map_data(map['cm'].data[layer])
+        map['data_type'] = 'CostMap'
     else:
-        map['data'] = conv_opt_f64(map['data'])
-        map['is_cost_map'] = False
-
-        # DEBUGGING - add gradient layer
-        map['layer_map']['Gradient'] = 1
-        grads = np.gradient(map['data'][0])
-        map['data'] = np.array([map['data'][0], np.sqrt(grads[0]**2 + grads[1]**2)])
+        for layer in map['cm'].layers:
+            map['cm'].data[layer] = conv_opt_f64(map['cm'].data[layer])
+        map['data_type'] = 'TerrainMap'
 
     # Calculate meshgrids for easy plotting
-    axis_length = map['num_cells'] * map['cell_size']
-    ul_pos = map['centre_position'] + 0.5 * axis_length
-    lr_pos = map['centre_position'] - 0.5 * axis_length
-    map['x_coords'] = np.arange(ul_pos[0], lr_pos[0], -map['cell_size'][0])
-    map['y_coords'] = np.arange(ul_pos[1], lr_pos[1], -map['cell_size'][1])
+    axis_length = map['cm'].num_cells * map['cm'].cell_size
+    print(axis_length)
+    map['x_coords'] = np.linspace(0, axis_length[0], map['cm'].num_cells[0])
+    map['y_coords'] = np.linspace(0, axis_length[1], map['cm'].num_cells[1])
     map['x_grid'], map['y_grid'] = np.meshgrid(map['x_coords'], map['y_coords'])
 
-    print(f'Map of shape {map["data"].shape} loaded')
+    print(f'Map of {map["cm"].num_cells} cells loaded')
 
     return map
 
@@ -174,7 +177,7 @@ def conv_cost_map_data(data):
     '''
     Converts cost map data (rov_lib::auto::map::cost_map::CostMapData) values
     into floating point values, with CostMapData::None being NaN and
-    CostMapData::Unsafe being 2.0 (above max cost of 1.0).
+    CostMapData::Unsafe being 1.1 (above max cost of 1.0).
     '''
 
     def conv(val):
