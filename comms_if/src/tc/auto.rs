@@ -4,8 +4,8 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use serde::{Serialize, Deserialize};
 use structopt::StructOpt;
 
 // ------------------------------------------------------------------------------------------------
@@ -18,7 +18,7 @@ pub enum AutoCmd {
     /// Pause the autonomy execution. Can be resumed with the `Resume` command.
     #[structopt(name = "pause")]
     Pause,
-    
+
     /// Resume a previosly paused execution.
     #[structopt(name = "resume")]
     Resume,
@@ -27,13 +27,17 @@ pub enum AutoCmd {
     #[structopt(name = "abort")]
     Abort,
 
+    /// Perform an ImageStop, acquring a new depth image from perloc.
+    #[structopt(name = "imgstop")]
+    ImgStop,
+
     /// Follow a LocoCtrl style manouvre for a given distance.
     #[structopt(name = "mnvr")]
     Manouvre(AutoMnvrCmd),
 
     /// Follow the path stored in the path file at the given system path.
     #[structopt(name = "follow")]
-    Follow (PathSpec),
+    Follow(PathSpec),
 
     /// Follow and check the safety of the path stored in the path file at the given system path.
     #[structopt(name = "check")]
@@ -46,8 +50,8 @@ pub enum AutoCmd {
         x_m_lm: f64,
 
         /// The y-coordinate of the point to navigate to.
-        y_m_lm: f64
-    }
+        y_m_lm: f64,
+    },
 }
 
 /// A command to perform an autonomous Locomotion Control manouvre.
@@ -96,7 +100,7 @@ pub enum AutoMnvrCmd {
         rate_rads: f64,
 
         /// The absolute angular distance to traverse in this manouvre.
-        dist_rad: f64
+        dist_rad: f64,
     },
 }
 
@@ -112,13 +116,13 @@ pub enum PathSpec {
 
         /// The sequence of (curvature [1/m], distance [m]) pairs
         #[structopt(required = true)]
-        seq: Vec<f64>
+        seq: Vec<f64>,
     },
 
     /// A path file to load
     #[structopt(name = "file")]
     File {
         /// The path to the file to load
-        path: PathBuf
-    }
+        path: PathBuf,
+    },
 }

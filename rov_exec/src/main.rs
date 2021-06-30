@@ -1,9 +1,9 @@
 //! Main rover-side executable entry point.
-//! 
+//!
 //! # Architecture
-//! 
+//!
 //! The general execution methodology consists of:
-//! 
+//!
 //!     - Initialise all modules
 //!     - Main loop:
 //!         - System input acquisition:
@@ -16,9 +16,9 @@
 //!         - Trajcetory control processing
 //!         - Locomotion control processing
 //!         - Electronics driver execution
-//! 
+//!
 //! # Modules
-//! 
+//!
 //! All modules (e.g. `loco_ctrl`) shall meet the following requirements:
 //!     1. Provide a public struct implementing the `util::module::State` trait.
 //!     
@@ -27,45 +27,49 @@
 // USE MODULES FROM LIBRARY
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "mech")]
-use mech_client::{MechClient, MechClientError};
 #[cfg(feature = "cam")]
 use cam_client::CamClient;
+use comms_if::{
+    eqpt::mech::MechDemsResponse,
+    net::NetParams,
+    tc::{Tc, TcResponse},
+};
+#[cfg(feature = "mech")]
+use mech_client::{MechClient, MechClientError};
+use rov_lib::{
+    auto::{auto_mgr::AutoMgrOutput, AutoMgr},
+    data_store::{DataStore, SafeModeCause},
+    perloc_client::{PerlocClient, PerlocClientError},
+    tc_client::{TcClient, TcClientError},
+    *,
+};
 #[cfg(feature = "sim")]
 use sim_client::SimClient;
-use comms_if::{
-    net::NetParams, 
-    eqpt::mech::MechDemsResponse, 
-    tc::{Tc, TcResponse}
-};
-use rov_lib::{
-    *, 
-    auto::AutoMgr, 
-    data_store::{DataStore, SafeModeCause}, 
-    tc_client::{TcClient, TcClientError}
-};
 
 // ---------------------------------------------------------------------------
 // IMPORTS
 // ---------------------------------------------------------------------------
 
 // External
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Report,
+};
 use log::{debug, error, info, warn};
-use tm_server::TmServer;
 use std::env;
 use std::thread;
 use std::time::{Duration, Instant};
-use color_eyre::{Report, eyre::{WrapErr, eyre}};
+use tm_server::TmServer;
 
 // Internal
 use util::{
-    raise_error,
-    host, 
-    module::State,
+    host,
     logger::{logger_init, LevelFilter},
-    session::Session,
-    script_interpreter::{ScriptInterpreter, PendingTcs},
+    module::State,
+    raise_error,
+    script_interpreter::{PendingTcs, ScriptInterpreter},
     //archive::Archived
+    session::Session,
 };
 
 // ---------------------------------------------------------------------------
@@ -88,32 +92,26 @@ const MAX_MECH_RECV_ERROR_LIMIT: u64 = 5;
 
 /// Executable main function, entry point.
 fn main() -> Result<(), Report> {
-
     // ---- EARLY INITIALISATION ----
 
     // Initialise session
-    let session = Session::new(
-        "rov_exec", 
-        "sessions"
-    ).wrap_err("Failed to create the session")?;
+    let session = Session::new("rov_exec", "sessions").wrap_err("Failed to create the session")?;
 
     // Initialise logger
-    logger_init(LevelFilter::Trace, &session)
-        .wrap_err("Failed to initialise logging")?;
+    logger_init(LevelFilter::Trace, &session).wrap_err("Failed to initialise logging")?;
 
     // Log information on this execution.
     info!("Phobos Rover Executable\n");
     info!(
-        "Running on: {:#?}", 
+        "Running on: {:#?}",
         host::get_uname().wrap_err("Failed to get host information")?
     );
     info!("Session directory: {:?}\n", session.session_root);
 
     // ---- LOAD PARAMETERS ----
 
-    let net_params: NetParams = util::params::load(
-        "net.toml"
-    ).wrap_err("Could not load net params")?;
+    let net_params: NetParams =
+        util::params::load("net.toml").wrap_err("Could not load net params")?;
 
     info!("Exec parameters loaded");
 
@@ -128,15 +126,13 @@ fn main() -> Result<(), Report> {
     let args: Vec<String> = env::args().collect();
 
     debug!("CLI arguments: {:?}", args);
-    
+
     // If we have a single argument use it as the script path
     if args.len() == 2 {
-
         info!("Loading script from \"{}\"", &args[1]);
 
         // Load the script interpreter
-        let si = ScriptInterpreter::new(
-            &args[1]).wrap_err("Failed to load script")?;
+        let si = ScriptInterpreter::new(&args[1]).wrap_err("Failed to load script")?;
 
         // Display some info
         info!(
@@ -150,15 +146,13 @@ fn main() -> Result<(), Report> {
     }
     // If no arguments then setup the tc client
     else if args.len() == 1 {
-
         info!("No script provided, remote control via the TcClient will be used\n");
         use_tc_client = true;
-
-    }
-    else {
+    } else {
         return Err(eyre!(
-            "Expected either zero or one argument, found {}", args.len() - 1)
-        );
+            "Expected either zero or one argument, found {}",
+            args.len() - 1
+        ));
     }
 
     // ---- INITIALISE DATASTORE ----
@@ -169,12 +163,13 @@ fn main() -> Result<(), Report> {
 
     // ---- INITIALISE MODULES ----
 
-    ds.loco_ctrl.init("loco_ctrl.toml", &session)
+    ds.loco_ctrl
+        .init("loco_ctrl.toml", &session)
         .wrap_err("Failed to initialise LocoCtrl")?;
     info!("LocoCtrl init complete");
 
-    let mut auto_mgr = AutoMgr::init("auto_mgr.toml", session.clone())
-        .wrap_err("Failed to initialise AutoMgr")?;
+    let mut auto_mgr =
+        AutoMgr::init("auto_mgr.toml", session).wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
 
     info!("Module initialisation complete\n");
@@ -187,38 +182,42 @@ fn main() -> Result<(), Report> {
 
     if use_tc_client {
         tc_source = TcSource::Remote(
-            TcClient::new(&zmq_ctx, &net_params)
-                .wrap_err("Failed to initialise the TcClient")?
+            TcClient::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise the TcClient")?,
         );
         info!("TcClient initialised");
     }
 
     #[cfg(feature = "mech")]
     let mut mech_client = {
-        let c = MechClient::new(&zmq_ctx, &net_params)
-            .wrap_err("Failed to initialise MechClient")?;
+        let c =
+            MechClient::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise MechClient")?;
         info!("MechClient initialised");
         c
     };
 
     #[cfg(feature = "cam")]
     let mut _cam_client = {
-        let c = CamClient::new(&zmq_ctx, &net_params)
-            .wrap_err("Failed to initialise CamClient")?;
+        let c = CamClient::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise CamClient")?;
         info!("CamClient initialised");
         c
     };
 
     #[cfg(feature = "sim")]
     {
-        SimClient::init(&zmq_ctx, &net_params)
-            .wrap_err("Failed to initialise SimClient")?;
+        SimClient::init(&zmq_ctx, &net_params).wrap_err("Failed to initialise SimClient")?;
         info!("SimClient initialised");
     }
 
+    #[cfg(feature = "perloc")]
+    let mut perloc_client = {
+        let c = PerlocClient::new(&zmq_ctx, &net_params)
+            .wrap_err("Failed to initialise PerlocClient")?;
+        info!("PerlocClient initialised");
+        c
+    };
+
     let mut tm_server = {
-        let s = TmServer::new(&zmq_ctx, &net_params)
-            .wrap_err("Failed to initialise TmServer")?;
+        let s = TmServer::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise TmServer")?;
         info!("TmServer initialised");
         s
     };
@@ -230,7 +229,6 @@ fn main() -> Result<(), Report> {
     info!("Begining main loop\n");
 
     loop {
-
         // Get cycle start time
         let cycle_start_instant = Instant::now();
 
@@ -249,8 +247,7 @@ fn main() -> Result<(), Report> {
                 // If the client is connected remove any safe mode, otherwise make safe
                 if client.is_connected() {
                     ds.make_unsafe(SafeModeCause::TcClientNotConnected).ok();
-                }
-                else {
+                } else {
                     ds.make_safe(SafeModeCause::TcClientNotConnected);
                 }
 
@@ -269,10 +266,9 @@ fn main() -> Result<(), Report> {
                                             tc_processor::exec(&mut ds, &tc);
                                             client.send_response(TcResponse::Ok)
                                         }
-                                        _ => 
-                                            client.send_response(TcResponse::CannotExecute)
+                                        _ => client.send_response(TcResponse::CannotExecute),
                                     }
-                                },
+                                }
                                 false => {
                                     // Process the TC
                                     tc_processor::exec(&mut ds, &tc);
@@ -285,58 +281,59 @@ fn main() -> Result<(), Report> {
                             // Print warning if couldn't send the response
                             match response_result {
                                 Ok(_) => (),
-                                Err(e) => warn!("Could not respond to TC: {}", e)
+                                Err(e) => warn!("Could not respond to TC: {}", e),
                             }
-
-
-                        },
-                        Ok(None) => {
-                            break
-                        },
+                        }
+                        Ok(None) => break,
                         // If not connected go into safe mode
                         Err(TcClientError::NotConnected) => {
                             if !ds.safe {
                                 error!("Connection to TcServer lost");
                             }
-                            
+
                             ds.make_safe(SafeModeCause::TcClientNotConnected);
                             break;
-                        },
+                        }
                         Err(TcClientError::TcParseError(e)) => {
                             warn!("Could not parse recieved TC: {}", e);
                             break;
                         }
-                        Err(e) => return Err(e)
-                            .wrap_err("An error occured while receiving TCs from the server")
-                    }
-                }
-            },
-
-            TcSource::Script(ref mut si) => 
-                match si.get_pending_tcs() {
-                    PendingTcs::None => (),
-                    PendingTcs::Some(tc_vec) => {
-                        for tc in tc_vec.iter() {
-                            tc_processor::exec(&mut ds, tc);
+                        Err(e) => {
+                            return Err(e)
+                                .wrap_err("An error occured while receiving TCs from the server")
                         }
                     }
-                    // Exit if end of script reached
-                    PendingTcs::EndOfScript => {
-                        info!("End of TC script reached, stopping");
-                        break
+                }
+            }
+
+            TcSource::Script(ref mut si) => match si.get_pending_tcs() {
+                PendingTcs::None => (),
+                PendingTcs::Some(tc_vec) => {
+                    for tc in tc_vec.iter() {
+                        tc_processor::exec(&mut ds, tc);
                     }
                 }
+                // Exit if end of script reached
+                PendingTcs::EndOfScript => {
+                    info!("End of TC script reached, stopping");
+                    break;
+                }
+            },
         };
 
         // ---- AUTONOMY PROCESSING ----
 
         // Step the autonomy manager
-        let auto_loco_ctrl_cmd = auto_mgr.step(ds.auto_cmd.take())
+        let auto_mgr_output = auto_mgr
+            .step(ds.auto_cmd.take())
             .wrap_err("Error stepping the autonomy manager")?;
 
         if auto_mgr.is_on() {
             ds.loco_ctrl_input = rov_lib::loco_ctrl::InputData {
-                cmd: auto_loco_ctrl_cmd
+                cmd: match auto_mgr_output {
+                    AutoMgrOutput::LocoCtrlMnvr(m) => Some(m),
+                    _ => None,
+                },
             };
             ds.auto_tm = Some(auto_mgr.get_tm());
         }
@@ -360,47 +357,26 @@ fn main() -> Result<(), Report> {
         //     }
         // }
 
-        // // Attempt to recieve cameras images
-        // #[cfg(feature = "cam")]
-        // match cam_client.recieve_images() {
-        //     Ok(Some(images)) => {
-        //         info!("Got images from CamServer");
+        // If requested by AutoMgr receive depth image from perloc
+        #[cfg(feature = "perloc")]
+        if matches!(auto_mgr_output, AutoMgrOutput::RequestDepthImg) {
+            perloc_client
+                .request_depth_img()
+                .wrap_err("Could not request depth image from perloc")?;
+            info!("Depth image request sent to perloc");
+        }
 
-        //         let now = chrono::Utc::now();
-
-        //         for (cam_id, cam_image) in images {
-
-        //             // Get the time difference between the image and now
-        //             let time_diff_ms = now
-        //                 .signed_duration_since(cam_image.timestamp)
-        //                 .num_milliseconds();
-
-        //             info!("{:?} image is {} seconds old", cam_id, (time_diff_ms as f64) * 0.001);
-
-        //             // TODO: image saving should go in a separate thread
-        //             // // Get image name
-        //             // let name = format!(
-        //             //     "{:?}_{}.png",
-        //             //     cam_id,
-        //             //     cam_image.timestamp.timestamp_millis()
-        //             // );
-
-        //             // // Get path to image to save, in the sessions directory
-        //             // let mut img_path = session.session_root.clone();
-        //             // img_path.push(name);
-                    
-        //             // // Save image
-        //             // cam_image.image.save(img_path).expect("can't save image");
-
-        //         }
-
-        //         println!("");
-                
-        //     },
-        //     Ok(None) => (),
-        //     Err(CamClientError::NoRequestMade) => (),
-        //     Err(e) => warn!("Could not get image response: {}", e)
-        // }
+        // Attempt to recieve cameras images
+        #[cfg(feature = "perloc")]
+        match perloc_client.receive_depth_img() {
+            Ok(Some(depth_img)) => {
+                info!("Got depth image from Perloc");
+                auto_mgr.set_depth_img(depth_img);
+            }
+            Ok(None) => (),
+            Err(PerlocClientError::NoRequestMade) => (),
+            Err(e) => warn!("Could not get perloc depth image response: {}", e),
+        }
 
         // ---- CONTROL ALGORITHM PROCESSING ----
 
@@ -409,7 +385,7 @@ fn main() -> Result<(), Report> {
             Ok((o, r)) => {
                 ds.loco_ctrl_output = o;
                 ds.loco_ctrl_status_rpt = r;
-            },
+            }
             Err(e) => {
                 // LocoCtrl errors usually just mean you sent the wrong TC, so just issue the
                 // warning and continue.
@@ -425,11 +401,8 @@ fn main() -> Result<(), Report> {
 
                 // Reset the recieve error counter
                 ds.num_consec_mech_recv_errors = 0;
-            },
-            Ok(r) => warn!(
-                "Recieved non-nominal response from MechServer: {:?}", 
-                r
-            ),
+            }
+            Ok(r) => warn!("Recieved non-nominal response from MechServer: {:?}", r),
             Err(MechClientError::NotConnected) => {
                 if !ds.safe {
                     error!("Connection to the MechServer lost");
@@ -449,8 +422,8 @@ fn main() -> Result<(), Report> {
                     }
                     ds.make_safe(SafeModeCause::MechClientNotConnected);
                 }
-            },
-            Err(e) => warn!("MechClient processing error: {}", e)
+            }
+            Err(e) => warn!("MechClient processing error: {}", e),
         }
 
         // ---- WRITE ARCHIVES ----
@@ -461,7 +434,7 @@ fn main() -> Result<(), Report> {
 
         match tm_server.send(&ds) {
             Ok(_) => (),
-            Err(e) => warn!("TmServer error: {}", e)
+            Err(e) => warn!("TmServer error: {}", e),
         };
 
         // ---- CYCLE MANAGEMENT ----
@@ -469,18 +442,15 @@ fn main() -> Result<(), Report> {
         let cycle_dur = Instant::now() - cycle_start_instant;
 
         // Get sleep duration
-        match Duration::from_secs_f64(CYCLE_PERIOD_S)
-            .checked_sub(cycle_dur)
-        {
+        match Duration::from_secs_f64(CYCLE_PERIOD_S).checked_sub(cycle_dur) {
             Some(d) => {
                 ds.num_consec_cycle_overruns = 0;
                 thread::sleep(d);
-            },
+            }
             None => {
                 warn!(
-                    "Cycle overran by {:.06} s", 
-                    cycle_dur.as_secs_f64() 
-                        - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
+                    "Cycle overran by {:.06} s",
+                    cycle_dur.as_secs_f64() - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
                 );
                 ds.num_consec_cycle_overruns += 1;
 
@@ -513,7 +483,7 @@ fn main() -> Result<(), Report> {
 enum TcSource {
     None,
     Remote(TcClient),
-    Script(ScriptInterpreter)
+    Script(ScriptInterpreter),
 }
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@
 mod auto_mnvr;
 mod check;
 mod follow;
+mod img_stop;
 mod params;
 mod pause;
 mod stop;
@@ -22,6 +23,7 @@ mod wait_new_pose;
 
 use std::{fmt::Display, unimplemented};
 
+use self::img_stop::ImgStop;
 pub use self::{params::AutoMgrParams, tm::AutoTm};
 
 use super::{
@@ -40,13 +42,17 @@ pub mod states {
     pub use super::auto_mnvr::AutoMnvr;
     pub use super::check::Check;
     pub use super::follow::Follow;
+    pub use super::img_stop::ImgStop;
     pub use super::pause::Pause;
     pub use super::stop::Stop;
     pub use super::wait_new_pose::WaitNewPose;
 }
 
 use cell_map::CellMapParams;
-use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
+use comms_if::{
+    eqpt::{cam::CamImage, perloc::DepthImage},
+    tc::{auto::AutoCmd, loco_ctrl::MnvrCmd},
+};
 use log::{error, info, warn};
 use states::*;
 use util::session::Session;
@@ -73,7 +79,7 @@ pub struct AutoMgr {
     ///
     /// This can be used to obtain information from the last state, for example images from an
     /// ImgStop.
-    pub last_stack_data: StackData,
+    pub last_stack_data: AutoMgrOutput,
 
     /// The stack of states in the system.
     ///
@@ -103,6 +109,16 @@ pub struct AutoMgrPersistantData {
 
     /// A copy of the global session data.
     pub session: Session,
+
+    /// Determines if the rover *should* be stopped now, i.e. if a `Stop` mode has completed and no
+    /// mode has commanded the rover to move since.
+    ///
+    /// Note: Not guaranteed to actually mean the rover is stopped, since it could slip down a
+    /// slope or something.
+    pub is_stopped: bool,
+
+    /// The latest depth image from perloc
+    pub depth_img: Option<DepthImage>,
 }
 
 /// State stacking abstraction.
@@ -115,7 +131,7 @@ pub struct StepOutput {
     pub action: StackAction,
 
     /// Data to pass to the state below this one
-    pub data: StackData,
+    pub data: AutoMgrOutput,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -154,10 +170,11 @@ pub enum AutoMgrState {
     Stop(Stop),
     Pause(Pause),
     WaitNewPose(WaitNewPose),
-    ImgStop,
+    ImgStop(ImgStop),
     AutoMnvr(AutoMnvr),
-    Follow(Follow),
-    Check(Check),
+    // In a box to reduce the size of the state enum
+    Follow(Box<Follow>),
+    Check(Box<Check>),
     Goto,
 }
 
@@ -174,10 +191,12 @@ pub enum StackAction {
 }
 
 /// Possible data that can be passed out of a state's step function.
-pub enum StackData {
+pub enum AutoMgrOutput {
     None,
 
     LocoCtrlMnvr(MnvrCmd),
+
+    RequestDepthImg,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -194,9 +213,9 @@ impl AutoMgr {
 
         Ok(Self {
             params: params.clone(),
-            last_stack_data: StackData::None,
+            last_stack_data: AutoMgrOutput::None,
             persistant: AutoMgrPersistantData::new(
-                params.terrain_map_params.clone(),
+                params.terrain_map_params,
                 params.loc_mgr.source,
                 session,
             )?,
@@ -204,7 +223,7 @@ impl AutoMgr {
         })
     }
 
-    pub fn step(&mut self, cmd: Option<AutoCmd>) -> Result<Option<MnvrCmd>, AutoMgrError> {
+    pub fn step(&mut self, cmd: Option<AutoCmd>) -> Result<AutoMgrOutput, AutoMgrError> {
         // Get a reference to the current top state
         let top = self.stack.top();
 
@@ -222,18 +241,24 @@ impl AutoMgr {
                         StepOutput::none()
                     }
                     Some(AutoCmd::Follow(p)) => {
-                        self.stack.push_above(AutoMgrState::Follow(Follow::new(p)?));
+                        self.stack
+                            .push_above(AutoMgrState::Follow(Box::new(Follow::new(p)?)));
                         StepOutput::none()
                     }
                     Some(AutoCmd::Check(p)) => {
-                        self.stack.push_above(AutoMgrState::Check(Check::new(p)?));
+                        self.stack
+                            .push_above(AutoMgrState::Check(Box::new(Check::new(p)?)));
+                        StepOutput::none()
+                    }
+                    Some(AutoCmd::ImgStop) => {
+                        self.stack.push_above(AutoMgrState::ImgStop(ImgStop::new()));
                         StepOutput::none()
                     }
                     Some(_) => {
                         warn!("Cannot pause, resume, or abort Autonomy execution as the AutoMgr is Off");
-                        return Ok(None);
+                        return Ok(AutoMgrOutput::None);
                     }
-                    None => return Ok(None),
+                    None => return Ok(AutoMgrOutput::None),
                 }
             }
         };
@@ -264,10 +289,7 @@ impl AutoMgr {
         }
 
         // Output data to loco_ctrl
-        Ok(match output.data {
-            StackData::None => None,
-            StackData::LocoCtrlMnvr(m) => Some(m),
-        })
+        Ok(output.data)
     }
 
     pub fn is_off(&self) -> bool {
@@ -280,6 +302,10 @@ impl AutoMgr {
 
     pub fn get_tm(&self) -> AutoTm {
         self.persistant.auto_tm.clone()
+    }
+
+    pub fn set_depth_img(&mut self, depth_img: DepthImage) {
+        self.persistant.depth_img = Some(depth_img);
     }
 }
 
@@ -331,7 +357,7 @@ impl Display for AutoMgrState {
             AutoMgrState::Stop(_) => write!(f, "AutoMgrState::Stop"),
             AutoMgrState::Pause(_) => write!(f, "AutoMgrState::Pause"),
             AutoMgrState::WaitNewPose(_) => write!(f, "AutoMgrState::WaitNewPose"),
-            AutoMgrState::ImgStop => write!(f, "AutoMgrState::ImgStop"),
+            AutoMgrState::ImgStop(_) => write!(f, "AutoMgrState::ImgStop"),
             AutoMgrState::AutoMnvr(_) => write!(f, "AutoMgrState::AutoMnvr"),
             AutoMgrState::Follow(_) => write!(f, "AutoMgrState::Follow"),
             AutoMgrState::Check(_) => write!(f, "AutoMgrState::Check"),
@@ -354,6 +380,7 @@ impl AutoMgrState {
             AutoMgrState::AutoMnvr(auto_mnvr) => auto_mnvr.step(params, persistant, cmd),
             AutoMgrState::Follow(follow) => follow.step(params, persistant, cmd),
             AutoMgrState::Check(check) => check.step(params, persistant, cmd),
+            AutoMgrState::ImgStop(img_stop) => img_stop.step(params, persistant, cmd),
             _ => unimplemented!(),
         };
 
@@ -365,7 +392,7 @@ impl AutoMgrState {
                 error!("{}", e);
                 StepOutput {
                     action: StackAction::Abort,
-                    data: StackData::None,
+                    data: AutoMgrOutput::None,
                 }
             }
         }
@@ -383,6 +410,8 @@ impl AutoMgrPersistantData {
             loc_mgr: LocMgr::new(loc_source),
             auto_tm: AutoTm::default(),
             session,
+            is_stopped: false,
+            depth_img: None,
         })
     }
 }
@@ -391,16 +420,13 @@ impl StepOutput {
     pub fn none() -> Self {
         Self {
             action: StackAction::None,
-            data: StackData::None,
+            data: AutoMgrOutput::None,
         }
     }
 }
 
 impl StackAction {
     pub fn is_some(&self) -> bool {
-        match self {
-            StackAction::None => false,
-            _ => true,
-        }
+        !matches!(self, &StackAction::None)
     }
 }

@@ -8,23 +8,17 @@ use comms_if::tc::auto::AutoCmd;
 use log::warn;
 
 use super::{
-    AutoMgrError, 
-    AutoMgrPersistantData, 
-    AutoMgrState, 
-    StackAction, 
-    StackData, 
-    StepOutput, 
-    params::AutoMgrParams, 
-    states::Stop
+    params::AutoMgrParams, states::Stop, AutoMgrError, AutoMgrOutput, AutoMgrPersistantData,
+    AutoMgrState, StackAction, StepOutput,
 };
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
 // ------------------------------------------------------------------------------------------------
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Pause {
-    stop_issued: bool
+    stop_issued: bool,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -33,36 +27,34 @@ pub struct Pause {
 
 impl Pause {
     pub fn new() -> Self {
-        Self {
-            stop_issued: false
-        }
+        Self { stop_issued: false }
     }
 
     pub fn step(
-        &mut self, 
+        &mut self,
         _params: &AutoMgrParams,
-        _persistant: &mut AutoMgrPersistantData, 
-        cmd: Option<AutoCmd>
-    ) ->  Result<StepOutput, AutoMgrError> {
+        _persistant: &mut AutoMgrPersistantData,
+        cmd: Option<AutoCmd>,
+    ) -> Result<StepOutput, AutoMgrError> {
         // The only command accepted in Pause is Abort or Resume, but the Stop must be completed
         // first. .
         match cmd {
             Some(AutoCmd::Abort) => {
                 return Ok(StepOutput {
                     action: StackAction::Abort,
-                    data: StackData::None
+                    data: AutoMgrOutput::None,
                 })
-            },
+            }
             Some(AutoCmd::Resume) => {
                 return Ok(StepOutput {
                     action: StackAction::Pop,
-                    data: StackData::None
+                    data: AutoMgrOutput::None,
                 })
-            },
+            }
             None => (),
             _ => {
                 warn!(
-                    "Only AutoCmd::Abort is accepted when in AutoMgrState::Pause, {:?} ignored", 
+                    "Only AutoCmd::Abort is accepted when in AutoMgrState::Pause, {:?} ignored",
                     cmd
                 );
             }
@@ -74,10 +66,9 @@ impl Pause {
 
             Ok(StepOutput {
                 action: StackAction::PushAbove(AutoMgrState::Stop(Stop::new())),
-                data: StackData::None
+                data: AutoMgrOutput::None,
             })
-        }
-        else {
+        } else {
             Ok(StepOutput::none())
         }
     }

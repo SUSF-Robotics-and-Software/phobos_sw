@@ -1,15 +1,22 @@
 //! # Network Module
 //!
-//! This module provides networking abstractions over ZMQ, the networking library chosen for the 
+//! This module provides networking abstractions over ZMQ, the networking library chosen for the
 //! software.
 
 // ------------------------------------------------------------------------------------------------
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::{sync::{Arc, atomic::{AtomicBool, AtomicUsize}, atomic::Ordering}, thread};
-use zmq::{Socket, Context, SocketType, SocketEvent};
 use serde::Deserialize;
+use std::{
+    sync::{
+        atomic::Ordering,
+        atomic::{AtomicBool, AtomicUsize},
+        Arc,
+    },
+    thread,
+};
+use zmq::{Context, Socket, SocketEvent, SocketType};
 
 // Export zmq
 pub use zmq;
@@ -40,7 +47,7 @@ static NUM_MONITORS: AtomicUsize = AtomicUsize::new(0);
 
 /// A zmq socket which is monitored providing additional information.
 ///
-/// A background thread is run in order to monitor activity on the socket and update visible 
+/// A background thread is run in order to monitor activity on the socket and update visible
 /// information to the user. Currently this is only whether or not the socket is actually connected.
 pub struct MonitoredSocket {
     socket: Socket,
@@ -50,16 +57,15 @@ pub struct MonitoredSocket {
     _monitor_endpoint: String,
 
     shutdown: Arc<AtomicBool>,
-    
-    connected: Arc<AtomicBool>
+
+    connected: Arc<AtomicBool>,
 }
 
 /// Represents options which can be set on a monitored socket.
 ///
-/// Most options here correspond to those found in the 
+/// Most options here correspond to those found in the
 /// [`zmq_setsockopt`](http://api.zeromq.org/2-1:zmq-setsockopt) documentation.
 pub struct SocketOptions {
-
     /// Indicates if the socket should bind itself to the endpoint. Servers should have this value
     /// set as `true`, clients should have it set as `false`.
     ///
@@ -129,7 +135,10 @@ pub struct NetParams {
     pub tm_endpoint: String,
 
     /// Network endpoint for the simulation client
-    pub sim_endpoint: String
+    pub sim_endpoint: String,
+
+    /// Network endpoint for the perloc client
+    pub perloc_endpoint: String,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -154,7 +163,7 @@ pub enum MonitoredSocketError {
     EventReadError(zmq::Error),
 
     #[error("Could not set the {0} socket option: {1}")]
-    SocketOptionError(String, zmq::Error)
+    SocketOptionError(String, zmq::Error),
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -172,7 +181,7 @@ impl MonitoredSocket {
     /// In addition some other options are available:
     /// - `bind`: If set the socket will bind itself to the endpoint rather than connect.
     ///    Servers should set this value to `true`. The default value is `false`.
-    /// - `block_on_first_connect`: If set this function will block until a connection is 
+    /// - `block_on_first_connect`: If set this function will block until a connection is
     ///    established or the `connect_timeout` expires. Servers should set this value to `false`.
     ///    the default value is `true`.
     ///
@@ -182,31 +191,35 @@ impl MonitoredSocket {
     /// - `socket_options`: a [`SocketOptions`] struct specifying how to configure the socket
     /// - `endpoint`: a zmq endpoint string, such as `"tcp://localhost:4000"`
     pub fn new(
-        ctx: &Context, 
+        ctx: &Context,
         socket_type: SocketType,
         socket_options: SocketOptions,
-        endpoint: &str
+        endpoint: &str,
     ) -> Result<Self, MonitoredSocketError> {
         // Create atomics
         let shutdown = Arc::new(AtomicBool::new(false));
         let connected = Arc::new(AtomicBool::new(false));
 
         // Create socket
-        let socket = ctx.socket(socket_type)
+        let socket = ctx
+            .socket(socket_type)
             .map_err(|e| MonitoredSocketError::CreateSocketError(e))?;
 
         // Create monitor endpoint
         let monitor_endpoint = format!(
-            "inproc://monitor_{}", 
+            "inproc://monitor_{}",
             NUM_MONITORS.fetch_add(1, Ordering::Relaxed)
         );
 
         // Enable, create, and connect monitor
-        socket.monitor(&monitor_endpoint, SocketEvent::ALL as i32)
+        socket
+            .monitor(&monitor_endpoint, SocketEvent::ALL as i32)
             .map_err(|e| MonitoredSocketError::MonitoringEnableError(e))?;
-        let monitor = ctx.socket(zmq::PAIR)
+        let monitor = ctx
+            .socket(zmq::PAIR)
             .map_err(|e| MonitoredSocketError::CreateSocketError(e))?;
-        monitor.connect(&monitor_endpoint)
+        monitor
+            .connect(&monitor_endpoint)
             .map_err(|e| MonitoredSocketError::CouldNotConnect(Some(e)))?;
 
         // Set the options on the socket
@@ -215,21 +228,21 @@ impl MonitoredSocket {
         // Connect or bind the socket to it's endpoint
         match socket_options.bind {
             false => socket.connect(endpoint),
-            true=> socket.bind(endpoint)
-        }.map_err(|e| MonitoredSocketError::CouldNotConnect(Some(e)))?;
+            true => socket.bind(endpoint),
+        }
+        .map_err(|e| MonitoredSocketError::CouldNotConnect(Some(e)))?;
 
         // If the block on first connect flag is set, and this is a client, wait for the monitor to
         // signal connection
-        if socket_options.block_on_first_connect
-        {
+        if socket_options.block_on_first_connect {
             loop {
-                let event = read_event(&monitor)
-                    .map_err(|e| MonitoredSocketError::EventReadError(e))?;
+                let event =
+                    read_event(&monitor).map_err(|e| MonitoredSocketError::EventReadError(e))?;
 
                 match event {
                     SocketEvent::CONNECTED => break,
                     SocketEvent::CONNECT_DELAYED => continue,
-                    e => return Err(MonitoredSocketError::UnexpectedEvent(e))
+                    e => return Err(MonitoredSocketError::UnexpectedEvent(e)),
                 }
             }
 
@@ -243,12 +256,14 @@ impl MonitoredSocket {
         let monitor_endpoint_clone = monitor_endpoint.clone();
 
         // Spawn the monitor thread
-        let join_handle = thread::spawn(move || monitor_socket(
-            monitor, 
-            monitor_endpoint_clone,
-            shutdown_clone, 
-            connected_clone
-        ));
+        let join_handle = thread::spawn(move || {
+            monitor_socket(
+                monitor,
+                monitor_endpoint_clone,
+                shutdown_clone,
+                connected_clone,
+            )
+        });
 
         // Create self
         Ok(Self {
@@ -256,7 +271,7 @@ impl MonitoredSocket {
             join_handle: Some(join_handle),
             _monitor_endpoint: monitor_endpoint,
             shutdown,
-            connected
+            connected,
         })
     }
 
@@ -269,10 +284,10 @@ impl MonitoredSocket {
 impl Drop for MonitoredSocket {
     fn drop(&mut self) {
         self.shutdown.store(true, Ordering::Relaxed);
-        
+
         // debug!("MonitoredSocket shutdown sent");
-        
-        if let Some(_jh) =  self.join_handle.take() {
+
+        if let Some(_jh) = self.join_handle.take() {
             // TODO: Currently this hangs, probably because the monitor thread is waiting for an
             // event but none is coming, add timeout?
             // debug!("Waiting for join");
@@ -298,7 +313,6 @@ impl std::ops::DerefMut for MonitoredSocket {
 impl SocketOptions {
     /// Set these options on the given socket.
     pub fn set(&self, socket: &Socket) -> Result<(), MonitoredSocketError> {
-
         // Set all the socket options, we use a macro here to make the error handling nice and
         // easy
         set_sockopts!(
@@ -325,10 +339,7 @@ impl SocketOptions {
 
         // If the socket is a sub type set the sub-specific options
         if let Ok(SocketType::SUB) = socket.get_socket_type() {
-            set_sockopts!(
-                socket,
-                (set_subscribe, self.subscribe.as_bytes())
-            );
+            set_sockopts!(socket, (set_subscribe, self.subscribe.as_bytes()));
         }
 
         Ok(())
@@ -352,7 +363,7 @@ impl Default for SocketOptions {
             req_correlate: false,
             req_relaxed: false,
             send_timeout: 0,
-            subscribe: "".into()
+            subscribe: "".into(),
         }
     }
 }
@@ -363,9 +374,8 @@ impl Default for SocketOptions {
 
 /// Read an event from a socket.
 fn read_event(socket: &Socket) -> Result<SocketEvent, zmq::Error> {
-    
     let msg = socket.recv_msg(0)?;
-        
+
     // TODO: could be simplified by using `TryInto` (since 1.34)
     let event = u16::from_ne_bytes([msg[0], msg[1]]);
 
@@ -384,22 +394,21 @@ fn monitor_socket(
     monitor: Socket,
     monitor_endpoint: String,
     shutdown: Arc<AtomicBool>,
-    connected: Arc<AtomicBool>
+    connected: Arc<AtomicBool>,
 ) {
     // So long as the shutdown isn't requested
     while !shutdown.load(Ordering::Relaxed) {
         // Read the next event from the monitor
-        let event = read_event(&monitor)
-            .expect(&format!(
-                "Error reading event from monitor {}",
-                monitor_endpoint
-            ));
+        let event = read_event(&monitor).expect(&format!(
+            "Error reading event from monitor {}",
+            monitor_endpoint
+        ));
 
         // Raise any flags required by the event
         match event {
             SocketEvent::CONNECTED => connected.store(true, Ordering::Relaxed),
             SocketEvent::DISCONNECTED => connected.store(false, Ordering::Relaxed),
-            _ => ()
+            _ => (),
         }
     }
 }

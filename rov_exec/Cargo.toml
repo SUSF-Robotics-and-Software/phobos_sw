@@ -44,7 +44,7 @@ comms_if = { path = "../comms_if" }
 
 [features]
 # Default feature enables all network stacks
-default = ["mech", "cam", "imu", "sim"]
+default = ["mech", "cam", "imu", "sim", "perloc"]
 
 # Mechanisms network stack
 mech = []
@@ -58,3 +58,6 @@ imu = []
 # Simulation network stack (note this is not required for using simulated mech,
 # cam, or imu stacks, only for additional sim data falling under sim_client)
 sim = []
+
+# Perception and localisation exec stack
+perloc = []

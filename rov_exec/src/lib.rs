@@ -34,3 +34,7 @@ pub mod sim_client;
 
 /// TC processor module - executes telecommands and mutates the datastore accordingly
 pub mod tc_processor;
+
+/// Perloc client - receives depth images and localistation data from the perloc exec.
+#[cfg(feature = "perloc")]
+pub mod perloc_client;

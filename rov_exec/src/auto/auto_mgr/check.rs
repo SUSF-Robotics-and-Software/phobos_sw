@@ -11,7 +11,7 @@ use comms_if::tc::auto::{AutoCmd, PathSpec};
 
 use crate::auto::{path::Path, traj_ctrl::TrajCtrl};
 
-use super::{AutoMgrError, AutoMgrPersistantData, StepOutput, params::AutoMgrParams};
+use super::{params::AutoMgrParams, AutoMgrError, AutoMgrPersistantData, StepOutput};
 
 // -----------------------------------------------------------------------------------------------
 // STRUCTS
@@ -21,7 +21,7 @@ use super::{AutoMgrError, AutoMgrPersistantData, StepOutput, params::AutoMgrPara
 pub struct Check {
     traj_ctrl: TrajCtrl,
     ground_path_spec: PathSpec,
-    ground_path: Option<Path>
+    ground_path: Option<Path>,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -31,14 +31,12 @@ pub struct Check {
 impl Check {
     pub fn new(ground_path_spec: PathSpec) -> Result<Self, AutoMgrError> {
         // Create TrajCtrl instnace
-        let traj_ctrl = TrajCtrl::init(
-            "traj_ctrl.toml"
-        ).map_err(|e| AutoMgrError::TrajCtrlError(e))?;
+        let traj_ctrl = TrajCtrl::init("traj_ctrl.toml").map_err(AutoMgrError::TrajCtrlError)?;
 
         Ok(Self {
             traj_ctrl,
             ground_path_spec,
-            ground_path: None
+            ground_path: None,
         })
     }
 
@@ -46,9 +44,8 @@ impl Check {
         &mut self,
         _params: &AutoMgrParams,
         persistant: &mut AutoMgrPersistantData,
-        cmd: Option<AutoCmd>
+        cmd: Option<AutoCmd>,
     ) -> Result<StepOutput, AutoMgrError> {
-
         todo!()
     }
 }

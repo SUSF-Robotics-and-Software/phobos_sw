@@ -9,10 +9,9 @@
 use std::collections::HashMap;
 
 use comms_if::{
-    eqpt::cam::*, 
-    net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}
+    eqpt::cam::*,
+    net::{zmq, MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions},
 };
-
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -22,7 +21,7 @@ use comms_if::{
 pub struct CamClient {
     socket: MonitoredSocket,
 
-    awaiting_response: bool
+    awaiting_response: bool,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -31,7 +30,6 @@ pub struct CamClient {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CamClientError {
-
     #[error("Socket error: {0}")]
     SocketError(MonitoredSocketError),
 
@@ -52,7 +50,8 @@ pub enum CamClientError {
 
     #[error(
         "Could not make another request to the server since the client is still waiting for the \
-        response to the last request")]
+        response to the last request"
+    )]
     WaitingForResponse,
 
     #[error("Cannot recieve a response as no request has been made")]
@@ -64,9 +63,10 @@ pub enum CamClientError {
     #[error("The server responed with a message which was not valid UTF-8")]
     NonUtf8Response,
 
-    #[error("Expected a set of frames from the camera server but got a different response instead")]
-    ExpectedFrames
-
+    #[error(
+        "Expected a set of frames from the camera server but got a different response instead"
+    )]
+    ExpectedFrames,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -92,17 +92,13 @@ impl CamClient {
         };
 
         // Connect the socket
-        let socket = MonitoredSocket::new(
-            ctx, 
-            zmq::REQ, 
-            socket_options, 
-            &params.cam_endpoint
-        ).map_err(|e| CamClientError::SocketError(e))?;
+        let socket = MonitoredSocket::new(ctx, zmq::REQ, socket_options, &params.cam_endpoint)
+            .map_err(CamClientError::SocketError)?;
 
         // Create self
         Ok(Self {
             socket,
-            awaiting_response: false
+            awaiting_response: false,
         })
     }
 
@@ -111,34 +107,32 @@ impl CamClient {
     /// Sending a request while still waiting on the response to a previous request will result in
     /// an error.
     pub fn request_frames(
-        &mut self, 
-        cameras: Vec<CamId>, 
-        format: ImageFormat
+        &mut self,
+        cameras: Vec<CamId>,
+        format: ImageFormat,
     ) -> Result<(), CamClientError> {
         // If not connected return an error
         // TODO: Reset the await flag?
         if !self.socket.connected() {
-            return Err(CamClientError::NotConnected)
+            return Err(CamClientError::NotConnected);
         }
 
         // If still waiting return an error
         if self.awaiting_response {
-            return Err(CamClientError::WaitingForResponse)
+            return Err(CamClientError::WaitingForResponse);
         }
 
         // Build the request
-        let request = CamRequest::FrameRequest(FrameRequest {
-            cameras,
-            format
-        });
+        let request = CamRequest::FrameRequest(FrameRequest { cameras, format });
 
         // Serialize the request
-        let request_str = serde_json::to_string(&request)
-            .map_err(|e| CamClientError::SerializationError(e))?;
+        let request_str =
+            serde_json::to_string(&request).map_err(CamClientError::SerializationError)?;
 
         // Send the request
-        self.socket.send(&request_str, 0)
-            .map_err(|e| CamClientError::SendError(e))?;
+        self.socket
+            .send(&request_str, 0)
+            .map_err(CamClientError::SendError)?;
 
         // Set the awaiting response flag
         self.awaiting_response = true;
@@ -156,12 +150,12 @@ impl CamClient {
         // If not connected return an error
         // TODO: Reset the await flag?
         if !self.socket.connected() {
-            return Err(CamClientError::NotConnected)
+            return Err(CamClientError::NotConnected);
         }
 
         // If not waiting for a response return an error
         if !self.awaiting_response {
-            return Err(CamClientError::NoRequestMade)
+            return Err(CamClientError::NoRequestMade);
         }
 
         // Read message from the server
@@ -173,20 +167,20 @@ impl CamClient {
             // No response
             Err(zmq::Error::EAGAIN) => return Ok(None),
             // Recv error
-            Err(e) => return Err(CamClientError::RecvError(e))
+            Err(e) => return Err(CamClientError::RecvError(e)),
         };
 
         // Unset the awaiting response flag
         self.awaiting_response = false;
 
         // Deserialize the response
-        let response: CamResponse = serde_json::from_str(&response_str)
-            .map_err(|e| CamClientError::DeserializeError(e))?;
-        
+        let response: CamResponse =
+            serde_json::from_str(&response_str).map_err(CamClientError::DeserializeError)?;
+
         // Check that the response is a `Frames` object
         match response {
             CamResponse::Frames(m) => Ok(Some(m)),
-            _ => Err(CamClientError::ExpectedFrames)
+            _ => Err(CamClientError::ExpectedFrames),
         }
     }
 
@@ -200,16 +194,17 @@ impl CamClient {
         // First recieve frames
         let frames = match self.recieve_frames()? {
             Some(f) => f,
-            None => return Ok(None)
+            None => return Ok(None),
         };
 
         // Map each frame into an image
         let mut images = HashMap::<CamId, CamImage>::new();
         for (id, frame) in frames {
             images.insert(
-                id, 
-                frame.to_cam_image()
-                    .map_err(|e| CamClientError::ImageDeserError(id, e))?
+                id,
+                frame
+                    .to_cam_image()
+                    .map_err(|e| CamClientError::ImageDeserError(id, e))?,
             );
         }
 

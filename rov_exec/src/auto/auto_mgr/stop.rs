@@ -4,12 +4,15 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
+use super::{
+    params::AutoMgrParams, states::WaitNewPose, AutoMgrError, AutoMgrOutput, AutoMgrPersistantData,
+    AutoMgrState, StackAction, StepOutput,
+};
+use crate::auto::loc::Pose;
 use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
 use log::{info, warn};
 use serde::Deserialize;
 use util::session;
-use crate::auto::loc::Pose;
-use super::{AutoMgrPersistantData, AutoMgrError, AutoMgrState, StackAction, StackData, StepOutput, params::AutoMgrParams, states::WaitNewPose};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -27,7 +30,6 @@ use super::{AutoMgrPersistantData, AutoMgrError, AutoMgrState, StackAction, Stac
 /// - ImgStop
 #[derive(Debug)]
 pub struct Stop {
-
     /// Time at which the rover was first considered to be stationary
     stationary_start_time_s: f64,
 
@@ -47,7 +49,7 @@ pub struct StopParams {
     position_delta_max_magn_m: f64,
 
     /// Maximum attitude change magnitude that will be considered stationary
-    attitude_delta_max_magn_rad: f64
+    attitude_delta_max_magn_rad: f64,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -59,29 +61,28 @@ impl Stop {
         Self {
             stationary_start_time_s: 0.0,
             last_pose: None,
-            loco_ctrl_cmd_issued: false
+            loco_ctrl_cmd_issued: false,
         }
     }
 
     pub fn step(
-        &mut self, 
+        &mut self,
         params: &AutoMgrParams,
-        persistant: &mut AutoMgrPersistantData, 
-        cmd: Option<AutoCmd>
+        persistant: &mut AutoMgrPersistantData,
+        cmd: Option<AutoCmd>,
     ) -> Result<StepOutput, AutoMgrError> {
-        
         // The only command accepted in Stop is Abort, which will clear the stack.
         match cmd {
             Some(AutoCmd::Abort) => {
                 return Ok(StepOutput {
                     action: StackAction::Clear,
-                    data: StackData::None
+                    data: AutoMgrOutput::None,
                 })
             }
             None => (),
             _ => {
                 warn!(
-                    "Only AutoCmd::Abort is accepted when in AutoMgrState::Stop, {:?} ignored", 
+                    "Only AutoCmd::Abort is accepted when in AutoMgrState::Stop, {:?} ignored",
                     cmd
                 );
             }
@@ -91,17 +92,17 @@ impl Stop {
         // If no pose request a WaitNewPose state be pushed
         let current_pose = match persistant.loc_mgr.get_pose() {
             Some(p) => p,
-            None => return Ok(StepOutput {
-                action: StackAction::PushAbove(AutoMgrState::WaitNewPose(
-                    WaitNewPose::new()
-                )),
-                data: StackData::None
-            })
+            None => {
+                return Ok(StepOutput {
+                    action: StackAction::PushAbove(AutoMgrState::WaitNewPose(WaitNewPose::new())),
+                    data: AutoMgrOutput::None,
+                })
+            }
         };
 
         // Set the pose in the TM
         persistant.auto_tm.pose = Some(current_pose);
-        
+
         // Get the current rover time
         let current_time_s = session::get_elapsed_seconds();
 
@@ -112,8 +113,8 @@ impl Stop {
             None => {
                 self.last_pose = Some(current_pose);
                 self.stationary_start_time_s = current_time_s;
-    
-                return Ok(StepOutput::none())
+
+                return Ok(StepOutput::none());
             }
         };
 
@@ -127,9 +128,9 @@ impl Stop {
         }
 
         // Calculate the angle rotated between the last and current pose
-        let att_delta_magn_rad = last_pose.attitude_q_lm.angle_to(
-            &current_pose.attitude_q_lm
-        );
+        let att_delta_magn_rad = last_pose
+            .attitude_q_lm
+            .angle_to(&current_pose.attitude_q_lm);
 
         // If that angle is greater than the limit the rover has moved, reset the stationary time
         if att_delta_magn_rad > params.stop.attitude_delta_max_magn_rad {
@@ -141,16 +142,20 @@ impl Stop {
 
         // If the difference between the current time and the stationary start time is greater than
         // the limit in the parameters the rover has been stationary for the required number of
-        // seconds, and we can exit successfully. 
+        // seconds, and we can exit successfully.
         let stationary_time_s = current_time_s - self.stationary_start_time_s;
         if stationary_time_s > params.stop.min_stationary_time_s {
             info!(
                 "Rover stationary for {} s, AutoMgrState::Stop complete successfully",
                 stationary_time_s
             );
+
+            // Set the stopped flag in the persistent data
+            persistant.is_stopped = true;
+
             Ok(StepOutput {
                 action: StackAction::Pop,
-                data: StackData::None
+                data: AutoMgrOutput::None,
             })
         }
         // Otherwise we exit, waiting for the next cycle to check again
@@ -160,10 +165,9 @@ impl Stop {
                 self.loco_ctrl_cmd_issued = true;
                 Ok(StepOutput {
                     action: StackAction::None,
-                    data: StackData::LocoCtrlMnvr(MnvrCmd::Stop)
+                    data: AutoMgrOutput::LocoCtrlMnvr(MnvrCmd::Stop),
                 })
-            }
-            else {
+            } else {
                 Ok(StepOutput::none())
             }
         }
