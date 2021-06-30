@@ -4,35 +4,29 @@
 // INCLUDES
 // ------------------------------------------------------------------------------------------------
 
-use std::ops::{Deref, Range};
+use std::ops::{Deref, DerefMut, Range};
 
-use super::{GridMap, GridMapError, Point2};
-use noise::{Perlin, NoiseFn};
-use serde::{Serialize, Deserialize};
+use cell_map::{CellMap, CellMapParams, Error as CellMapError, Layer};
+use nalgebra::Point2;
+use noise::{NoiseFn, Perlin};
+use serde::{Deserialize, Serialize};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
 // ------------------------------------------------------------------------------------------------
 
 /// Terrain Map
-#[derive(Clone)]
-pub struct TerrainMap(pub(super) GridMap<Option<f64>, TerrainMapLayer>);
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct TerrainMapParams {
-    pub cell_size: (f64, f64), 
-    pub num_cells: (usize, usize), 
-    pub centre_position: (f64, f64)
-}
+#[derive(Clone, Serialize, Deserialize)]
+pub struct TerrainMap(pub(super) CellMap<TerrainMapLayer, Option<f64>>);
 
 // ------------------------------------------------------------------------------------------------
 // ENUMS
 // ------------------------------------------------------------------------------------------------
 
 /// Possible layers in a [`TerrainMap`]
-#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug, Serialize, Deserialize, Layer)]
 pub enum TerrainMapLayer {
-    Height
+    Height,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -41,169 +35,116 @@ pub enum TerrainMapLayer {
 
 impl TerrainMap {
     /// Create a new empty terrain map with the given grid information.
-    pub fn new(
-        cell_size: Point2<f64>, 
-        num_cells: Point2<usize>, 
-        centre_position: Point2<f64>
-    ) -> Result<Self, GridMapError> {
-        let map = GridMap::new(
-            cell_size,
-            num_cells,
-            centre_position,
-            &[TerrainMapLayer::Height],
-            None
-        )?;
-
-        Ok(Self(map))
-    }
-
-    pub fn new_from_params(params: &TerrainMapParams) -> Result<Self, GridMapError> {
-        Self::new(
-            Point2::new(params.cell_size.0, params.cell_size.1),
-            Point2::new(params.num_cells.0, params.num_cells.1),
-            Point2::new(params.centre_position.0, params.centre_position.1),
-        )
+    pub fn new(params: CellMapParams) -> Self {
+        Self(CellMap::new(params))
     }
 
     /// Generate a random terrain map using a Perlin noise system
     pub fn generate_random(
-        cell_size: Point2<f64>, 
-        num_cells: Point2<usize>, 
-        centre_position: Point2<f64>,
+        params: CellMapParams,
         perlin_scale: Point2<f64>,
-        perlin_offset: Point2<f64>
-    ) -> Result<Self, GridMapError> {
-        let mut map = GridMap::new(
-            cell_size,
-            num_cells,
-            centre_position,
-            &[TerrainMapLayer::Height],
-            None
-        )?;
+        perlin_offset: Point2<f64>,
+    ) -> Result<Self, CellMapError> {
+        let mut map = CellMap::<TerrainMapLayer, Option<f64>>::new(params);
 
         let perlin = Perlin::new();
 
-        map = map
-            .map(
-                TerrainMapLayer::Height, 
-                |_, pos, _| {
-                    Some(perlin.get([
-                        pos.x()*perlin_scale.x() + perlin_offset.x(), 
-                        pos.y()*perlin_scale.y() + perlin_offset.y()
-                    ]))
-                }
-            )?;
+        for ((_, pos), h) in map.iter_mut().positioned() {
+            *h = Some(perlin.get([
+                pos.x * perlin_scale.x + perlin_offset.x,
+                pos.y * perlin_scale.y + perlin_offset.y,
+            ]))
+        }
 
         Ok(Self(map))
     }
 
-    /// Returns the range of heighgt in the terrain, or an error if the map is empty
-    pub fn range(&self) -> Result<Range<f64>, GridMapError> {
+    /// Returns the range of height in the terrain, or `None` if the map is empty
+    pub fn range(&self) -> Option<Range<f64>> {
         let mut min = None;
         let mut max = None;
 
-        for x in 0..self.num_cells.x() {
-            for y in 0..self.num_cells.y() {
-                let height = self.get(
-                    TerrainMapLayer::Height, 
-                    &Point2::new(x, y)
-                )?;
-
-                match (height, min) {
-                    (Some(h), None) => min = Some(h),
-                    (Some(h), Some(m)) => {
-                        if h < m {
-                            min = Some(h)
-                        }
-                    },
-                    (None, _) => ()
+        for &height in self.iter() {
+            match (height, min) {
+                (Some(h), None) => min = Some(h),
+                (Some(h), Some(m)) => {
+                    if h < m {
+                        min = Some(h)
+                    }
                 }
-                match (height, max) {
-                    (Some(h), None) => max = Some(h),
-                    (Some(h), Some(m)) => {
-                        if h > m {
-                            max = Some(h)
-                        }
-                    },
-                    (None, _) => ()
+                (None, _) => (),
+            }
+            match (height, max) {
+                (Some(h), None) => max = Some(h),
+                (Some(h), Some(m)) => {
+                    if h > m {
+                        max = Some(h)
+                    }
                 }
+                (None, _) => (),
             }
         }
 
         match (min, max) {
-            (Some(min), Some(max)) => Ok(min..max),
-            _ => Err(GridMapError::Empty)
+            (Some(min), Some(max)) => Some(min..max),
+            _ => None,
         }
     }
 
     /// Dummy test function that simulates the rover's field of view of the terrain.
     pub fn clip_to_rov_view(
-        &mut self, 
-        position: Point2<f64>, 
-        heading: f64, 
+        &mut self,
+        position: Point2<f64>,
+        heading: f64,
         view_range: Range<f64>,
-        field_of_view: f64
-    ) -> Result<(), GridMapError> {
-        self.0 = self.0.map(
-            TerrainMapLayer::Height,
-            |_, pos, height| {
-                if height.is_none() {
-                    return None;
-                }
+        field_of_view: f64,
+    ) {
+        let mut in_fov;
 
-                // Calculate polar form of the difference between the rover's position and this
-                // cell's position. To prevent clipping of cells close to the rover we must test
-                // the extremes of the cell rather than the centre of the cell.
-                let cell_points = vec![
-                    Point2::new(pos.x() + self.cell_size.x(), pos.y() + self.cell_size.y()),
-                    Point2::new(pos.x() - self.cell_size.x(), pos.y() + self.cell_size.y()),
-                    Point2::new(pos.x() + self.cell_size.x(), pos.y() - self.cell_size.y()),
-                    Point2::new(pos.x() - self.cell_size.x(), pos.y() - self.cell_size.y())
-                ];
-
-                let mut in_fov = false;
-                for point in cell_points {
-                    let diff = Point2::new(
-                        point.x() - position.x(), 
-                        point.y() - position.y()
-                    );
-    
-                    let radius = (diff.x().powi(2) + diff.y().powi(2)).sqrt();
-                    let theta = diff.y().atan2(diff.x()) + heading;
-    
-                    // Check radius is within the view range
-                    if radius < view_range.start || radius > view_range.end {
-                        break;
-                    }
-    
-                    // Check the theta is within the field of view
-                    if theta.abs() > field_of_view/2.0 {
-                        break;
-                    }
-
-                    // If we got through both these checks the cell is in the field of view
-                    in_fov = true;
-                }
-
-                // Finally if any of the cell corners were in the FOV we keep the height around,
-                // otherwise the cell is None
-                if in_fov {
-                    height
-                }
-                else {
-                    None
-                }
+        for ((_, pos), height) in self.iter_mut().positioned() {
+            // Leave any unknown heights unchanged
+            if height.is_none() {
+                continue;
             }
-        )?;
 
-        Ok(())
+            // Reset in_fov
+            in_fov = true;
+
+            // Calculate if the position is in the field of view
+            let diff = pos - position;
+
+            // Polar coordinates between the rover and the pos.
+            let radius = (diff.x.powi(2) + diff.y.powi(2)).sqrt();
+            let theta = diff.y.atan2(diff.x) + heading;
+
+            // Check radius is within the view range
+            if radius < view_range.start || radius > view_range.end {
+                in_fov = false;
+            }
+
+            // Check the theta is within the field of view
+            if theta.abs() > field_of_view / 2.0 {
+                in_fov = false;
+            }
+
+            // If the cell is in the FOV we keep it, if it isn't we set it to None
+            if !in_fov {
+                *height = None;
+            }
+        }
     }
 }
 
 impl Deref for TerrainMap {
-    type Target = GridMap<Option<f64>, TerrainMapLayer>;
+    type Target = CellMap<TerrainMapLayer, Option<f64>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl DerefMut for TerrainMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

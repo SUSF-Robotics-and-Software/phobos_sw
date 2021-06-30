@@ -22,7 +22,6 @@
 //     loco_ctrl::MnvrCmd,
 // };
 // use log::{info, warn};
-use map::GridMapError;
 // use nav::NavCtrl;
 
 // use self::{loc::LocMgr, nav::{NavCtrlType, NavError}};
@@ -101,7 +100,7 @@ pub mod map;
 //                             }
 //                         };
 //                         nc.set_pose(&pose);
-                        
+
 //                         // Step the controller
 //                         nc.step()?;
 //                     },
@@ -136,9 +135,9 @@ pub mod map;
 
 //     /// Pause current command execution
 //     fn pause(&mut self) -> Result<(), AutoMgrError> {
-        
+
 //         self.paused_from_mode = Some(self.mode);
-        
+
 //         self.set_mode(AutoMgrMode::Pause);
 
 //         info!("Autonomy execution paused, issue Resume to continue or Abort to be able to issue new\
@@ -202,10 +201,10 @@ pub mod map;
 
 //     /// Execute the pause mode.
 //     ///
-//     /// In this mode the execution of the current command is postponed until the resume command is 
+//     /// In this mode the execution of the current command is postponed until the resume command is
 //     /// issued.
 //     fn mode_pause(&mut self) -> Result<(), AutoMgrError> {
-        
+
 //         match &self.auto_cmd {
 //             // If the current command is resume exit pause mode
 //             Some(AutoCmd::Resume) => {

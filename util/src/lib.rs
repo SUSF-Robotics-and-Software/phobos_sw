@@ -8,13 +8,14 @@ pub mod archive;
 pub mod host;
 #[macro_use]
 pub mod logger;
+pub mod convert;
 pub mod maths;
 pub mod module;
 pub mod params;
-pub mod session;
-pub mod script_interpreter;
-pub mod time;
 pub mod quadtree;
+pub mod script_interpreter;
+pub mod session;
+pub mod time;
 
 // ---------------------------------------------------------------------------
 // REEXPORTS
@@ -27,7 +28,7 @@ pub use comms_if;
 // ---------------------------------------------------------------------------
 
 /// Fire an unrecoverable error which will panic.
-/// 
+///
 /// # Notes
 /// = It is prefered to return a `Result<_,Error>` instead of raising an error
 ///   as this allows the application to potentially handle.

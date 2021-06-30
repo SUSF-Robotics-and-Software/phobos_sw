@@ -9,12 +9,12 @@
 
 mod auto_mnvr;
 mod check;
-mod pause;
-mod params;
-mod stop;
-mod wait_new_pose;
 mod follow;
+mod params;
+mod pause;
+mod stop;
 pub mod tm;
+mod wait_new_pose;
 
 // ------------------------------------------------------------------------------------------------
 // IMPORTS
@@ -25,9 +25,10 @@ use std::{fmt::Display, unimplemented};
 pub use self::{params::AutoMgrParams, tm::AutoTm};
 
 use super::{
-    loc::{LocMgr, LocSource}, 
-    map::{GridMapError, TerrainMap, TerrainMapParams}, 
-    path::PathError, traj_ctrl::TrajCtrlError
+    loc::{LocMgr, LocSource},
+    map::TerrainMap,
+    path::PathError,
+    traj_ctrl::TrajCtrlError,
 };
 
 // ------------------------------------------------------------------------------------------------
@@ -36,14 +37,15 @@ use super::{
 
 pub mod states {
     // pub use super::off::Off;
+    pub use super::auto_mnvr::AutoMnvr;
+    pub use super::check::Check;
+    pub use super::follow::Follow;
     pub use super::pause::Pause;
     pub use super::stop::Stop;
-    pub use super::auto_mnvr::AutoMnvr;
     pub use super::wait_new_pose::WaitNewPose;
-    pub use super::follow::Follow;
-    pub use super::check::Check;
 }
 
+use cell_map::CellMapParams;
 use comms_if::tc::{auto::AutoCmd, loco_ctrl::MnvrCmd};
 use log::{error, info, warn};
 use states::*;
@@ -70,7 +72,7 @@ pub struct AutoMgr {
     /// The data returned by the most recently stepped state.
     ///
     /// This can be used to obtain information from the last state, for example images from an
-    /// ImgStop. 
+    /// ImgStop.
     pub last_stack_data: StackData,
 
     /// The stack of states in the system.
@@ -84,7 +86,7 @@ pub struct AutoMgr {
     /// This also allows easy actions to be performed at the end of a mode, for example Stop can be
     /// pushed below the current state, so that when it is poped the Stop state will be executed
     /// next.
-    /// 
+    ///
     /// See [`AutoMgrStack`] for more information.
     stack: AutoMgrStack,
 }
@@ -100,7 +102,7 @@ pub struct AutoMgrPersistantData {
     pub auto_tm: AutoTm,
 
     /// A copy of the global session data.
-    pub session: Session
+    pub session: Session,
 }
 
 /// State stacking abstraction.
@@ -113,7 +115,7 @@ pub struct StepOutput {
     pub action: StackAction,
 
     /// Data to pass to the state below this one
-    pub data: StackData
+    pub data: StackData,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -123,7 +125,6 @@ pub struct StepOutput {
 /// Errors that can occur in the autonomy manager.
 #[derive(Debug, thiserror::Error)]
 pub enum AutoMgrError {
-
     #[error("Failed to load AutoMgrParams: {0:?}")]
     ParamLoadError(util::params::LoadError),
 
@@ -138,18 +139,14 @@ pub enum AutoMgrError {
 
     // #[error("Navigation error: {0}")]
     // NavError(NavError),
-
     #[error("Navigation control type hasn't been initialised")]
     NavCtrlStateNotInit,
-
-    #[error("Could not initialise the global terrain map")]
-    InitGlobalTerrMapError(GridMapError),
 
     #[error("Error in TrajCtrl: {0}")]
     TrajCtrlError(TrajCtrlError),
 
     #[error("Error in Path processing: {0}")]
-    PathError(PathError)
+    PathError(PathError),
 }
 
 #[derive(Debug)]
@@ -161,7 +158,7 @@ pub enum AutoMgrState {
     AutoMnvr(AutoMnvr),
     Follow(Follow),
     Check(Check),
-    Goto
+    Goto,
 }
 
 /// Actions that can be performed on the Stack at the end of a state's step function.
@@ -180,7 +177,7 @@ pub enum StackAction {
 pub enum StackData {
     None,
 
-    LocoCtrlMnvr(MnvrCmd)
+    LocoCtrlMnvr(MnvrCmd),
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -192,26 +189,22 @@ impl AutoMgr {
         // Load parameters
         let params: AutoMgrParams = match util::params::load(params_path) {
             Ok(p) => p,
-            Err(e) => return Err(AutoMgrError::ParamLoadError(e))
+            Err(e) => return Err(AutoMgrError::ParamLoadError(e)),
         };
 
         Ok(Self {
             params: params.clone(),
             last_stack_data: StackData::None,
             persistant: AutoMgrPersistantData::new(
-                &params.terrain_map_params, 
+                params.terrain_map_params.clone(),
                 params.loc_mgr.source,
-                session
+                session,
             )?,
-            stack: AutoMgrStack::new()
+            stack: AutoMgrStack::new(),
         })
     }
 
-    pub fn step(
-        &mut self, 
-        cmd: Option<AutoCmd>
-    ) -> Result<Option<MnvrCmd>, AutoMgrError> {
-
+    pub fn step(&mut self, cmd: Option<AutoCmd>) -> Result<Option<MnvrCmd>, AutoMgrError> {
         // Get a reference to the current top state
         let top = self.stack.top();
 
@@ -220,25 +213,28 @@ impl AutoMgr {
             // Call the top's step function
             Some(top) => top.step(&self.params, &mut self.persistant, cmd),
             // If there is no top the mgr is off, but we can still accept some commands to change
-            // state. 
-            None => match cmd {
-                Some(AutoCmd::Manouvre(m)) => {
-                    self.stack.push_above(AutoMgrState::AutoMnvr(AutoMnvr::new(m)));
-                    StepOutput::none()
+            // state.
+            None => {
+                match cmd {
+                    Some(AutoCmd::Manouvre(m)) => {
+                        self.stack
+                            .push_above(AutoMgrState::AutoMnvr(AutoMnvr::new(m)));
+                        StepOutput::none()
+                    }
+                    Some(AutoCmd::Follow(p)) => {
+                        self.stack.push_above(AutoMgrState::Follow(Follow::new(p)?));
+                        StepOutput::none()
+                    }
+                    Some(AutoCmd::Check(p)) => {
+                        self.stack.push_above(AutoMgrState::Check(Check::new(p)?));
+                        StepOutput::none()
+                    }
+                    Some(_) => {
+                        warn!("Cannot pause, resume, or abort Autonomy execution as the AutoMgr is Off");
+                        return Ok(None);
+                    }
+                    None => return Ok(None),
                 }
-                Some(AutoCmd::Follow(p)) => {
-                    self.stack.push_above(AutoMgrState::Follow(Follow::new(p)?));
-                    StepOutput::none()
-                }
-                Some(AutoCmd::Check(p)) => {
-                    self.stack.push_above(AutoMgrState::Check(Check::new(p)?));
-                    StepOutput::none()
-                }
-                Some(_) => {
-                    warn!("Cannot pause, resume, or abort Autonomy execution as the AutoMgr is Off");
-                    return Ok(None)
-                },
-                None => return Ok(None)
             }
         };
 
@@ -247,19 +243,13 @@ impl AutoMgr {
         // Perform any actions required by the top state
         match output.action {
             StackAction::None => (),
-            StackAction::Clear => {
-                self.stack.clear()
-            },
+            StackAction::Clear => self.stack.clear(),
             StackAction::Abort => {
                 self.stack.clear();
                 self.stack.push_above(AutoMgrState::Stop(Stop::new()))
             }
-            StackAction::PushAbove(s) => {
-                self.stack.push_above(s)
-            }
-            StackAction::PushBelow(s) => {
-                self.stack.push_below(s)
-            }
+            StackAction::PushAbove(s) => self.stack.push_above(s),
+            StackAction::PushBelow(s) => self.stack.push_below(s),
             StackAction::Pop => {
                 self.stack.pop();
             }
@@ -276,7 +266,7 @@ impl AutoMgr {
         // Output data to loco_ctrl
         Ok(match output.data {
             StackData::None => None,
-            StackData::LocoCtrlMnvr(m) => Some(m)
+            StackData::LocoCtrlMnvr(m) => Some(m),
         })
     }
 
@@ -305,7 +295,7 @@ impl AutoMgrStack {
     }
 
     /// Returns a mutable reference of the top state in the stack. Returns None if the stack is
-    /// empty. 
+    /// empty.
     pub fn top(&mut self) -> Option<&mut AutoMgrState> {
         self.0.last_mut()
     }
@@ -320,8 +310,7 @@ impl AutoMgrStack {
     pub fn push_below(&mut self, new: AutoMgrState) {
         if self.is_empty() {
             self.0.push(new)
-        }
-        else {
+        } else {
             self.0.insert(self.0.len() - 1, new)
         }
     }
@@ -353,43 +342,19 @@ impl Display for AutoMgrState {
 
 impl AutoMgrState {
     fn step(
-        &mut self, 
+        &mut self,
         params: &AutoMgrParams,
-        persistant: &mut AutoMgrPersistantData, 
-        cmd: Option<AutoCmd>
+        persistant: &mut AutoMgrPersistantData,
+        cmd: Option<AutoCmd>,
     ) -> StepOutput {
         let out = match self {
-            AutoMgrState::Stop(stop) => stop.step(
-                params,
-                persistant,
-                cmd
-            ),
-            AutoMgrState::Pause(pause) => pause.step(
-                params,
-                persistant,
-                cmd
-            ),
-            AutoMgrState::WaitNewPose(wait) => wait.step(
-                params,
-                persistant,
-                cmd
-            ),
-            AutoMgrState::AutoMnvr(auto_mnvr) => auto_mnvr.step(
-                params,
-                persistant,
-                cmd
-            ),
-            AutoMgrState::Follow(follow) => follow.step(
-                params,
-                persistant,
-                cmd
-            ),
-            AutoMgrState::Check(check) => check.step(
-                params,
-                persistant,
-                cmd
-            ),
-            _ => unimplemented!()
+            AutoMgrState::Stop(stop) => stop.step(params, persistant, cmd),
+            AutoMgrState::Pause(pause) => pause.step(params, persistant, cmd),
+            AutoMgrState::WaitNewPose(wait) => wait.step(params, persistant, cmd),
+            AutoMgrState::AutoMnvr(auto_mnvr) => auto_mnvr.step(params, persistant, cmd),
+            AutoMgrState::Follow(follow) => follow.step(params, persistant, cmd),
+            AutoMgrState::Check(check) => check.step(params, persistant, cmd),
+            _ => unimplemented!(),
         };
 
         // If an output is an error, we print it to the screen but we actually abort, keeping the
@@ -400,7 +365,7 @@ impl AutoMgrState {
                 error!("{}", e);
                 StepOutput {
                     action: StackAction::Abort,
-                    data: StackData::None
+                    data: StackData::None,
                 }
             }
         }
@@ -409,16 +374,15 @@ impl AutoMgrState {
 
 impl AutoMgrPersistantData {
     pub fn new(
-        terr_map_params: &TerrainMapParams, 
+        terr_map_params: CellMapParams,
         loc_source: LocSource,
-        session: Session
+        session: Session,
     ) -> Result<Self, AutoMgrError> {
         Ok(Self {
-            global_terr_map: TerrainMap::new_from_params(terr_map_params)
-                .map_err(|e| AutoMgrError::InitGlobalTerrMapError(e))?,
+            global_terr_map: TerrainMap::new(terr_map_params),
             loc_mgr: LocMgr::new(loc_source),
             auto_tm: AutoTm::default(),
-            session
+            session,
         })
     }
 }
@@ -436,7 +400,7 @@ impl StackAction {
     pub fn is_some(&self) -> bool {
         match self {
             StackAction::None => false,
-            _ => true
+            _ => true,
         }
     }
 }
