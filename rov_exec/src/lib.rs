@@ -15,13 +15,6 @@ pub mod data_store;
 /// Camera client - requests and recieves images from the camera server
 pub mod cam_client;
 
-/// Electronics driver - controls the motors via the mot borads
-#[deprecated(
-    since = "0.2.0",
-    note = "Replaced by MechExec/sim in architecture rework"
-)]
-pub mod elec_driver;
-
 /// Locomotion control module - converts high level manouvre commands into individual wheel commands
 pub mod loco_ctrl;
 
