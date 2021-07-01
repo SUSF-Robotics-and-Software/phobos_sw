@@ -36,7 +36,8 @@ ndarray = { version = "0.15", features = ["serde"] }
 ndarray-stats = "0.4"
 noise = "0.7"
 csv = "1.1"
-cell-map = "0.4.1"
+# cell-map = "0.4.1"
+cell-map = { path = "../../../cell-map" }
 
 # Internal
 util = { path = "../util" }

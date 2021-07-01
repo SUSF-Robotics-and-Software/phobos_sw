@@ -16,7 +16,7 @@ import copy
 from plot_path import load_path, plot_path
 from cell_map import CellMap
 
-def plot_grid_map(map, paths):
+def plot_grid_map(map, paths, plan_report = None, show_leaves=False):
     '''
     Plots the given grid map in an interactive way.
     '''
@@ -66,8 +66,14 @@ def plot_grid_map(map, paths):
                 vmin=0.0,
                 vmax=1.0
             )
-            for path in paths:
-                plot_path(path, ax=ax)
+            for i, path in enumerate(paths):
+                if i == 0:
+                    plot_path(path, ax=ax, linespec='-k')
+                else:
+                    plot_path(path, ax=ax, linespec='-b')
+                    
+            if plan_report is not None:
+                plot_plan_report(plan_report, ax, show_leaves)
         else:
             plots[layer] = ax.plot_surface(
                 map['x_grid'], map['y_grid'], map['cm'].data[layer],
@@ -207,6 +213,28 @@ def conv_opt_f64(data):
 
     return np.vectorize(conv)(data)
 
+def plot_plan_report(plan_report, ax, show_leaves = False):
+    '''
+    Plots a PathPlannerReport file to the given axis
+    '''
+
+    def plot_node(node, ax):
+        if node['node'] is not None:
+            if len(node['children']) == 0:
+                if show_leaves:
+                    linespec = ':k'
+                else:
+                    return
+            else:
+                linespec = ':b'
+            plot_path(np.array(node['node']['path']['points_m']), ax=ax, linespec=linespec)
+
+        for child in node['children']:
+            plot_node(child, ax)
+    
+    plot_node(plan_report['tree'], ax)
+    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Plot a grid map')
     parser.add_argument(
@@ -222,11 +250,35 @@ if __name__ == '__main__':
         nargs='*',
         help='Path to one or more JSON files describing paths'
     )
+    parser.add_argument(
+        '--plan_report',
+        metavar='PLANRPT',
+        nargs='?',
+        help='Path to PathPlannerReport file.'
+    )
+    parser.add_argument(
+        '--show_leaves',
+        action='store_true',
+        help='If a PathPlannerReport is provided, show the leaves of any planning'
+    )
 
     args = parser.parse_args()
 
     map = load_map(Path(args.grid_map_path[0]))
-    paths = [load_path(path) for path in args.paths]
+    
+    if args.plan_report is not None:
+        with open(args.plan_report) as f:
+            plan_report = json.load(f)
+    else:
+        plan_report = None
 
-    plot_grid_map(map, paths)
+    paths = []
+    for path in args.paths:
+        loaded_path = load_path(path)
+        if isinstance(loaded_path, list):
+            paths.extend(loaded_path)
+        else:
+            paths.append(loaded_path)
+
+    plot_grid_map(map, paths, plan_report=plan_report, show_leaves=args.show_leaves)
 

@@ -8,8 +8,8 @@
 
 use comms_if::tc::auto::PathSpec;
 // External
-use serde::{Serialize, Deserialize};
 use nalgebra::Vector2;
+use serde::{Deserialize, Serialize};
 
 use super::loc::Pose;
 
@@ -20,13 +20,12 @@ use super::loc::Pose;
 /// A path defining the desired trajectory of the rover.
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Path {
-    pub points_m: Vec<Vector2<f64>>
+    pub points_m: Vec<Vector2<f64>>,
 }
 
 /// A segment between two path points
 #[derive(Default, Serialize, Deserialize)]
 pub struct PathSegment {
-
     /// The target of the segment
     pub target_m: Vector2<f64>,
 
@@ -46,16 +45,16 @@ pub struct PathSegment {
     pub heading_rad: f64,
 
     /// Unit vector pointing in the direction of the segment
-    pub direction: Vector2<f64>
+    pub direction: Vector2<f64>,
 }
 
 /// A sequence of reduced (curv only) Ackermann manouvres which describes a path.
 ///
 /// The first element is the curvature in 1/meters, the second the distance in meters.
 #[derive(Clone, Serialize, Deserialize)]
-pub struct AckSequence{
+pub struct AckSequence {
     seq: Vec<(f64, f64)>,
-    point_sep_m: f64
+    point_sep_m: f64,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -71,7 +70,7 @@ pub enum PathError {
     UnexpectedPathSpecType,
 
     #[error("Attempted to create a path from an empty sequence")]
-    EmptySequence
+    EmptySequence,
 }
 
 // ---------------------------------------------------------------------------
@@ -82,16 +81,14 @@ impl Path {
     /// Create a new empty path
     pub fn new_empty() -> Self {
         Path {
-            points_m: Vec::new()
+            points_m: Vec::new(),
         }
     }
 
     /// Convert from a [`PathSpec`] object into a new path.
     pub fn from_path_spec(spec: PathSpec, pose: &Pose) -> Result<Self, PathError> {
         match spec {
-            PathSpec::AckSeq { .. } => {
-                AckSequence::from_path_spec(spec)?.to_path(pose)
-            }
+            PathSpec::AckSeq { .. } => AckSequence::from_path_spec(spec)?.to_path(pose),
             PathSpec::File { path } => {
                 unimplemented!()
             }
@@ -103,11 +100,7 @@ impl Path {
     ///
     /// If no segment exists (the target is the first point in the sequence or
     /// is beyond the end of the sequence) then `None` will be returned
-    pub fn get_segment_to_target(
-        &self, 
-        target_index: usize
-    ) -> Option<PathSegment> {
-
+    pub fn get_segment_to_target(&self, target_index: usize) -> Option<PathSegment> {
         // If the path is invalid (not enough points)
         if self.points_m.len() < 2 {
             return None;
@@ -134,20 +127,16 @@ impl Path {
         let dx = seg.target_m[0] - seg.start_m[0];
         let dy = seg.target_m[1] - seg.start_m[1];
         // Slope is the change in y over the change in x
-        seg.slope_m = dy/dx;
+        seg.slope_m = dy / dx;
 
         // The heading is then the arctan of the slope
         seg.heading_rad = dy.atan2(dx);
 
         // The intercept is then targ_y - slope * targ_x
-        seg.intercept_m = seg.target_m[1]  
-            - seg.slope_m * seg.target_m[0];
+        seg.intercept_m = seg.target_m[1] - seg.slope_m * seg.target_m[0];
 
         // Direction vector is [dx, dy] normalized by the length
-        seg.direction = Vector2::new(
-            dx / seg.length_m,
-            dy / seg.length_m
-        );
+        seg.direction = Vector2::new(dx / seg.length_m, dy / seg.length_m);
 
         // Return the segment
         Some(seg)
@@ -157,7 +146,6 @@ impl Path {
     ///
     /// If the path is empty (not enough points) then `None` is returned.
     pub fn get_length(&self) -> Option<f64> {
-        
         // If the path is invalid (not enough points)
         if self.points_m.len() < 2 {
             return None;
@@ -167,9 +155,7 @@ impl Path {
 
         // Length is defined as the sum of the length of all path segments
         for i in 1..self.points_m.len() {
-            length_m += self.get_segment_to_target(i)
-                .unwrap()
-                .length_m;
+            length_m += self.get_segment_to_target(i).unwrap().length_m;
         }
 
         Some(length_m)
@@ -192,7 +178,7 @@ impl AckSequence {
     pub fn to_path(self, start_pose: &Pose) -> Result<Path, PathError> {
         // If sequence is empty just return None
         if self.seq.len() == 0 {
-            return Err(PathError::EmptySequence)
+            return Err(PathError::EmptySequence);
         }
 
         // Create new empty path
@@ -203,28 +189,25 @@ impl AckSequence {
             // If this is the first sequence the start point and heading come from the starting
             // pose, otherwise they come from the current end of the path
             let (x_0, y_0, head_rad) = match path.is_empty() {
-                true => {
-                    (
-                        start_pose.position_m_lm[0], 
-                        start_pose.position_m_lm[1], 
-                        start_pose.attitude_q_lm.euler_angles().2
-                    )
-                },
+                true => (
+                    start_pose.position_m[0],
+                    start_pose.position_m[1],
+                    start_pose.attitude_q.euler_angles().2,
+                ),
                 false => {
                     let last = path.points_m.last().unwrap();
                     (
-                        last[0], 
-                        last[1], 
-                        path
-                            .get_segment_to_target(path.get_num_points() - 1)
+                        last[0],
+                        last[1],
+                        path.get_segment_to_target(path.get_num_points() - 1)
                             .unwrap()
-                            .heading_rad
+                            .heading_rad,
                     )
                 }
             };
 
             // Precalculate the anti-heading (head + pi/2)
-            let anti_head_rad = head_rad + std::f64::consts::PI/2.0;
+            let anti_head_rad = head_rad + std::f64::consts::PI / 2.0;
 
             // Get a linearly spaced vector of s values (dist along arc of the ackermann)
             let num_s = (dist_m / self.point_sep_m).ceil() as usize;
@@ -240,21 +223,18 @@ impl AckSequence {
                 if curv_m.abs() <= std::f64::EPSILON {
                     path.points_m.push(Vector2::new(
                         x_0 + s_m * head_rad.cos(),
-                        y_0 + s_m * head_rad.sin()
+                        y_0 + s_m * head_rad.sin(),
                     ))
-                }
-                else {
-    
+                } else {
                     // Calculate the -sk - head value
                     let sk_phi = -s_m * curv_m - head_rad;
-    
+
                     // Move in an arc about the centre of rotation (which is 1/curv away along the
                     // anti_heading direction (note -ve curv will put this on the other side)).
                     path.points_m.push(Vector2::new(
-                        x_0 + 1.0/curv_m*(anti_head_rad.cos() - sk_phi.sin()),
-                        y_0 + 1.0/curv_m*(anti_head_rad.sin() - sk_phi.cos())
+                        x_0 + 1.0 / curv_m * (anti_head_rad.cos() - sk_phi.sin()),
+                        y_0 + 1.0 / curv_m * (anti_head_rad.sin() - sk_phi.cos()),
                     ));
-
                 }
             }
         }
@@ -266,7 +246,7 @@ impl AckSequence {
             // Get the segment to this target point
             let seg = match path.get_segment_to_target(i) {
                 Some(s) => s,
-                None => continue
+                None => continue,
             };
 
             // If the length of the segment is less than half the separation add it to the list of
@@ -291,17 +271,14 @@ impl AckSequence {
             PathSpec::AckSeq { seq, separation_m } => {
                 if seq.len() % 2 != 0 {
                     Err(PathError::InvalidPathSpec)
-                }
-                else {
+                } else {
                     Ok(Self {
-                        seq: seq.chunks(2)
-                            .map(|p| (p[0], p[1]))
-                            .collect(),
-                        point_sep_m: separation_m
+                        seq: seq.chunks(2).map(|p| (p[0], p[1])).collect(),
+                        point_sep_m: separation_m,
                     })
                 }
             }
-            PathSpec::File { .. } => Err(PathError::UnexpectedPathSpecType)
+            PathSpec::File { .. } => Err(PathError::UnexpectedPathSpecType),
         }
     }
 }
@@ -316,19 +293,17 @@ mod test {
     #[test]
     fn test_ack_seq() {
         let ack_seq = AckSequence {
-            seq: vec![
-                (1.0, 1.57),
-                (0.5, 2.0),
-                (0.0, 1.0)
-            ],
-            point_sep_m: 0.05
+            seq: vec![(1.0, 1.57), (0.5, 2.0), (0.0, 1.0)],
+            point_sep_m: 0.05,
         };
 
         // Convert ack_seq to a path
-        let path = ack_seq.to_path(&Pose {
-            position_m_lm: Vector3::default(),
-            attitude_q_lm: UnitQuaternion::from_euler_angles(0.0, 0.0, PI),
-        }).unwrap();
+        let path = ack_seq
+            .to_path(&Pose {
+                position_m: Vector3::default(),
+                attitude_q: UnitQuaternion::from_euler_angles(0.0, 0.0, PI),
+            })
+            .unwrap();
 
         // Serialize the path and write it out so we can plot it to check it's correct
         let path_json = serde_json::to_string_pretty(&path).unwrap();

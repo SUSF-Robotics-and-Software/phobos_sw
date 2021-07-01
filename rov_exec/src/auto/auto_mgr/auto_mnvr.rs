@@ -108,7 +108,7 @@ impl AutoMnvr {
 
         // Calculate the linear distance change since last pose
         let lin_dist_delta_m = match self.last_pose {
-            Some(last_pose) => (current_pose.position_m_lm - last_pose.position_m_lm).norm(),
+            Some(last_pose) => (current_pose.position_m - last_pose.position_m).norm(),
             None => {
                 warn!("No last pose, linear distance change is 0 m");
                 0.0
@@ -125,9 +125,7 @@ impl AutoMnvr {
 
         // Calculate the angular distance between the current and start poses
         let angular_distance_rad = match self.start_pose {
-            Some(start_pose) => start_pose
-                .attitude_q_lm
-                .angle_to(&current_pose.attitude_q_lm),
+            Some(start_pose) => start_pose.attitude_q.angle_to(&current_pose.attitude_q),
             None => unreachable!(),
         };
 

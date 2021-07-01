@@ -23,7 +23,7 @@ use crate::auto::path::Path;
 
 use super::{TerrainMap, TerrainMapLayer};
 use cell_map::{CellMap, CellMapParams, Error as CellMapError, Layer};
-use nalgebra::Vector2;
+use nalgebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use util::{convert::Convert, quadtree::Quad};
 
@@ -322,13 +322,33 @@ impl CostMap {
 
         // Add all cells by traversing each segment
         for target in 1..(path.points_m.len() - 1) {
-            for cell_cost in self.map.line_iter(
+            cost.add_without_max(&self.get_cost_between_points(
                 path.points_m[target - 1].into(),
                 path.points_m[target].into(),
-            )? {
-                // Sum the cost from this cell
-                cost.add_without_max(cell_cost);
-            }
+            )?);
+        }
+
+        Ok(cost)
+    }
+
+    /// Computes the cost bween the given parent frame positions.
+    ///
+    /// If at any point the path crosses an unsafe cell `CostMapData::Unsafe` will be returned. If
+    /// it ever crosses an unpopulated cell `CostMapData::None` will be returned.
+    ///
+    /// Costs calculated for a path are not bounded to 1.0, as they are the sum of the costs of all
+    /// cells.
+    pub fn get_cost_between_points(
+        &self,
+        start: Point2<f64>,
+        end: Point2<f64>,
+    ) -> Result<CostMapData, CellMapError> {
+        let mut cost = CostMapData::Cost(0.0);
+
+        // Iterate cells between the points
+        for cell_cost in self.map.line_iter(start, end)? {
+            // Sum the cost from this cell
+            cost.add_without_max(cell_cost);
         }
 
         Ok(cost)
@@ -346,6 +366,12 @@ impl Deref for CostMap {
 impl DerefMut for CostMap {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.map
+    }
+}
+
+impl AsRef<CellMap<CostMapLayer, CostMapData>> for CostMap {
+    fn as_ref(&self) -> &CellMap<CostMapLayer, CostMapData> {
+        &self.map
     }
 }
 

@@ -25,8 +25,7 @@ mod cost_map;
 
 use std::{fs::File, path::Path};
 
-// pub use grid_map::{GridMap, GridMapError, Point2};
-pub use cost_map::{CostMap, CostMapLayer, CostMapParams};
+pub use cost_map::{CostMap, CostMapData, CostMapLayer, CostMapParams};
 use serde::Serialize;
 pub use terrain_map::{TerrainMap, TerrainMapLayer};
 

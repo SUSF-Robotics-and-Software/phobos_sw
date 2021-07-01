@@ -20,7 +20,7 @@ use super::{
 // STRUCTS
 // -----------------------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ImgStop {
     img_request_issued: bool,
 }
@@ -80,16 +80,20 @@ impl ImgStop {
 
         // Wait until the depth image is set in the persistent data
         if let Some(ref depth_img) = persistant.depth_img {
-            // Create the iamge path and directory if needed
+            // Create the image path and directory if needed, save in new thread to prevent
+            // processing overrun.
             let dir_path = persistant.session.session_root.clone().join("depth_imgs");
-            std::fs::create_dir(&dir_path).expect("Couldn't create depth_imgs path");
-            let depth_img_path =
-                dir_path.join(format!("depth_img_{}.png", depth_img.timestamp.timestamp()));
+            let img = depth_img.clone();
+            std::thread::spawn(move || {
+                std::fs::create_dir(&dir_path).expect("Couldn't create depth_imgs path");
+                let depth_img_path =
+                    dir_path.join(format!("depth_img_{}.png", img.timestamp.timestamp()));
 
-            // Save the image
-            if let Err(e) = depth_img.image.save(depth_img_path) {
-                warn!("Couldn't save depth image: {}", e);
-            }
+                // Save the image
+                if let Err(e) = img.image.save(depth_img_path) {
+                    warn!("Couldn't save depth image: {}", e);
+                }
+            });
 
             Ok(StepOutput {
                 action: StackAction::Pop,

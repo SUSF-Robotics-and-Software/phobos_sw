@@ -4,7 +4,7 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use crate::auto::{loc::LocMgrParams, map::CostMapParams};
+use crate::auto::{loc::LocMgrParams, map::CostMapParams, nav::path_planner::PathPlannerParams};
 use cell_map::CellMapParams;
 use serde::Deserialize;
 
@@ -27,4 +27,6 @@ pub struct AutoMgrParams {
     pub loc_mgr: LocMgrParams,
 
     pub auto_mnvr: AutoMnvrParams,
+
+    pub path_planner: PathPlannerParams,
 }

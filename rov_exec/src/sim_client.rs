@@ -18,16 +18,22 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::{sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}, thread::{self, JoinHandle}};
 use conquer_once::Lazy;
 use log::{error, warn};
 use nalgebra::{Quaternion, UnitQuaternion, Vector3};
 use serde::Deserialize;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    thread::{self, JoinHandle},
+};
 
 use crate::auto::loc::Pose;
 use comms_if::{
-    eqpt::cam::{CamFrame, CamImage}, 
-    net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}
+    eqpt::cam::{CamFrame, CamImage},
+    net::{zmq, MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions},
 };
 
 // ------------------------------------------------------------------------------------------------
@@ -38,7 +44,7 @@ pub struct SimClient {
     bg_jh: Option<JoinHandle<()>>,
     bg_run: Arc<AtomicBool>,
     rov_pose_lm: Arc<Mutex<Option<Pose>>>,
-    left_depth_map: Arc<Mutex<Option<CamImage>>>
+    left_depth_map: Arc<Mutex<Option<CamImage>>>,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -53,7 +59,6 @@ static SIM_CLIENT: Lazy<Mutex<Option<SimClient>>> = Lazy::new(|| Mutex::new(None
 
 #[derive(Debug, thiserror::Error)]
 pub enum SimClientError {
-
     #[error("Socket error: {0}")]
     SocketError(MonitoredSocketError),
 
@@ -73,8 +78,7 @@ pub enum SimClientError {
     DeserializeError(serde_json::Error),
 
     #[error("The SimClient has not been initialised")]
-    NotInit
-
+    NotInit,
 }
 
 /// Data from the simulation server
@@ -84,11 +88,11 @@ enum SimData {
         /// The position in the LM frame
         position_m_lm: [f64; 3],
 
-        /// The attitude of the rover in the LM frame. This is a quaternion that 
+        /// The attitude of the rover in the LM frame. This is a quaternion that
         /// will rotate an object from the LM frame into the RB frame.
-        attitude_q_lm: [f64; 4]
+        attitude_q_lm: [f64; 4],
     },
-    LeftDepthMap(CamFrame)
+    LeftDepthMap(CamFrame),
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -98,7 +102,7 @@ enum SimData {
 impl SimClient {
     /// Create a new instance of the SimClient.
     pub fn init(ctx: &zmq::Context, params: &NetParams) -> Result<(), SimClientError> {
-                // Create the socket options
+        // Create the socket options
         // TODO: Move these into a parameter file
         let socket_options = SocketOptions {
             connect_timeout: 1000,
@@ -112,12 +116,8 @@ impl SimClient {
         };
 
         // Connect the socket
-        let socket = MonitoredSocket::new(
-            ctx, 
-            zmq::SUB, 
-            socket_options, 
-            &params.sim_endpoint
-        ).map_err(|e| SimClientError::SocketError(e))?;
+        let socket = MonitoredSocket::new(ctx, zmq::SUB, socket_options, &params.sim_endpoint)
+            .map_err(|e| SimClientError::SocketError(e))?;
 
         // Create the data shared objects
         let bg_run = Arc::new(AtomicBool::new(true));
@@ -135,7 +135,7 @@ impl SimClient {
                 socket,
                 bg_run_clone,
                 rov_pose_lm_clone,
-                left_depth_map_clone
+                left_depth_map_clone,
             )
         }));
 
@@ -144,7 +144,7 @@ impl SimClient {
             bg_jh,
             bg_run,
             rov_pose_lm,
-            left_depth_map
+            left_depth_map,
         });
 
         // Return success
@@ -153,18 +153,22 @@ impl SimClient {
 
     /// Get the rover pose from the simulation.
     pub fn rov_pose_lm(&self) -> Option<Pose> {
-        let rp = self.rov_pose_lm.lock()
+        let rp = self
+            .rov_pose_lm
+            .lock()
             .expect("SimClient: rov_pose_lm mutex poisoned");
 
-        return *rp
+        return *rp;
     }
 
     /// Get the left depth map from the simulation.
     pub fn left_depth_map(&self) -> Option<CamImage> {
-        let ldm = self.left_depth_map.lock()
+        let ldm = self
+            .left_depth_map
+            .lock()
             .expect("SimClient: left_depth_map mutex poisoned");
 
-        return (*ldm).clone()
+        return (*ldm).clone();
     }
 }
 
@@ -176,7 +180,7 @@ impl SimClient {
 pub fn rov_pose_lm() -> Option<Pose> {
     match *SIM_CLIENT.lock().expect("SIM_CLIENT mutex poisoned") {
         Some(ref c) => c.rov_pose_lm(),
-        None => None
+        None => None,
     }
 }
 
@@ -184,7 +188,7 @@ pub fn rov_pose_lm() -> Option<Pose> {
 pub fn left_depth_map() -> Option<CamImage> {
     match *SIM_CLIENT.lock().expect("SIM_CLIENT mutex poisoned") {
         Some(ref c) => c.left_depth_map(),
-        None => None
+        None => None,
     }
 }
 
@@ -193,9 +197,8 @@ fn bg_thread(
     socket: MonitoredSocket,
     run: Arc<AtomicBool>,
     rov_pose_lm: Arc<Mutex<Option<Pose>>>,
-    left_depth_map: Arc<Mutex<Option<CamImage>>>
+    left_depth_map: Arc<Mutex<Option<CamImage>>>,
 ) {
-
     // While instructed to run
     while run.load(Ordering::Relaxed) {
         // Read string from the socket
@@ -203,12 +206,12 @@ fn bg_thread(
             Ok(Ok(s)) => s,
             Ok(Err(_)) => {
                 warn!("Non UTF-8 message from SimServer");
-                continue
-            },
+                continue;
+            }
             Err(zmq::Error::EAGAIN) => continue,
             Err(e) => {
                 error!("Error receiving message from SimServer: {:?}", e);
-                break
+                break;
             }
         };
 
@@ -217,44 +220,48 @@ fn bg_thread(
             Ok(d) => d,
             Err(e) => {
                 warn!("Error deserialising message from SimServer: {:?}", e);
-                continue
+                continue;
             }
         };
 
         // Parse the data and set in front end
         match data {
-            SimData::Pose {position_m_lm, attitude_q_lm} => {
-
+            SimData::Pose {
+                position_m_lm,
+                attitude_q_lm,
+            } => {
                 // Buid pose struct
                 let pose = Pose {
-                    position_m_lm: Vector3::from(position_m_lm),
-                    attitude_q_lm: UnitQuaternion::from_quaternion(
-                        Quaternion::from(attitude_q_lm)
-                    )
+                    position_m: Vector3::from(position_m_lm),
+                    attitude_q: UnitQuaternion::from_quaternion(Quaternion::from(attitude_q_lm)),
                 };
 
                 // Set the pose in the front end
                 {
-                    let mut rp = rov_pose_lm.lock()
+                    let mut rp = rov_pose_lm
+                        .lock()
                         .expect("SimClient: rov_pose_lm mutex poisoned");
 
                     *rp = Some(pose);
                 }
-                
-            },
+            }
             SimData::LeftDepthMap(frame) => {
                 // Convert the frame to an image
                 let image = match frame.to_cam_image() {
                     Ok(i) => i,
                     Err(e) => {
-                        warn!("Could not convert left_depth_map CamFrame to CamImage: {:?}", e);
-                        continue
+                        warn!(
+                            "Could not convert left_depth_map CamFrame to CamImage: {:?}",
+                            e
+                        );
+                        continue;
                     }
                 };
 
                 // Set the image in the front end
                 {
-                    let mut ldm = left_depth_map.lock()
+                    let mut ldm = left_depth_map
+                        .lock()
                         .expect("SimClient: left_depth_map mutex poisoned");
 
                     *ldm = Some(image);

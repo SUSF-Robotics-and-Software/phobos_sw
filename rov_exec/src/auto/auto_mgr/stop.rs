@@ -119,7 +119,7 @@ impl Stop {
         };
 
         // Calculate the position change since last pose
-        let pos_delta_magn_m = (current_pose.position_m_lm - last_pose.position_m_lm).norm();
+        let pos_delta_magn_m = (current_pose.position_m - last_pose.position_m).norm();
 
         // If the position change is greater than given in the parameter the rover has moved, reset
         // the stationary time
@@ -128,9 +128,7 @@ impl Stop {
         }
 
         // Calculate the angle rotated between the last and current pose
-        let att_delta_magn_rad = last_pose
-            .attitude_q_lm
-            .angle_to(&current_pose.attitude_q_lm);
+        let att_delta_magn_rad = last_pose.attitude_q.angle_to(&current_pose.attitude_q);
 
         // If that angle is greater than the limit the rover has moved, reset the stationary time
         if att_delta_magn_rad > params.stop.attitude_delta_max_magn_rad {

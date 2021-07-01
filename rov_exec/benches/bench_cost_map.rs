@@ -56,8 +56,8 @@ fn cost_map_benchmark(c: &mut Criterion) {
             ],
         },
         &Pose {
-            position_m_lm: Vector3::new(1.0, 1.0, 0.0),
-            attitude_q_lm: UnitQuaternion::identity(),
+            position_m: Vector3::new(1.0, 1.0, 0.0),
+            attitude_q: UnitQuaternion::identity(),
         },
     )
     .unwrap();
