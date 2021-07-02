@@ -37,7 +37,7 @@ ndarray-stats = "0.4"
 noise = "0.7"
 csv = "1.1"
 # cell-map = "0.4.1"
-cell-map = { path = "../../../cell-map" }
+cell-map = { git = "https://github.com/duncanrhamill/cell-map", branch = "dev" }
 
 # Internal
 util = { path = "../util" }
