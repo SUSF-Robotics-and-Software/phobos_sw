@@ -50,6 +50,9 @@ pub mod nav;
 /// Map module - provides implementations for terrain and cost maps
 pub mod map;
 
+/// Perception module - converts from depth images to terrain maps
+pub mod per;
+
 // ------------------------------------------------------------------------------------------------
 // IMPLS
 // ------------------------------------------------------------------------------------------------
