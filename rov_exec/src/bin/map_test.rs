@@ -4,9 +4,11 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
+use std::time::Instant;
+
 use color_eyre::{eyre::Context, Result};
 use comms_if::tc::auto::PathSpec;
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use nalgebra::{Point2, UnitQuaternion, Vector3};
 use rov_lib::auto::{
     auto_mgr::AutoMgrParams,
@@ -77,18 +79,18 @@ fn main() -> Result<()> {
     let ground_path_cost = cost_map.get_path_cost(&ground_planned_path);
     let gpp_cost_stop = std::time::Instant::now();
 
-    println!("Ground path cost = {:?}", ground_path_cost);
-    println!(
-        "CostMap::calculate took {} ms",
-        (calc_stop - start).as_millis()
+    info!("Ground path cost = {:?}", ground_path_cost);
+    info!(
+        "CostMap::calculate took {} ns",
+        (calc_stop - start).as_nanos()
     );
-    println!(
-        "CostMap::apply_ground_planned_path took {} ms",
-        (gpp_stop - calc_stop).as_millis()
+    info!(
+        "CostMap::apply_ground_planned_path took {} ns",
+        (gpp_stop - calc_stop).as_nanos()
     );
-    println!(
-        "CostMap::get_path_cost took {} ms",
-        (gpp_cost_stop - gpp_stop).as_millis()
+    info!(
+        "CostMap::get_path_cost took {} ns",
+        (gpp_cost_stop - gpp_stop).as_nanos()
     );
 
     // Save the map
@@ -98,6 +100,7 @@ fn main() -> Result<()> {
     let path_planner = PathPlanner::new(auto_mgr_params.path_planner);
 
     // Plan a path over the cost map
+    let start = Instant::now();
     let planner_result = match path_planner.plan_direct(
         &cost_map,
         &NavPose::from_parent_pose(&start_pose),
@@ -109,6 +112,9 @@ fn main() -> Result<()> {
         Err(NavError::BestPathNotAtTarget(p)) => p,
         Err(e) => return Err(e).wrap_err("Couldn't plan path"),
     };
+    let stop = Instant::now();
+
+    info!("Path planning took {} ns", (stop - start).as_nanos());
 
     // Write the paths to a file
     util::session::save("planned_path.json", planner_result);
