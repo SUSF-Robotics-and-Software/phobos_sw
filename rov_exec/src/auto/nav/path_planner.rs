@@ -4,10 +4,7 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::{
-    collections::{BinaryHeap, HashMap},
-    fs::File,
-};
+use std::collections::{BinaryHeap, HashMap};
 
 use comms_if::tc::auto::PathSpec;
 use log::{info, trace, warn};
@@ -231,147 +228,144 @@ impl PathPlanner {
                 None => break,
             };
 
-            // Check if the minimum cost node has the right depth to be the final path (noting that
-            // depth for the first segment is 0, so need - 1 to target number of segments), if so
-            // check if it is within the tolerance for the target
+            // Calculate the distance to the target
             let dist_to_target =
                 Point2::from(min_node.path.points_m[min_node.path.get_num_points() - 1])
                     - target_pose.position_m;
-            trace!("Current dist to target = {}", dist_to_target.norm());
+
+            trace!("Dist to target = {}", dist_to_target.norm());
+
+            // If we're within the threshold to the target we're there, so we can exit.
             if dist_to_target.norm() <= self.params.target_tolerance_m {
-                if num_paths.is_some() {
-                    if min_node.depth >= num_paths.unwrap() - 1
-                        && dist_to_target.norm() <= self.params.target_tolerance_m
-                    {
-                        target_reached = true;
-                        break;
-                    }
-                } else {
-                    target_reached = true;
-                    break;
-                }
+                target_reached = true;
+                break;
             }
 
-            // If it doesn't create a new fan from the current min
-            let path_end_pose = NavPose::from_path_last_point(&min_node.path);
-            for (fan_id, path) in self
-                .get_path_fan(&path_end_pose, path_length_m)
-                .map_err(NavError::CouldNotBuildFan)?
-                .iter()
-                .enumerate()
-            {
-                // Compute the cost for this path
-                let cost = match self.get_path_cost(cost_map, path, target_pose, None) {
-                    Some(c) => c,
-                    None => {
-                        // warn!(
-                        //     "Fan path {} of node {} is untraversable",
-                        //     fan_id, min_node.id
-                        // );
-                        continue;
-                    }
-                };
+            // If we're not within the target threshold, extend this path with a new fan.
+            //
+            // If we are limited on the number of paths and this path is at the maximum depth don't
+            // extend this one.
+            let extend_path = match num_paths {
+                Some(n) => min_node.depth < n - 1,
+                None => true,
+            };
 
-                let node = Node {
-                    id: num_nodes,
-                    parent_id: min_node.id,
-                    depth: min_node.depth + 1,
-                    path: path.clone(),
-                    cost,
-                };
+            if extend_path {
+                let path_end_pose = NavPose::from_path_last_point(&min_node.path);
+                for path in self
+                    .get_path_fan(&path_end_pose, path_length_m)
+                    .map_err(NavError::CouldNotBuildFan)?
+                {
+                    // Compute the cost for this path in the fan
+                    let cost = match self.get_path_cost(cost_map, &path, target_pose, None) {
+                        Some(c) => c,
+                        None => {
+                            continue;
+                        }
+                    };
 
-                // Add the node to the heap
-                heap.push(node.clone());
+                    // Build the fan's node
+                    let node = Node {
+                        id: num_nodes,
+                        parent_id: min_node.id,
+                        depth: min_node.depth + 1,
+                        path: path.clone(),
+                        cost,
+                    };
 
-                // Add the node to the report
-                let parent = report
-                    .tree
-                    .get_by_id(node.parent_id)
-                    .expect("Couldn't find parent node in report tree");
-                parent.children.push(NodeTree {
-                    node: Some(node),
-                    children: vec![],
-                });
-                report.num_tested_paths += 1;
+                    // Add the node to the heap
+                    heap.push(node.clone());
 
-                num_nodes += 1;
+                    // Add the node to the report
+                    let parent = report
+                        .tree
+                        .get_by_id(node.parent_id)
+                        .expect("Couldn't find parent node in report tree");
+                    parent.children.push(NodeTree {
+                        node: Some(node),
+                        children: vec![],
+                    });
+                    report.num_tested_paths += 1;
+
+                    num_nodes += 1;
+                }
             }
 
             // Put the old min cost node in the visited map
             visited.insert(min_node.id, min_node);
         }
 
-        // Check if the target was reached
-        let res = if target_reached {
-            // if the target wasn't reached we'll warn that we're choosing the best fit
-            if !target_reached {
-                warn!("Couldn't get within tolerance of target, choosing best fit instead");
-            } else {
-                info!("Target reached");
-            }
-
-            // Work backwards from the current min node to get the paths
-            let mut min_node = match heap.peek() {
+        // Work backwards from the current min node to get the paths, if the target was reached we
+        // need to find the min cost from the heap. If it wasn't we have to go through the visited
+        // map to find the one with the lowest cost.
+        let mut min_node = if target_reached {
+            match heap.peek() {
                 Some(n) => n,
                 None => {
                     unreachable!("Expected there to be a minimum node in the heap but there wasnt!")
                 }
-            };
-
-            let mut paths = vec![min_node.path.clone()];
-
-            // Record the index of the lowest cost path
-            let mut lowest_cost_idx = 0;
-            let mut lowest_cost = f64::MAX;
-
-            while min_node.parent_id != 0 {
-                min_node = match visited.get(&min_node.parent_id) {
-                    Some(n) => n,
-                    None => {
-                        unreachable!("Couldn't find parent node in visited list!")
-                    }
-                };
-
-                // Check for lowest cost
-                if min_node.cost.total() < lowest_cost {
-                    lowest_cost = min_node.cost.total();
-                    lowest_cost_idx = paths.len();
-                }
-
-                paths.push(min_node.path.clone());
             }
-
-            // Remove all paths before the lowest cost index
-            paths = paths
-                .iter()
-                .enumerate()
-                .filter_map(|(i, p)| {
-                    if i < lowest_cost_idx {
-                        None
-                    } else {
-                        Some(p.clone())
-                    }
-                })
-                .collect();
-
-            // Reverse the path list to get one that goes from the start to the target.
-            paths.reverse();
-
-            report.result = Some(paths.clone());
-
-            // Return the paths
-            Ok(paths)
-        }
-        // Or if we couldn't find a path to the target that can be traversed
-        else {
-            warn!("No traversable path to target");
-            Err(NavError::NoPathToTarget)
+        } else {
+            match visited.iter().max_by(|a, b| a.1.cmp(b.1)).map(|(_, v)| v) {
+                Some(n) => n,
+                None => return Err(NavError::NoPathToTarget),
+            }
         };
 
-        // Write the report out
-        // serde_json::to_writer_pretty(File::create("plan_report.json").unwrap(), &report).ok();
+        let mut paths = vec![min_node.path.clone()];
 
-        res
+        // Record the index of the lowest cost path
+        let mut lowest_cost_idx = 0;
+        let mut lowest_cost = f64::MAX;
+
+        while min_node.parent_id != 0 {
+            min_node = match visited.get(&min_node.parent_id) {
+                Some(n) => n,
+                None => {
+                    unreachable!("Couldn't find parent node in visited list!")
+                }
+            };
+
+            // Check for lowest cost
+            if min_node.cost.total() < lowest_cost {
+                lowest_cost = min_node.cost.total();
+                lowest_cost_idx = paths.len();
+            }
+
+            paths.push(min_node.path.clone());
+        }
+
+        // Remove all paths before the lowest cost index, since the planner may actually
+        // overestimate some times.
+        paths = paths
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| {
+                if i < lowest_cost_idx - 1 {
+                    None
+                } else {
+                    Some(p.clone())
+                }
+            })
+            .collect();
+
+        // Reverse the path list to get one that goes from the start to the target.
+        paths.reverse();
+
+        report.result = Some(paths.clone());
+
+        // Write the report out
+        util::session::save_with_timestamp("path_planner/report.json", report);
+
+        // if the target wasn't reached we'll warn that we're choosing the best fit, and return it
+        // in the error
+        if !target_reached {
+            warn!("Couldn't get within tolerance of target, choosing best fit instead");
+            Err(NavError::BestPathNotAtTarget(paths))
+        } else {
+            info!("Target reached");
+            Ok(paths)
+        }
     }
 
     /// Get the fan of potential paths from the given start pose as a vector of paths.
@@ -409,7 +403,7 @@ impl PathPlanner {
         // Get the raw cost of the path
         let raw_cost = match cost_map.get_path_cost(path) {
             Ok(CostMapData::Cost(c)) => c,
-            Ok(c) => {
+            Ok(_) => {
                 // warn!("Untraversable cost {:?}", c);
                 return None;
             }

@@ -9,8 +9,7 @@
 // IMPORTS
 // -----------------------------------------------------------------------------------------------
 
-use cell_map::{CellMap, Layer};
-use nalgebra::{Point2, Unit, UnitComplex, UnitQuaternion, Vector2, Vector3};
+use nalgebra::{Point2, Unit, UnitQuaternion, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -52,6 +51,9 @@ pub enum NavError {
 
     #[error("Couldn't build the path fan: {0}")]
     CouldNotBuildFan(PathError),
+
+    #[error("Could not find an optimal path that reaches the target, returning best fit instead")]
+    BestPathNotAtTarget(Vec<Path>),
 
     #[error("Couldn't find a traversable path to the target")]
     NoPathToTarget,

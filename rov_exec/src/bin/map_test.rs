@@ -11,8 +11,8 @@ use nalgebra::{Point2, UnitQuaternion, Vector3};
 use rov_lib::auto::{
     auto_mgr::AutoMgrParams,
     loc::Pose,
-    map::{CellMapExt, CostMap, TerrainMap},
-    nav::{path_planner::PathPlanner, NavPose},
+    map::{CostMap, TerrainMap},
+    nav::{path_planner::PathPlanner, NavError, NavPose},
     path::Path,
 };
 use util::{logger::logger_init, params, session::Session};
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     let auto_mgr_params: AutoMgrParams = params::load("auto_mgr.toml")?;
 
     // Generate a random terrain map
-    let mut terrain_map = TerrainMap::generate_random(
+    let terrain_map = TerrainMap::generate_random(
         auto_mgr_params.terrain_map_params,
         Point2::new(0.1, 0.1),
         Point2::new(0.0, 0.0),
@@ -65,22 +65,8 @@ fn main() -> Result<()> {
     )?;
 
     // Write the path to a file
-    serde_json::to_writer_pretty(
-        std::fs::File::create("test_path.json")?,
-        &ground_planned_path,
-    )?;
-
-    terrain_map.save("random_terr_map.json");
-
-    // // Clip the terrain to rover field of view
-    // terrain_map.clip_to_rov_view(
-    //     Point2::new(1.0, 1.0),
-    //     0.0,
-    //     0.3..2.0,
-    //     1.0482
-    // )?;
-
-    terrain_map.save("random_terr_map_clipped.json");
+    util::session::save("test_path.json", ground_planned_path.clone());
+    util::session::save("random_terr_map.json", terrain_map.clone());
 
     // Calculate the cost map from the terrain map, and time it
     let start = std::time::Instant::now();
@@ -106,21 +92,29 @@ fn main() -> Result<()> {
     );
 
     // Save the map
-    cost_map.save("random_cost_map.json");
+    util::session::save("random_cost_map.json", cost_map.clone());
 
     // Create the path planner
     let path_planner = PathPlanner::new(auto_mgr_params.path_planner);
 
     // Plan a path over the cost map
-    let planner_result = path_planner.plan_indirect(
+    let planner_result = match path_planner.plan_direct(
         &cost_map,
         &NavPose::from_parent_pose(&start_pose),
-        &NavPose::from_path_last_point(&ground_planned_path),
-        1.0,
-    )?;
+        &NavPose::from_parts(&Point2::new(4.0, 4.0), &std::f64::consts::FRAC_PI_2),
+        // &NavPose::from_path_last_point(&ground_planned_path),
+        2,
+    ) {
+        Ok(p) => p,
+        Err(NavError::BestPathNotAtTarget(p)) => p,
+        Err(e) => return Err(e).wrap_err("Couldn't plan path"),
+    };
 
     // Write the paths to a file
-    serde_json::to_writer_pretty(std::fs::File::create("planned_path.json")?, &planner_result)?;
+    util::session::save("planned_path.json", planner_result);
+
+    // Wait for the session to stop
+    session.exit();
 
     Ok(())
 }
