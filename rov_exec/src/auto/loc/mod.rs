@@ -78,6 +78,11 @@ impl Pose {
         let f2 = Vector2::new(f3[0], f3[1]);
         f2 / f2.norm()
     }
+
+    /// Get the 2D position vector of the rover
+    pub fn position2(&self) -> Vector2<f64> {
+        Vector2::new(self.position_m.x, self.position_m.y)
+    }
 }
 
 impl LocMgr {

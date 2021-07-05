@@ -1,10 +1,10 @@
-//! # Defines Telemetry Pack for Autonomy
+//! Defines Telemetry Pack for Autonomy
 
 // -----------------------------------------------------------------------------------------------
 // IMPORTS
 // -----------------------------------------------------------------------------------------------
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::auto::{loc::Pose, map::CostMap, path::Path, traj_ctrl::StatusReport};
 
@@ -17,5 +17,5 @@ pub struct AutoTm {
     pub path: Option<Path>,
     pub pose: Option<Pose>,
     pub traj_ctrl_status: Option<StatusReport>,
-    pub local_cost_map: Option<CostMap>
+    pub local_cost_map: Option<CostMap>,
 }

@@ -96,13 +96,13 @@ def main():
                         ax_path.plot(target_m[0], target_m[1], 'xb')
                 if tm['auto']['pose'] is not None:
                     # Draw pose
-                    r = R.from_quat(tm['auto']['pose']['attitude_q_lm'])
+                    r = R.from_quat(tm['auto']['pose']['attitude_q'])
                     forward = r.as_matrix() * np.array([1, 0, 0])
                     forward = forward[0:2, 0]
                     forward = forward / np.linalg.norm(forward)
                     ax_path.quiver(
-                        tm['auto']['pose']['position_m_lm'][0],
-                        tm['auto']['pose']['position_m_lm'][1],
+                        tm['auto']['pose']['position_m'][0],
+                        tm['auto']['pose']['position_m'][1],
                         forward[0],
                         forward[1]
                     )

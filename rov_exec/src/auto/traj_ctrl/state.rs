@@ -8,7 +8,7 @@
 use super::*;
 use crate::auto::{loc::Pose, path::*};
 use comms_if::tc::loco_ctrl::MnvrCmd;
-use log::{debug, info, warn};
+use log::{info, warn};
 use nalgebra::{Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use util::{params, session};
@@ -216,7 +216,7 @@ impl TrajCtrl {
         }
 
         // Verify that the new sequence contains at least one path
-        if seq.len() == 0 {
+        if seq.is_empty() {
             return Err(TrajCtrlError::AttemptEmptySeqLoad);
         }
 
@@ -229,7 +229,7 @@ impl TrajCtrl {
         }
 
         // If there were invalid paths
-        if invalid_path_indexes.len() > 0 {
+        if !invalid_path_indexes.is_empty() {
             return Err(TrajCtrlError::SequenceContainsInvalidPaths(
                 invalid_path_indexes,
             ));
@@ -402,9 +402,17 @@ impl TrajCtrl {
                 0.0,
             ));
 
-            self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
-                rate_rads: cross[0].signum() * self.params.head_adjust_rate_rads,
-            });
+            // If we're within the fine threshold drive at the fine rate, otherwise drive at the
+            // coarse rate.
+            if head_err_rad.abs() < self.params.head_adjust_fine_threshold_rad {
+                self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
+                    rate_rads: cross[0].signum() * self.params.head_adjust_fine_rate_rads,
+                });
+            } else {
+                self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
+                    rate_rads: cross[0].signum() * self.params.head_adjust_coarse_rate_rads,
+                });
+            }
         }
 
         Ok(())

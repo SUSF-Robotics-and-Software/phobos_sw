@@ -7,8 +7,8 @@
 // ------------------------------------------------------------------------------------------------
 
 use comms_if::{
-    eqpt::mech::{MechDems, MechSensData, MechDemsResponse}, 
-    net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}
+    eqpt::mech::{MechDems, MechDemsResponse, MechSensData},
+    net::{zmq, MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions},
 };
 
 // ------------------------------------------------------------------------------------------------
@@ -18,7 +18,7 @@ use comms_if::{
 pub struct MechClient {
     dems_socket: MonitoredSocket,
 
-    _sens_socket: MonitoredSocket
+    _sens_socket: MonitoredSocket,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -27,7 +27,6 @@ pub struct MechClient {
 
 #[derive(thiserror::Error, Debug)]
 pub enum MechClientError {
-
     #[error("Socket error: {0}")]
     SocketError(MonitoredSocketError),
 
@@ -45,7 +44,6 @@ pub enum MechClientError {
 
     #[error("Could not deserialize the response from the server: {0}")]
     DeserializeError(serde_json::Error),
-
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -55,7 +53,6 @@ pub enum MechClientError {
 impl MechClient {
     /// Create a new instance of the mechanisms client.
     pub fn new(ctx: &zmq::Context, params: &NetParams) -> Result<Self, MechClientError> {
-        
         // Create the socket options
         // TODO: Move these into a parameter file
         let dems_socket_options = SocketOptions {
@@ -80,19 +77,21 @@ impl MechClient {
             ctx,
             zmq::REQ,
             dems_socket_options,
-            &params.mech_dems_endpoint
-        ).map_err(|e| MechClientError::SocketError(e))?;
+            &params.mech_dems_endpoint,
+        )
+        .map_err(|e| MechClientError::SocketError(e))?;
         let sens_socket = MonitoredSocket::new(
             ctx,
             zmq::REQ,
             sens_socket_options,
-            &params.mech_sens_endpoint
-        ).map_err(|e| MechClientError::SocketError(e))?;
+            &params.mech_sens_endpoint,
+        )
+        .map_err(|e| MechClientError::SocketError(e))?;
 
         // Create self
         Ok(Self {
             dems_socket,
-            _sens_socket: sens_socket
+            _sens_socket: sens_socket,
         })
     }
 
@@ -101,33 +100,30 @@ impl MechClient {
     /// Sends the given mechanisms demands to the server. If the server acknowledges the demands
     /// within the configured timeout then `Ok()` is returned, otherwise an `Err()` is returned.
     pub fn send_demands(
-        &mut self, 
-        demands: &MechDems
+        &mut self,
+        demands: &MechDems,
     ) -> Result<MechDemsResponse, MechClientError> {
         // If not connected return now
         if !self.dems_socket.connected() {
-            return Err(MechClientError::NotConnected)
+            return Err(MechClientError::NotConnected);
         }
 
         // Serialize the demands
-        let dems_str = serde_json::to_string(demands)
-            .map_err(|e| MechClientError::SerializationError(e))?;
+        let dems_str =
+            serde_json::to_string(demands).map_err(|e| MechClientError::SerializationError(e))?;
 
         // Send the demands to the server
-        self.dems_socket.send(&dems_str, 0)
+        self.dems_socket
+            .send(&dems_str, 0)
             .map_err(|e| MechClientError::SendError(e))?;
-        
+
         // Recieve response back from the server
         let msg = self.dems_socket.recv_msg(0);
 
         match msg {
-            Ok(m) => {
-                serde_json::from_str(m.as_str().unwrap_or(""))
-                    .map_err(|e| MechClientError::DeserializeError(e))
-            },
-            Err(e) => {
-                Err(MechClientError::RecvError(e))
-            }
+            Ok(m) => serde_json::from_str(m.as_str().unwrap_or(""))
+                .map_err(|e| MechClientError::DeserializeError(e)),
+            Err(e) => Err(MechClientError::RecvError(e)),
         }
     }
 

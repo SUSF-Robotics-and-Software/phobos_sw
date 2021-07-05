@@ -8,7 +8,6 @@
 // ---------------------------------------------------------------------------
 
 // External
-use log::debug;
 use nalgebra::{Vector2, Vector3};
 use serde::Serialize;
 use std::time::Instant;
@@ -16,8 +15,6 @@ use std::time::Instant;
 // Internal
 use crate::auto::{loc::Pose, path::*};
 use comms_if::tc::loco_ctrl::MnvrCmd;
-
-use super::TrajCtrlTuningOutput;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -82,10 +79,7 @@ impl PidController {
         let curr_time = Instant::now();
 
         // Calculate dt
-        let dt = match self.prev_time {
-            Some(t0) => Some((curr_time - t0).as_secs_f64()),
-            None => None,
-        };
+        let dt = self.prev_time.map(|t0| (curr_time - t0).as_secs_f64());
 
         // Accumulate the integral term.
         //
@@ -254,15 +248,4 @@ impl TrajControllers {
         // Multiply the heading error by the sign of the cross product
         head_err_rad * cross[2].signum()
     }
-}
-
-// -----------------------------------------------------------------------------------------------
-// FUNCTIONS
-// -----------------------------------------------------------------------------------------------
-
-fn side(start: Vector2<f64>, end: Vector2<f64>, point: Vector2<f64>) -> f64 {
-    // Using
-    // https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
-    // we can determine which side of the segment the point is on.
-    (point[0] - start[0]) * (end[1] - start[1]) - (point[1] - start[0]) * (end[0] - start[0])
 }

@@ -7,7 +7,7 @@
 // IMPORTS
 // -----------------------------------------------------------------------------------------------
 
-use comms_if::tc::auto::AutoCmd;
+use comms_if::{eqpt::perloc::PerlocCmd, tc::auto::AutoCmd};
 use log::warn;
 
 use super::{
@@ -68,32 +68,21 @@ impl ImgStop {
             });
         }
 
-        // Once stopped issue request for new images, clear the persistent depth image
+        // Once stopped issue request for new images, clear the persistent depth image and request
+        // a new one
         if !self.img_request_issued {
             persistant.depth_img = None;
             self.img_request_issued = true;
             return Ok(StepOutput {
                 action: StackAction::None,
-                data: AutoMgrOutput::RequestDepthImg,
+                data: AutoMgrOutput::PerlocCmd(PerlocCmd::AcqDepthFrame),
             });
         }
 
         // Wait until the depth image is set in the persistent data
         if let Some(ref depth_img) = persistant.depth_img {
-            // Create the image path and directory if needed, save in new thread to prevent
-            // processing overrun.
-            let dir_path = persistant.session.session_root.clone().join("depth_imgs");
-            let img = depth_img.clone();
-            std::thread::spawn(move || {
-                std::fs::create_dir(&dir_path).expect("Couldn't create depth_imgs path");
-                let depth_img_path =
-                    dir_path.join(format!("depth_img_{}.png", img.timestamp.timestamp()));
-
-                // Save the image
-                if let Err(e) = img.image.save(depth_img_path) {
-                    warn!("Couldn't save depth image: {}", e);
-                }
-            });
+            // Save the image data
+            util::session::save_with_timestamp("depth_imgs/depth_img.json", depth_img.clone());
 
             Ok(StepOutput {
                 action: StackAction::Pop,

@@ -4,15 +4,13 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::{convert::TryFrom, io::repeat};
+use std::{convert::TryFrom, ops::Deref};
 
 use base64::DecodeError;
 use byteorder::{BigEndian, ByteOrder};
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
-use image::{ImageBuffer, Luma};
-use serde::{Deserialize, Serialize};
-
-use super::cam::CamFrame;
+use image::{ImageBuffer, Luma, Pixel, Primitive};
+use serde::{Deserialize, Serialize, Serializer};
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -46,14 +44,22 @@ pub struct DepthFrame {
 }
 
 /// Represents a concrete image of depth in mm.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DepthImage {
     /// UTC timestamp at which the frame was acquired
     pub timestamp: DateTime<Utc>,
 
     /// The 16 bit greyscale image which describes z depth from the camera's optical centre, in
     /// millimeters.
+    #[serde(serialize_with = "serialize_image_buffer_luma")]
     pub image: ImageBuffer<Luma<u16>, Vec<u16>>,
+}
+
+#[derive(Debug, Serialize)]
+struct SerdeImgBuff<Container> {
+    width: u32,
+    height: u32,
+    data: Container,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -127,4 +133,49 @@ impl TryFrom<DepthFrame> for DepthImage {
             image,
         })
     }
+}
+
+impl<P, Container> From<&ImageBuffer<P, Container>> for SerdeImgBuff<Container>
+where
+    P: Pixel + 'static,
+    P::Subpixel: 'static,
+    Container: Deref<Target = [P::Subpixel]> + Clone,
+{
+    fn from(img: &ImageBuffer<P, Container>) -> Self {
+        Self {
+            width: img.width(),
+            height: img.height(),
+            data: img.as_raw().clone(),
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------------------------
+// FUNCTIONS
+// -----------------------------------------------------------------------------------------------
+
+fn _serialize_image_buffer<S, P, Container>(
+    img: &ImageBuffer<P, Container>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    P: Pixel + Serialize + 'static,
+    P::Subpixel: 'static,
+    Container: Serialize + Deref<Target = [P::Subpixel]> + Clone,
+{
+    SerdeImgBuff::from(img).serialize(serializer)
+}
+
+fn serialize_image_buffer_luma<S, T, Container>(
+    img: &ImageBuffer<Luma<T>, Container>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    T: Serialize + Primitive + 'static,
+    <Luma<T> as Pixel>::Subpixel: 'static,
+    Container: Serialize + Deref<Target = [<Luma<T> as Pixel>::Subpixel]> + Clone,
+{
+    SerdeImgBuff::from(img).serialize(serializer)
 }

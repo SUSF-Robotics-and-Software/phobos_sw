@@ -35,11 +35,11 @@ pub enum AutoCmd {
     #[structopt(name = "mnvr")]
     Manouvre(AutoMnvrCmd),
 
-    /// Follow the path stored in the path file at the given system path.
+    /// Follow the path provided by the `PathSpec`.
     #[structopt(name = "follow")]
     Follow(PathSpec),
 
-    /// Follow and check the safety of the path stored in the path file at the given system path.
+    /// Follow and check the safety of the path provided by the `PathSpec`.
     #[structopt(name = "check")]
     Check(PathSpec),
 
@@ -106,6 +106,20 @@ pub enum AutoMnvrCmd {
 
 #[derive(Debug, Clone, Serialize, Deserialize, StructOpt)]
 pub enum PathSpec {
+    /// A direct straight line path from the rover's current Pose to the given x, y coordinates.
+    #[structopt(name = "direct")]
+    DirectTo {
+        /// The separation between each point in the path
+        #[structopt(name = "sep")]
+        separation_m: f64,
+
+        /// The target x positions
+        x: f64,
+
+        /// The target y position
+        y: f64,
+    },
+
     /// A sequence of (curvature, distance) pairs that defines a path starting from the current
     /// Pose.
     #[structopt(name = "ackseq")]

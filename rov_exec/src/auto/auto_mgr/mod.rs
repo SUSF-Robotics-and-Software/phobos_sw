@@ -1,7 +1,17 @@
 //! # AutoMgr module
 //!
 //! This module implements the [`AutoMgr`] state machine, which is responsible for perfoming the
-//! autonomy actions of the rover.
+//! autonomy actions of the rover. The state machine is broken down into a number of modes:
+//!
+//! - `Off` - The autonomy processing is not active
+//! - `Pause` - The autonomy system has been paused. It may be resumed with the `auto resume` tc.
+//! - `Stop` - The autonomy system is stopping, ready to move into Off mode.
+//! - `ImgStop` - The autonomy system is acquiring a pair of images while stationary.
+//! - `Mnvr` - Perform an autonomous LocoCtrl manouvre, TrajCtrl is not used.
+//! - `Follow` - The autonomy system is following a ground-planned path using TrajCtrl.
+//! - `Check` - The autonomy system is checking a ground-planned path and navigating around
+//!   obstacles in the path.
+//! - `Goto` - The autonomy system is navigating itself towards a given coordinate.
 
 // ------------------------------------------------------------------------------------------------
 // MODULES
@@ -50,7 +60,7 @@ pub mod states {
 
 use cell_map::CellMapParams;
 use comms_if::{
-    eqpt::{cam::CamImage, perloc::DepthImage},
+    eqpt::perloc::{DepthImage, PerlocCmd},
     tc::{auto::AutoCmd, loco_ctrl::MnvrCmd},
 };
 use log::{error, info, warn};
@@ -122,7 +132,7 @@ pub struct AutoMgrPersistantData {
 }
 
 /// State stacking abstraction.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AutoMgrStack(Vec<AutoMgrState>);
 
 /// Output of a state's step function.
@@ -192,11 +202,14 @@ pub enum StackAction {
 
 /// Possible data that can be passed out of a state's step function.
 pub enum AutoMgrOutput {
+    /// No action required by the autonomy system
     None,
 
+    /// Locomotion control command required by the autonomy system
     LocoCtrlMnvr(MnvrCmd),
 
-    RequestDepthImg,
+    /// A Perloc command to be executed
+    PerlocCmd(PerlocCmd),
 }
 
 // ------------------------------------------------------------------------------------------------

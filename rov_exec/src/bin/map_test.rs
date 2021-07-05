@@ -101,12 +101,12 @@ fn main() -> Result<()> {
 
     // Plan a path over the cost map
     let start = Instant::now();
-    let planner_result = match path_planner.plan_direct(
+    let planner_result = match path_planner.plan_indirect(
         &cost_map,
         &NavPose::from_parent_pose(&start_pose),
-        &NavPose::from_parts(&Point2::new(4.0, 4.0), &std::f64::consts::FRAC_PI_2),
-        // &NavPose::from_path_last_point(&ground_planned_path),
-        2,
+        // &NavPose::from_parts(&Point2::new(4.0, 4.0), &std::f64::consts::FRAC_PI_2),
+        &NavPose::from_path_last_point(&ground_planned_path),
+        1.0,
     ) {
         Ok(p) => p,
         Err(NavError::BestPathNotAtTarget(p)) => p,

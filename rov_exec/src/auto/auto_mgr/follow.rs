@@ -36,8 +36,7 @@ pub struct Follow {
 impl Follow {
     pub fn new(path_spec: PathSpec) -> Result<Self, AutoMgrError> {
         // Create TrajCtrl instnace
-        let traj_ctrl =
-            TrajCtrl::init("traj_ctrl.toml").map_err(|e| AutoMgrError::TrajCtrlError(e))?;
+        let traj_ctrl = TrajCtrl::init("traj_ctrl.toml").map_err(AutoMgrError::TrajCtrlError)?;
 
         Ok(Self {
             traj_ctrl,
@@ -89,14 +88,14 @@ impl Follow {
         // If the path hasn't been calculated yet set it
         if self.path.is_none() {
             let path = Path::from_path_spec(self.path_spec.clone(), &current_pose)
-                .map_err(|e| AutoMgrError::PathError(e))?;
+                .map_err(AutoMgrError::PathError)?;
 
             // Set the path in TrajCtrl. TrajCtrl accepts a path sequence, a vec of paths, and can
             // do heading adjustments between each path. We will just load our path as a single
             // path to simplify things.
             self.traj_ctrl
                 .begin_path_sequence(vec![path.clone()])
-                .map_err(|e| AutoMgrError::TrajCtrlError(e))?;
+                .map_err(AutoMgrError::TrajCtrlError)?;
 
             // Set the path in the tm
             persistant.auto_tm.path = Some(path.clone());
@@ -119,7 +118,7 @@ impl Follow {
         let (loco_ctrl_cmd, traj_ctrl_status) = self
             .traj_ctrl
             .proc(&current_pose)
-            .map_err(|e| AutoMgrError::TrajCtrlError(e))?;
+            .map_err(AutoMgrError::TrajCtrlError)?;
 
         // Set the traj_ctrl status in the tm
         persistant.auto_tm.traj_ctrl_status = Some(traj_ctrl_status);

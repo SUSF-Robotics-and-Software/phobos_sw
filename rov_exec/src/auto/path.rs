@@ -85,11 +85,54 @@ impl Path {
         }
     }
 
+    /// Produces a direct path between the two position vectors, with each point in the path having
+    /// at most the given separation.
+    pub fn direct(
+        from: Vector2<f64>,
+        to: Vector2<f64>,
+        point_sep_m: f64,
+    ) -> Result<Self, PathError> {
+        let diff_vec = to - from;
+        let dist = diff_vec.norm();
+        // If the points are closer than the separation just produce a new path with the from and
+        // to being the only points.
+        if dist <= point_sep_m {
+            Ok(Path {
+                points_m: vec![from, to],
+            })
+        } else {
+            // Get the number of points needed to get regular spacing of the given separation,
+            // noting that we should floor this so we don't end up with the last two points being
+            // more than the separation apart
+            let num_points = (dist / point_sep_m).floor() as usize;
+
+            // Get the delta vector that we can add to the previous step at each new point, i.e.
+            // the difference vector but of length point_sep_m.
+            let delta = point_sep_m / dist * diff_vec;
+
+            // Create new path with only the first point
+            let mut path = Self {
+                points_m: vec![from],
+            };
+
+            // Add the new points to the path
+            for i in 1..num_points {
+                path.points_m.push(path.points_m[i - 1] + delta);
+            }
+
+            // Return the path
+            Ok(path)
+        }
+    }
+
     /// Convert from a [`PathSpec`] object into a new path.
     pub fn from_path_spec(spec: PathSpec, pose: &Pose) -> Result<Self, PathError> {
         match spec {
-            PathSpec::AckSeq { .. } => AckSequence::from_path_spec(spec)?.to_path(pose),
-            PathSpec::File { path } => {
+            PathSpec::DirectTo { x, y, separation_m } => {
+                Self::direct(pose.position2(), Vector2::new(x, y), separation_m)
+            }
+            PathSpec::AckSeq { .. } => AckSequence::from_path_spec(spec)?.into_path(pose),
+            PathSpec::File { .. } => {
                 unimplemented!()
             }
         }
@@ -175,9 +218,9 @@ impl AckSequence {
     /// Convert this sequence into a standard [`Path`].
     ///
     /// If the sequence is empty `None` is returned.
-    pub fn to_path(self, start_pose: &Pose) -> Result<Path, PathError> {
+    pub fn into_path(self, start_pose: &Pose) -> Result<Path, PathError> {
         // If sequence is empty just return None
-        if self.seq.len() == 0 {
+        if self.seq.is_empty() {
             return Err(PathError::EmptySequence);
         }
 
@@ -257,10 +300,8 @@ impl AckSequence {
         }
 
         // Remove points, making sure to decrement the indices every time we remove a point
-        let mut num_removed_points = 0;
-        for i in points_to_delete {
-            path.points_m.remove(i - num_removed_points);
-            num_removed_points += 1;
+        for (points_deleted, point_to_delete) in points_to_delete.iter().enumerate() {
+            path.points_m.remove(point_to_delete - points_deleted);
         }
 
         Ok(path)
@@ -278,7 +319,7 @@ impl AckSequence {
                     })
                 }
             }
-            PathSpec::File { .. } => Err(PathError::UnexpectedPathSpecType),
+            _ => Err(PathError::UnexpectedPathSpecType),
         }
     }
 }
@@ -299,7 +340,7 @@ mod test {
 
         // Convert ack_seq to a path
         let path = ack_seq
-            .to_path(&Pose {
+            .into_path(&Pose {
                 position_m: Vector3::default(),
                 attitude_q: UnitQuaternion::from_euler_angles(0.0, 0.0, PI),
             })
