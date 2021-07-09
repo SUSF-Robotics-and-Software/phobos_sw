@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 // External
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use log::debug;
 
 // Internal
@@ -56,10 +56,10 @@ pub struct InputData {
 }
 
 /// Status report for LocoCtrl processing.
-#[derive(Clone, Copy, Default, Serialize, Debug)]
+#[derive(Clone, Copy, Default, Serialize, Deserialize, Debug)]
 pub struct StatusReport {
-    str_abs_pos_limited: [bool; NUM_STR_AXES],
-    drv_rate_limited: [bool; NUM_STR_AXES],
+    pub str_abs_pos_limited: [bool; NUM_STR_AXES],
+    pub drv_rate_limited: [bool; NUM_STR_AXES],
 }
 
 // ---------------------------------------------------------------------------

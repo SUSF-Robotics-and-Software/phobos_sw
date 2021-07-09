@@ -46,6 +46,7 @@ pub struct DataStore {
     
     /// Gives the reason for the rover being in safe mode.
     pub safe_cause: Option<SafeModeCause>,
+    pub safe_cause_string: String,
 
     // Camera images
     pub left_cam_image: Option<CamImage>,
@@ -85,6 +86,16 @@ impl DataStore {
             self.safe = true;
             self.safe_cause = Some(cause);
 
+            if cause == SafeModeCause::MakeSafeTc {
+                self.safe_cause_string = String::from("Safe telecommand");
+            }
+            else if cause == SafeModeCause::TcClientNotConnected {
+                self.safe_cause_string = String::from("TC client not connected");
+            }
+            else if cause == SafeModeCause::MechClientNotConnected {
+                self.safe_cause_string = String::from("Mech client not connected");
+            }
+
             // Make loco_ctrl safe
             self.loco_ctrl.make_safe();
         }
@@ -107,6 +118,7 @@ impl DataStore {
                 if cause == root_cause {
                     self.safe = false;
                     self.safe_cause = None;
+                    self.safe_cause_string = String::from("");
                     info!("Make unsafe requested, root cause match, safe mode disabled");
                     Ok(())
                 }

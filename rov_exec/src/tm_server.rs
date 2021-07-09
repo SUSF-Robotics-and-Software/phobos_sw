@@ -5,9 +5,11 @@
 // ------------------------------------------------------------------------------------------------
 use serde::{Serialize, Deserialize};
 
-use comms_if::{eqpt::cam::{CamFrame, ImageFormat}, net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}, tc::{Tc, TcParseError, TcResponse}};
+use comms_if::{eqpt::{cam::{CamFrame, ImageFormat}, mech::MechDems}, net::{MonitoredSocket, MonitoredSocketError, NetParams, SocketOptions, zmq}, tc::{Tc, TcParseError, TcResponse}};
 
 use crate::data_store::DataStore;
+
+use crate::loco_ctrl;
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -25,7 +27,15 @@ pub struct TmPacket {
 
     pub left_cam_frame: Option<CamFrame>,
 
-    pub right_cam_frame: Option<CamFrame>
+    pub right_cam_frame: Option<CamFrame>,
+
+    pub safe: bool,
+
+    pub safe_cause: String,
+
+    pub loco_ctrl_output: MechDems,
+
+    pub loco_ctrl_status_rpt: loco_ctrl::StatusReport,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -100,6 +110,11 @@ impl TmPacket {
     pub fn from_datastore(ds: &DataStore) -> Self {
         Self {
             sim_time_s: ds.sim_time_s,
+            safe: ds.safe,
+            safe_cause: ds.safe_cause_string.clone(),
+            loco_ctrl_output: ds.loco_ctrl_output.clone(),
+            loco_ctrl_status_rpt: ds.loco_ctrl_status_rpt.clone(),
+
             left_cam_frame: match ds.left_cam_image {
                 Some(ref i) => {
                     let frame = i.to_cam_frame(ImageFormat::Jpeg(75)).unwrap();
@@ -113,7 +128,7 @@ impl TmPacket {
                     Some(frame)
                 },
                 None => None
-            }
+            },
         }
     }
 }
