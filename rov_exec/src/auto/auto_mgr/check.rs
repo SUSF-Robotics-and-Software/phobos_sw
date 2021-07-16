@@ -8,8 +8,15 @@
 // -----------------------------------------------------------------------------------------------
 
 use comms_if::tc::auto::{AutoCmd, PathSpec};
+use log::{info, warn};
 
-use crate::auto::{path::Path, traj_ctrl::TrajCtrl};
+use crate::auto::{
+    auto_mgr::{
+        states::Pause, wait_new_pose::WaitNewPose, AutoMgrOutput, AutoMgrState, StackAction,
+    },
+    nav::NavPose,
+    path::Path,
+};
 
 use super::{params::AutoMgrParams, AutoMgrError, AutoMgrPersistantData, StepOutput};
 
@@ -19,7 +26,6 @@ use super::{params::AutoMgrParams, AutoMgrError, AutoMgrPersistantData, StepOutp
 
 #[derive(Debug)]
 pub struct Check {
-    traj_ctrl: TrajCtrl,
     ground_path_spec: PathSpec,
     ground_path: Option<Path>,
 }
@@ -30,11 +36,7 @@ pub struct Check {
 
 impl Check {
     pub fn new(ground_path_spec: PathSpec) -> Result<Self, AutoMgrError> {
-        // Create TrajCtrl instnace
-        let traj_ctrl = TrajCtrl::init("traj_ctrl.toml").map_err(AutoMgrError::TrajCtrlError)?;
-
         Ok(Self {
-            traj_ctrl,
             ground_path_spec,
             ground_path: None,
         })
@@ -46,6 +48,65 @@ impl Check {
         persistant: &mut AutoMgrPersistantData,
         cmd: Option<AutoCmd>,
     ) -> Result<StepOutput, AutoMgrError> {
-        todo!()
+        // Check for pause or abort commands
+        match cmd {
+            Some(AutoCmd::Pause) => {
+                return Ok(StepOutput {
+                    action: StackAction::PushAbove(AutoMgrState::Pause(Pause::new())),
+                    data: AutoMgrOutput::None,
+                })
+            }
+            Some(AutoCmd::Abort) => {
+                return Ok(StepOutput {
+                    action: StackAction::Abort,
+                    data: AutoMgrOutput::None,
+                })
+            }
+            Some(_) => warn!("Only Pause and Abort commands are accepted in Check state"),
+            _ => (),
+        };
+
+        // Get the pose
+        let current_pose = match persistant.loc_mgr.get_pose() {
+            Some(p) => p,
+            // If no pose push a wait for pose state
+            None => {
+                return Ok(StepOutput {
+                    action: StackAction::PushAbove(AutoMgrState::WaitNewPose(WaitNewPose::new())),
+                    data: AutoMgrOutput::None,
+                })
+            }
+        };
+
+        // Set the pose in the TM
+        persistant.auto_tm.pose = Some(current_pose);
+
+        // Start the traverse if it hasn't been started yet
+        if persistant.trav_mgr.is_off() {
+            // Calculate the path from the current pose
+            self.ground_path = Some(
+                Path::from_path_spec(self.ground_path_spec.clone(), &current_pose)
+                    .map_err(AutoMgrError::PathError)?,
+            );
+
+            // Start the traverse manager
+            persistant.trav_mgr.start(
+                NavPose::from_path_last_point(self.ground_path.as_ref().unwrap()),
+                self.ground_path.clone(),
+            )?;
+
+            info!("Autonomous traverse started in Check mode");
+        }
+
+        // Step the traverse manager
+        let mut trav_mgr_output = persistant
+            .trav_mgr
+            .step(persistant.depth_img.as_ref(), &current_pose)?;
+
+        // If there's traj ctrl status set it in the tm
+        persistant.auto_tm.traj_ctrl_status = trav_mgr_output.traj_ctrl_status.take();
+
+        // Output the step data
+        Ok(trav_mgr_output.step_output)
     }
 }

@@ -8,7 +8,7 @@
 // -----------------------------------------------------------------------------------------------
 
 use comms_if::{eqpt::perloc::PerlocCmd, tc::auto::AutoCmd};
-use log::warn;
+use log::{info, warn};
 
 use super::{
     states::{Pause, Stop},
@@ -71,6 +71,7 @@ impl ImgStop {
         // Once stopped issue request for new images, clear the persistent depth image and request
         // a new one
         if !self.img_request_issued {
+            info!("Requesting new depth image from perloc");
             persistant.depth_img = None;
             self.img_request_issued = true;
             return Ok(StepOutput {

@@ -1,0 +1,2 @@
+# Size of cells in a CellMap (terrain or cost)
+map_cell_size = [0.1, 0.1]

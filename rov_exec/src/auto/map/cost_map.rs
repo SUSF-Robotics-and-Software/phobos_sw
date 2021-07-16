@@ -121,6 +121,9 @@ impl CostMap {
         }
     }
 
+    /// Merge `other` into `self`, modifying `self`.
+    pub fn merge(&mut self, other: &Self) {}
+
     /// Calculate the cost map from the given terrain map
     pub fn calculate(
         cost_map_params: CostMapParams,

@@ -7,14 +7,35 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::{env, thread, time::{Duration, Instant}};
+use std::{
+    env, thread,
+    time::{Duration, Instant},
+};
 
-use color_eyre::{Result, eyre::{eyre, WrapErr}};
-use comms_if::tc::{Tc, auto::{self, AutoCmd}};
+use cell_map::CellMapParams;
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Result,
+};
+use comms_if::tc::{
+    auto::{self, AutoCmd, PathSpec},
+    Tc,
+};
 use log::{debug, info, warn};
 
-use rov_lib::{auto::{AutoMgr, loc::Pose}, data_store::DataStore, tc_processor};
-use util::{host, logger::{LevelFilter, logger_init}, script_interpreter::{PendingTcs, ScriptInterpreter}, session::Session};
+use nalgebra::{Point2, UnitQuaternion, Vector3};
+use rov_lib::{
+    auto::{loc::Pose, map::TerrainMap, nav::trav_mgr::params::TravMgrParams, path::Path, AutoMgr},
+    data_store::DataStore,
+    tc_processor,
+};
+use util::{
+    host,
+    logger::{logger_init, LevelFilter},
+    params,
+    script_interpreter::{PendingTcs, ScriptInterpreter},
+    session::Session,
+};
 
 // ------------------------------------------------------------------------------------------------
 // CONSTANTS
@@ -28,26 +49,21 @@ const CYCLE_FREQUENCY_HZ: f64 = 1.0 / CYCLE_PERIOD_S;
 
 // ------------------------------------------------------------------------------------------------
 // MAIN
-// ------------------------------------------------------------------------------------------------ 
+// ------------------------------------------------------------------------------------------------
 
 fn main() -> Result<()> {
-
     // ---- EARLY INITIALISATION ----
 
     // Initialise session
-    let session = Session::new(
-        "auto_test", 
-        "sessions"
-    ).wrap_err("Failed to create the session")?;
+    let session = Session::new("auto_test", "sessions").wrap_err("Failed to create the session")?;
 
     // Initialise logger
-    logger_init(LevelFilter::Trace, &session)
-        .wrap_err("Failed to initialise logging")?;
+    logger_init(LevelFilter::Trace, &session).wrap_err("Failed to initialise logging")?;
 
     // Log information on this execution.
     info!("Autonomy Test\n");
     info!(
-        "Running on: {:#?}", 
+        "Running on: {:#?}",
         host::get_uname().wrap_err("Failed to get host information")?
     );
     info!("Session directory: {:?}\n", session.session_root);
@@ -60,16 +76,13 @@ fn main() -> Result<()> {
     debug!("CLI arguments: {:?}", args);
 
     let mut script_interpreter: ScriptInterpreter;
-    
+
     // If we have a single argument use it as the script path
     if args.len() == 2 {
-
         info!("Loading script from \"{}\"", &args[1]);
 
         // Load the script interpreter
-        script_interpreter = ScriptInterpreter::new(
-            &args[1]
-        ).wrap_err("Failed to load script")?;
+        script_interpreter = ScriptInterpreter::new(&args[1]).wrap_err("Failed to load script")?;
 
         // Display some info
         info!(
@@ -87,12 +100,31 @@ fn main() -> Result<()> {
 
     let mut ds = DataStore::default();
 
-    let mut auto_mgr = AutoMgr::init("auto_mgr.toml", session)
-        .wrap_err("Failed to initialise AutoMgr")?;
+    let mut auto_mgr =
+        AutoMgr::init("auto_mgr.toml", session).wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
 
-    // Set initial pose to zero
-    auto_mgr.persistant.loc_mgr.set_pose(Pose::default());
+    // Load trav_mgr params for map cell size
+    let trav_mgr_params: TravMgrParams = params::load("trav_mgr.toml")?;
+
+    // Generate a random terrain map
+    let terrain_map = TerrainMap::generate_random(
+        CellMapParams {
+            cell_size: trav_mgr_params.map_cell_size,
+            ..Default::default()
+        },
+        Point2::new(0.1, 0.1),
+        Point2::new(0.0, 0.0),
+    )?;
+
+    // Starting pose
+    let start_pose = Pose {
+        position_m: Vector3::new(1.0, 1.0, 0.0),
+        attitude_q: UnitQuaternion::identity(),
+    };
+
+    // Set initial pose
+    auto_mgr.persistant.loc_mgr.set_pose(start_pose);
 
     // ---- MAIN LOOP ----
 
@@ -101,7 +133,6 @@ fn main() -> Result<()> {
     let mut end_of_script = false;
 
     loop {
-
         // Get cycle start time
         let cycle_start_instant = Instant::now();
 
@@ -109,7 +140,7 @@ fn main() -> Result<()> {
         ds.cycle_start(CYCLE_FREQUENCY_HZ);
 
         // ---- TELECOMMAND PROCESSING ----
-        
+
         if !end_of_script {
             match script_interpreter.get_pending_tcs() {
                 PendingTcs::None => (),
@@ -129,7 +160,8 @@ fn main() -> Result<()> {
         // ---- AUTONOMY PROCESSING ----
 
         // Step the autonomy manager
-        let _auto_loco_ctrl_cmd = auto_mgr.step(ds.auto_cmd.take())
+        let _auto_loco_ctrl_cmd = auto_mgr
+            .step(ds.auto_cmd.take())
             .wrap_err("Error stepping the autonomy manager")?;
 
         // ---- CYCLE MANAGEMENT ----
@@ -137,21 +169,17 @@ fn main() -> Result<()> {
         let cycle_dur = Instant::now() - cycle_start_instant;
 
         // Get sleep duration
-        match Duration::from_secs_f64(CYCLE_PERIOD_S)
-            .checked_sub(cycle_dur)
-        {
+        match Duration::from_secs_f64(CYCLE_PERIOD_S).checked_sub(cycle_dur) {
             Some(d) => {
                 ds.num_consec_cycle_overruns = 0;
                 thread::sleep(d);
-            },
+            }
             None => {
                 warn!(
-                    "Cycle overran by {:.06} s", 
-                    cycle_dur.as_secs_f64() 
-                        - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
+                    "Cycle overran by {:.06} s",
+                    cycle_dur.as_secs_f64() - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
                 );
                 ds.num_consec_cycle_overruns += 1;
-
             }
         }
 

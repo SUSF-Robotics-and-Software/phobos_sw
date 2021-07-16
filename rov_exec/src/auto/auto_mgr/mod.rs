@@ -38,7 +38,7 @@ pub use self::{params::AutoMgrParams, tm::AutoTm};
 
 use super::{
     loc::{LocMgr, LocSource},
-    map::TerrainMap,
+    nav::trav_mgr::TravMgr,
     path::PathError,
     traj_ctrl::TrajCtrlError,
 };
@@ -58,7 +58,6 @@ pub mod states {
     pub use super::wait_new_pose::WaitNewPose;
 }
 
-use cell_map::CellMapParams;
 use comms_if::{
     eqpt::perloc::{DepthImage, PerlocCmd},
     tc::{auto::AutoCmd, loco_ctrl::MnvrCmd},
@@ -108,11 +107,11 @@ pub struct AutoMgr {
 }
 
 pub struct AutoMgrPersistantData {
-    /// Global terrain map, the map describing all terrain previously observed by the rover.
-    pub global_terr_map: TerrainMap,
-
     /// Instance of the [`LocMgr`] module, providing localisation source.
     pub loc_mgr: LocMgr,
+
+    /// Traverse manager for fully autonomous traverses.
+    pub trav_mgr: TravMgr,
 
     /// Telemetry packet to be sent by the TM server, summarising the autonomy state.
     pub auto_tm: AutoTm,
@@ -136,6 +135,7 @@ pub struct AutoMgrPersistantData {
 pub struct AutoMgrStack(Vec<AutoMgrState>);
 
 /// Output of a state's step function.
+#[derive(Debug)]
 pub struct StepOutput {
     /// Action to perform on the stack itself
     pub action: StackAction,
@@ -201,6 +201,7 @@ pub enum StackAction {
 }
 
 /// Possible data that can be passed out of a state's step function.
+#[derive(Debug)]
 pub enum AutoMgrOutput {
     /// No action required by the autonomy system
     None,
@@ -227,11 +228,7 @@ impl AutoMgr {
         Ok(Self {
             params: params.clone(),
             last_stack_data: AutoMgrOutput::None,
-            persistant: AutoMgrPersistantData::new(
-                params.terrain_map_params,
-                params.loc_mgr.source,
-                session,
-            )?,
+            persistant: AutoMgrPersistantData::new(params.loc_mgr.source, session)?,
             stack: AutoMgrStack::new(),
         })
     }
@@ -413,14 +410,10 @@ impl AutoMgrState {
 }
 
 impl AutoMgrPersistantData {
-    pub fn new(
-        terr_map_params: CellMapParams,
-        loc_source: LocSource,
-        session: Session,
-    ) -> Result<Self, AutoMgrError> {
+    pub fn new(loc_source: LocSource, session: Session) -> Result<Self, AutoMgrError> {
         Ok(Self {
-            global_terr_map: TerrainMap::new(terr_map_params),
             loc_mgr: LocMgr::new(loc_source),
+            trav_mgr: TravMgr::new()?,
             auto_tm: AutoTm::default(),
             session,
             is_stopped: false,

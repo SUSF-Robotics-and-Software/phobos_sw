@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 // ------------------------------------------------------------------------------------------------
 
 /// Terrain Map
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerrainMap(pub(super) CellMap<TerrainMapLayer, Option<f64>>);
 
 // ------------------------------------------------------------------------------------------------
@@ -38,6 +38,9 @@ impl TerrainMap {
     pub fn new(params: CellMapParams) -> Self {
         Self(CellMap::new(params))
     }
+
+    /// Merge `other` into `self`, modifying `self`.
+    pub fn merge(&mut self, other: &Self) {}
 
     /// Generate a random terrain map using a Perlin noise system
     pub fn generate_random(

@@ -153,11 +153,15 @@ impl TrajCtrl {
             Err(e) => return Err(TrajCtrlError::ParamLoadError(e)),
         };
 
+        Ok(Self::new(params))
+    }
+
+    pub fn new(params: Params) -> Self {
         // Initialise the controllers
         let controllers = TrajControllers::new(&params);
 
         // Build self
-        Ok(Self {
+        Self {
             params,
             mode: TrajCtrlMode::Off,
             controllers,
@@ -168,7 +172,7 @@ impl TrajCtrl {
             path_index: 0,
             target_point_index: 0,
             tuning_output: TrajCtrlTuningOutput::default(),
-        })
+        }
     }
 
     /// Process trajectory control.

@@ -6,12 +6,19 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-use comms_if::tc::auto::PathSpec;
+use std::{
+    cmp::Reverse,
+    collections::{BTreeSet, BinaryHeap},
+};
+
+use color_eyre::owo_colors::OwoColorize;
 // External
-use nalgebra::Vector2;
+use nalgebra::{Point2, Vector2};
+use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
-use super::loc::Pose;
+use super::{loc::Pose, nav::NavPose};
+use comms_if::tc::auto::PathSpec;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -212,6 +219,169 @@ impl Path {
     pub fn is_empty(&self) -> bool {
         self.points_m.len() == 0
     }
+
+    // /// Get the intersection points of self and other as a list of `NavPose`s.
+    // pub fn intersect(&self, other: &Self) -> Vec<NavPose> {
+    //     // Based on https://www.youtube.com/watch?v=I9EsN2DTnN8 and https://en.wikipedia.org/wiki/Bentley%E2%80%93Ottmann_algorithm
+
+    //     // Create a list of all points in both self and other, inserting new segments by joining
+    //     // points in each path
+    //     let segments: Vec<Segment> = self
+    //         .points_m
+    //         .as_slice()
+    //         .windows(2)
+    //         .filter_map(|points| {
+    //             Some(Segment {
+    //                 start: Point2::new(
+    //                     NotNan::new(points[0].x).ok()?,
+    //                     NotNan::new(points[0].y).ok()?,
+    //                 ),
+    //                 end: Point2::new(
+    //                     NotNan::new(points[1].x).ok()?,
+    //                     NotNan::new(points[1].y).ok()?,
+    //                 ),
+    //                 in_self: true,
+    //             })
+    //         })
+    //         .chain(other.points_m.as_slice().windows(2).filter_map(|points| {
+    //             Some(Segment {
+    //                 start: Point2::new(
+    //                     NotNan::new(points[0].x).ok()?,
+    //                     NotNan::new(points[0].y).ok()?,
+    //                 ),
+    //                 end: Point2::new(
+    //                     NotNan::new(points[1].x).ok()?,
+    //                     NotNan::new(points[1].y).ok()?,
+    //                 ),
+    //                 in_self: false,
+    //             })
+    //         }))
+    //         .collect();
+
+    //     #[derive(Clone, Copy, PartialEq, Eq)]
+    //     struct Segment {
+    //         start: Point2<NotNan<f64>>,
+    //         end: Point2<NotNan<f64>>,
+    //         in_self: bool,
+    //     }
+
+    //     #[derive(Clone, Copy, PartialEq, Eq)]
+    //     enum Event<'a> {
+    //         Start(&'a Segment),
+    //         End(&'a Segment),
+    //         Intersect(&'a Point2<NotNan<f64>>),
+    //     }
+
+    //     impl<'a> PartialOrd for Event<'a> {
+    //         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    //             let self_x = match self {
+    //                 Event::Start(s) => &s.start.x,
+    //                 Event::End(e) => &e.end.x,
+    //                 Event::Intersect(p) => &p.x,
+    //             };
+    //             let other_x = match other {
+    //                 Event::Start(s) => &s.start.x,
+    //                 Event::End(e) => &e.end.x,
+    //                 Event::Intersect(p) => &p.x,
+    //             };
+
+    //             self_x.partial_cmp(other_x)
+    //         }
+    //     }
+    //     impl<'a> Ord for Event<'a> {
+    //         fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    //             let self_x = match self {
+    //                 Event::Start(s) => &s.start.x,
+    //                 Event::End(e) => &e.end.x,
+    //                 Event::Intersect(p) => &p.x,
+    //             };
+    //             let other_x = match other {
+    //                 Event::Start(s) => &s.start.x,
+    //                 Event::End(e) => &e.end.x,
+    //                 Event::Intersect(p) => &p.x,
+    //             };
+
+    //             self_x.cmp(other_x)
+    //         }
+    //     }
+
+    //     #[derive(Clone, Copy, PartialEq, Eq)]
+    //     enum Cross<'a> {
+    //         Start(&'a Segment),
+    //         End(&'a Segment),
+    //         Intersect(&'a Point2<NotNan<f64>>),
+    //     }
+
+    //     impl<'a> PartialOrd for Cross<'a> {
+    //         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    //             let self_y = match self {
+    //                 Cross::Start(s) => &s.start.y,
+    //                 Cross::End(e) => &e.end.y,
+    //                 Cross::Intersect(p) => &p.y,
+    //             };
+    //             let other_y = match other {
+    //                 Cross::Start(s) => &s.start.y,
+    //                 Cross::End(e) => &e.end.y,
+    //                 Cross::Intersect(p) => &p.y,
+    //             };
+
+    //             self_y.partial_cmp(other_y)
+    //         }
+    //     }
+    //     impl<'a> Ord for Cross<'a> {
+    //         fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    //             let self_y = match self {
+    //                 Cross::Start(s) => &s.start.y,
+    //                 Cross::End(e) => &e.end.y,
+    //                 Cross::Intersect(p) => &p.y,
+    //             };
+    //             let other_y = match other {
+    //                 Cross::Start(s) => &s.start.y,
+    //                 Cross::End(e) => &e.end.y,
+    //                 Cross::Intersect(p) => &p.y,
+    //             };
+
+    //             self_y.cmp(other_y)
+    //         }
+    //     }
+
+    //     // Initialise the event queue by inserting all start and end events for the segments into it
+    //     let mut events = BTreeSet::new();
+    //     for seg in segments.iter() {
+    //         // Put start into the set (will not update if it's already there)
+    //         let start = Event::Start(seg);
+    //         events.insert(start);
+
+    //         // End
+    //         let end = Event::End(seg);
+    //         events.insert(end);
+    //     }
+
+    //     // Create empty status tree
+    //     let mut status = BinaryHeap::new();
+
+    //     // Empty intersections list
+    //     let mut intersects = Vec::new();
+
+    //     // Main loop
+    //     while !events.is_empty() {
+    //         if let Some(event) = events.iter().next() {
+    //             match event {
+    //                 Event::Start(seg) => {
+    //                     // Insert a new crossing into the status heap
+    //                     status.push(Cross::Start(seg));
+
+    //                     // Get the neighbours of this crossing
+    //                     let lower = status.
+    //                 }
+    //                 Event::End(_) => todo!(),
+    //                 Event::Intersect(_) => todo!(),
+    //             }
+    //         }
+    //     }
+
+    //     intersects
+    // }
 }
 
 impl AckSequence {
