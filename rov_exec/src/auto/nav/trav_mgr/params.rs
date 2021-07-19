@@ -7,6 +7,8 @@
 use nalgebra::Vector2;
 use serde::Deserialize;
 
+use super::escape_boundary::EscapeBoundaryParams;
+
 // -----------------------------------------------------------------------------------------------
 // STRUCTS
 // -----------------------------------------------------------------------------------------------
@@ -15,4 +17,7 @@ use serde::Deserialize;
 pub struct TravMgrParams {
     /// Size of each cell in maps
     pub map_cell_size: Vector2<f64>,
+
+    /// Escape boundary parameters
+    pub escape_boundary: EscapeBoundaryParams,
 }

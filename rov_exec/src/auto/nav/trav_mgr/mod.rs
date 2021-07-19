@@ -41,8 +41,8 @@ use super::{path_planner::PathPlanner, NavError, NavPose};
 // MODULES
 // -----------------------------------------------------------------------------------------------
 
+mod escape_boundary;
 pub mod params;
-pub mod path_types;
 mod worker;
 
 // -----------------------------------------------------------------------------------------------
@@ -66,30 +66,6 @@ pub struct TravMgr {
 
     /// The final target of the traverse
     pub target: Option<NavPose>,
-}
-
-/// An escape boundary, which defines the limit of where the rover has knowledge of the terrain
-/// ahead of it.
-///
-/// This is modeled as an arc, centred on the pose where the rover took the depth image associated
-/// with this boundary, extending a uniform radius out from the centre, and bounded by a minimum
-/// and maximum heading angle.
-#[derive(Debug, Clone, Copy)]
-pub struct EscapeBoundary {
-    /// The centre of the boundary (rover pose when depth image for this boundary was acquired)
-    pub centre_m: NavPose,
-
-    /// The radius of the boundary
-    pub radius_m: f64,
-
-    /// The minimum heading angle of the boundary
-    pub min_head_rad: f64,
-
-    /// The minimum heading angle of the boundary
-    pub max_head_rad: f64,
-
-    /// Target point along the escape boundary that has the lowest cost
-    pub min_cost_target: NavPose,
 }
 
 /// Output from the traverse manager
@@ -169,6 +145,12 @@ pub enum TravMgrError {
 
     #[error("Cannot start another traverse as a previous traverse hasn't finished")]
     AlreadyTraversing,
+
+    #[error("Couldn't find escape boundary in local cost map")]
+    NoEscapeBoundary,
+
+    #[error("Couldn't find any populated cost map cells along local X axis - no escape boundary calculated")]
+    EscBoundaryInvalidCentreline,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -446,12 +428,6 @@ impl TravMgr {
                 })
             }
         }
-    }
-}
-
-impl EscapeBoundary {
-    pub fn calculate(local_cost_map: &CostMap) -> Result<Self, TravMgrError> {
-        todo!()
     }
 }
 

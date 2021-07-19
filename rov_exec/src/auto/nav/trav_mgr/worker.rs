@@ -16,7 +16,7 @@ use crate::auto::{
     loc::Pose,
     map::CostMap,
     nav::{
-        trav_mgr::{EscapeBoundary, TraverseState},
+        trav_mgr::{escape_boundary::EscapeBoundary, TraverseState},
         NavPose,
     },
 };
@@ -98,11 +98,14 @@ pub(super) fn worker_thread(
                 }
 
                 // Calculate the escape boundary from the local cost map
-                let esc_boundary = match EscapeBoundary::calculate(&local_cost_map) {
-                    Ok(e) => e,
-                    Err(e) => {
-                        main_sender.send(WorkerSignal::Error(Box::new(e)))?;
-                        continue;
+                let esc_boundary = {
+                    match EscapeBoundary::calculate(&shared.params.escape_boundary, &local_cost_map)
+                    {
+                        Ok(e) => e,
+                        Err(e) => {
+                            main_sender.send(WorkerSignal::Error(Box::new(e)))?;
+                            continue;
+                        }
                     }
                 };
 
