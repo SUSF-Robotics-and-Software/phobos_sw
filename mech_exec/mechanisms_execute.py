@@ -168,6 +168,7 @@ def run(mechanisms):
 
     # Open mechanisms server
     MECH_REP = ZMQ_CONTEXT.socket(zmq.REP)
+    MECH_REP.RCVTIMEO = 1000 # 1 second timeout
     MECH_REP.bind(mechanisms.mech_exec['demands_endpoint'])
     MECH_PUB = ZMQ_CONTEXT.socket(zmq.PUB)
     MECH_PUB.bind(mechanisms.mech_exec['sensor_data_endpoint'])
@@ -206,7 +207,7 @@ def handle_mech(mechanisms, mech_rep, mech_pub):
 
     # Get mechanisms demands from the rep socket
     try:
-        dems_str = mech_rep.recv_string(flags=zmq.NOBLOCK)
+        dems_str = mech_rep.recv_string()
         mech_dems = json.loads(dems_str)
     except zmq.Again:
         mech_dems = None
