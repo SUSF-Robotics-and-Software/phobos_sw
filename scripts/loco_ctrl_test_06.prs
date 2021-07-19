@@ -1,0 +1,222 @@
+# Generated from scripts/gen/gen_loco_ctrl_text_06.py
+
+1.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -6.5,
+            "crab_rad": -3.141592653589793
+        }
+    }
+};
+
+    
+3.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -5.815789473684211,
+            "crab_rad": -2.8108986900540254
+        }
+    }
+};
+
+    
+5.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -5.131578947368421,
+            "crab_rad": -2.4802047265182576
+        }
+    }
+};
+
+    
+7.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -4.447368421052632,
+            "crab_rad": -2.14951076298249
+        }
+    }
+};
+
+    
+9.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -3.763157894736842,
+            "crab_rad": -1.8188167994467224
+        }
+    }
+};
+
+    
+11.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -3.0789473684210527,
+            "crab_rad": -1.4881228359109546
+        }
+    }
+};
+
+    
+13.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -2.394736842105263,
+            "crab_rad": -1.157428872375187
+        }
+    }
+};
+
+    
+15.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -1.7105263157894735,
+            "crab_rad": -0.8267349088394194
+        }
+    }
+};
+
+    
+17.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -1.026315789473684,
+            "crab_rad": -0.4960409453036516
+        }
+    }
+};
+
+    
+19.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": -0.3421052631578947,
+            "crab_rad": -0.16534698176788387
+        }
+    }
+};
+
+    
+21.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 0.3421052631578947,
+            "crab_rad": 0.16534698176788387
+        }
+    }
+};
+
+    
+23.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 1.026315789473684,
+            "crab_rad": 0.4960409453036516
+        }
+    }
+};
+
+    
+25.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 1.7105263157894743,
+            "crab_rad": 0.8267349088394189
+        }
+    }
+};
+
+    
+27.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 2.3947368421052637,
+            "crab_rad": 1.1574288723751867
+        }
+    }
+};
+
+    
+29.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 3.078947368421053,
+            "crab_rad": 1.4881228359109544
+        }
+    }
+};
+
+    
+31.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 3.7631578947368425,
+            "crab_rad": 1.8188167994467221
+        }
+    }
+};
+
+    
+33.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 4.447368421052632,
+            "crab_rad": 2.14951076298249
+        }
+    }
+};
+
+    
+35.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 5.131578947368421,
+            "crab_rad": 2.4802047265182576
+        }
+    }
+};
+
+    
+37.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 5.815789473684211,
+            "crab_rad": 2.8108986900540254
+        }
+    }
+};
+
+    
+39.0: {
+    "LocoCtrlMnvr": {
+        "Ackerman": {
+            "speed_ms": 0.1,
+            "curv_m": 6.5,
+            "crab_rad": 3.141592653589793
+        }
+    }
+};
+
+    
