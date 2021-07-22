@@ -97,10 +97,7 @@ impl NavPose {
         Self {
             position_m: *position_m,
             heading_rad: *heading_rad,
-            pose_parent: Pose {
-                position_m: pos_parent_3d,
-                attitude_q: quat,
-            },
+            pose_parent: Pose::new(pos_parent_3d, quat),
         }
     }
 

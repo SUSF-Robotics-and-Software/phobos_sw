@@ -231,10 +231,10 @@ fn bg_thread(
                 attitude_q_lm,
             } => {
                 // Buid pose struct
-                let pose = Pose {
-                    position_m: Vector3::from(position_m_lm),
-                    attitude_q: UnitQuaternion::from_quaternion(Quaternion::from(attitude_q_lm)),
-                };
+                let pose = Pose::new(
+                    Vector3::from(position_m_lm),
+                    UnitQuaternion::from_quaternion(Quaternion::from(attitude_q_lm)),
+                );
 
                 // Set the pose in the front end
                 {

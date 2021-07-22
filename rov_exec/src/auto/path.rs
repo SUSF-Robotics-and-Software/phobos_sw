@@ -510,10 +510,10 @@ mod test {
 
         // Convert ack_seq to a path
         let path = ack_seq
-            .into_path(&Pose {
-                position_m: Vector3::default(),
-                attitude_q: UnitQuaternion::from_euler_angles(0.0, 0.0, PI),
-            })
+            .into_path(&Pose::new(
+                Vector3::default(),
+                UnitQuaternion::from_euler_angles(0.0, 0.0, PI),
+            ))
             .unwrap();
 
         // Serialize the path and write it out so we can plot it to check it's correct

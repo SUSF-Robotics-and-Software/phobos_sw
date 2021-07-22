@@ -59,13 +59,7 @@ def plot_grid_map(map, paths, plan_report = None, show_leaves=False):
     # Draw all layers, but only the selected one is visible
     for layer in map['cm'].layers:
         if map['data_type'] == 'CostMap':
-            plots[layer] = ax.pcolormesh(
-                map['x_grid'], map['y_grid'], map['cm'].data[layer],
-                cmap=cmap,
-                shading='auto',
-                vmin=0.0,
-                vmax=1.0
-            )
+            plots[layer] = map['cm'].plot(ax=ax, cmap=cmap, vmin=0.0, vmax=1.0)
             for i, path in enumerate(paths):
                 if i == 0:
                     plot_path(path, ax=ax, linespec='-k')
@@ -147,9 +141,9 @@ def load_map(path):
     # find the map bit, which will be named `map`.
     if 'map' in raw and 'data' not in raw:
         # Load the cell map
-        cm = CellMap.from_raw_json(raw['map'])
+        cm = CellMap.from_raw_dict(raw['map'])
     else:
-        cm = CellMap.from_raw_json(raw)
+        cm = CellMap.from_raw_dict(raw)
 
 
     # Create container

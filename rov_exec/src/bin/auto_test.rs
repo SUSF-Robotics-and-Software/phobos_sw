@@ -118,10 +118,7 @@ fn main() -> Result<()> {
     )?;
 
     // Starting pose
-    let start_pose = Pose {
-        position_m: Vector3::new(1.0, 1.0, 0.0),
-        attitude_q: UnitQuaternion::identity(),
-    };
+    let start_pose = Pose::new(Vector3::new(1.0, 1.0, 0.0), UnitQuaternion::identity());
 
     // Set initial pose
     auto_mgr.persistant.loc_mgr.set_pose(start_pose);

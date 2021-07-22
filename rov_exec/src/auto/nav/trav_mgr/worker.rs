@@ -99,8 +99,11 @@ pub(super) fn worker_thread(
 
                 // Calculate the escape boundary from the local cost map
                 let esc_boundary = {
-                    match EscapeBoundary::calculate(&shared.params.escape_boundary, &local_cost_map)
-                    {
+                    match EscapeBoundary::calculate(
+                        &shared.params.escape_boundary,
+                        &local_cost_map,
+                        &pose,
+                    ) {
                         Ok(e) => e,
                         Err(e) => {
                             main_sender.send(WorkerSignal::Error(Box::new(e)))?;

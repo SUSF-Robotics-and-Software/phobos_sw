@@ -41,7 +41,7 @@ use super::{path_planner::PathPlanner, NavError, NavPose};
 // MODULES
 // -----------------------------------------------------------------------------------------------
 
-mod escape_boundary;
+pub mod escape_boundary;
 pub mod params;
 mod worker;
 
@@ -151,6 +151,9 @@ pub enum TravMgrError {
 
     #[error("Couldn't find any populated cost map cells along local X axis - no escape boundary calculated")]
     EscBoundaryInvalidCentreline,
+
+    #[error("A point on the escape boundary was outside the local cost map")]
+    EscapeBoundaryPointOutsideMap,
 }
 
 // -----------------------------------------------------------------------------------------------

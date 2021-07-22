@@ -37,8 +37,7 @@ ndarray-stats = "0.4"
 noise = "0.7"
 csv = "1.1"
 cell-map = "0.5"
-# cell-map = { git = "https://github.com/duncanrhamill/cell-map", branch =
-# "dev" }
+# cell-map = { path = "../../../cell-map", features = ["debug_iters"] }
 ordered-float = "2"
 
 # Internal
