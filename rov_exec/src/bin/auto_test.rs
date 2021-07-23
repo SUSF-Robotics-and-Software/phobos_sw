@@ -12,27 +12,24 @@ use std::{
     time::{Duration, Instant},
 };
 
-use cell_map::CellMapParams;
+use chrono::Utc;
 use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use comms_if::tc::{
-    auto::{self, AutoCmd, PathSpec},
-    Tc,
-};
+use comms_if::eqpt::perloc::DepthImage;
+use image::ImageBuffer;
 use log::{debug, info, warn};
 
-use nalgebra::{Point2, UnitQuaternion, Vector3};
+use nalgebra::{UnitQuaternion, UnitVector3, Vector3};
 use rov_lib::{
-    auto::{loc::Pose, map::TerrainMap, nav::trav_mgr::params::TravMgrParams, path::Path, AutoMgr},
+    auto::{auto_mgr::AutoMgrOutput, loc::Pose, AutoMgr},
     data_store::DataStore,
     tc_processor,
 };
 use util::{
     host,
     logger::{logger_init, LevelFilter},
-    params,
     script_interpreter::{PendingTcs, ScriptInterpreter},
     session::Session,
 };
@@ -101,24 +98,18 @@ fn main() -> Result<()> {
     let mut ds = DataStore::default();
 
     let mut auto_mgr =
-        AutoMgr::init("auto_mgr.toml", session).wrap_err("Failed to initialise AutoMgr")?;
+        AutoMgr::init("auto_mgr.toml", session.clone()).wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
 
-    // Load trav_mgr params for map cell size
-    let trav_mgr_params: TravMgrParams = params::load("trav_mgr.toml")?;
-
-    // Generate a random terrain map
-    let terrain_map = TerrainMap::generate_random(
-        CellMapParams {
-            cell_size: trav_mgr_params.map_cell_size,
-            ..Default::default()
-        },
-        Point2::new(0.1, 0.1),
-        Point2::new(0.0, 0.0),
-    )?;
-
     // Starting pose
-    let start_pose = Pose::new(Vector3::new(1.0, 1.0, 0.0), UnitQuaternion::identity());
+    let start_pose = Pose::new(
+        Vector3::new(1.0, 1.0, 0.0),
+        // UnitQuaternion::identity()
+        UnitQuaternion::from_axis_angle(
+            &UnitVector3::new_unchecked(Vector3::z()),
+            std::f64::consts::FRAC_PI_2,
+        ),
+    );
 
     // Set initial pose
     auto_mgr.persistant.loc_mgr.set_pose(start_pose);
@@ -157,9 +148,22 @@ fn main() -> Result<()> {
         // ---- AUTONOMY PROCESSING ----
 
         // Step the autonomy manager
-        let _auto_loco_ctrl_cmd = auto_mgr
+        let auto_mgr_output = auto_mgr
             .step(ds.auto_cmd.take())
             .wrap_err("Error stepping the autonomy manager")?;
+
+        // If autonomy requested a depth image set an empty one since we're using per's
+        // internal global terrain map
+        if matches!(
+            auto_mgr_output,
+            AutoMgrOutput::PerlocCmd(comms_if::eqpt::perloc::PerlocCmd::AcqDepthFrame)
+        ) {
+            auto_mgr.set_depth_img(DepthImage {
+                timestamp: Utc::now(),
+                image: ImageBuffer::new(0, 0),
+            });
+            info!("Empty depth image set in AutoMgr");
+        }
 
         // ---- CYCLE MANAGEMENT ----
 
@@ -189,6 +193,8 @@ fn main() -> Result<()> {
             break;
         }
     }
+
+    session.exit();
 
     Ok(())
 }

@@ -126,3 +126,13 @@ impl NavPose {
         Self::from_parts(&Point2::from(seg.target_m), &seg.heading_rad)
     }
 }
+
+impl Default for NavPose {
+    fn default() -> Self {
+        Self {
+            position_m: Point2::origin(),
+            heading_rad: 0.0,
+            pose_parent: Pose::default(),
+        }
+    }
+}

@@ -11,6 +11,7 @@ use std::sync::{
 
 use comms_if::eqpt::perloc::DepthImage;
 use log::warn;
+use util::session;
 
 use crate::auto::{
     loc::Pose,
@@ -33,7 +34,7 @@ pub enum WorkerSignal {
     Stop,
 
     /// A new depth image was acquired, plus the pose when the image was taken
-    NewDepthImg(DepthImage, Pose),
+    NewDepthImg(Box<DepthImage>, Pose),
 
     /// The previous depth image processing request has been completed
     Complete,
@@ -57,9 +58,11 @@ pub(super) fn worker_thread(
         match signal {
             WorkerSignal::Stop => break,
             WorkerSignal::NewDepthImg(img, pose) => {
+                let nav_pose = NavPose::from_parent_pose(&pose);
+
                 // Calculate the local terrain map from the depth image, we do this in a scope so
                 // we can drop the per_mgr lock when we're done with it
-                let local_terr_map = {
+                let mut local_terr_map = {
                     let per_mgr = shared.per_mgr.write()?;
 
                     // Calculate the local terrain map
@@ -73,6 +76,8 @@ pub(super) fn worker_thread(
                     }
                 };
 
+                session::save_with_timestamp("local_terr_map/ltm.json", local_terr_map.clone());
+
                 // Compute the new local cost map
                 let mut local_cost_map =
                     match CostMap::calculate(shared.cost_map_params.clone(), &local_terr_map) {
@@ -85,42 +90,81 @@ pub(super) fn worker_thread(
                         }
                     };
 
-                // If there's a ground path apply it to the local cost map
+                // If there's a ground path apply it to the local cost map, since the gpp is in the
+                // GM frame we must move the local cost map into that frame first, this isn't too
+                // bad since move is actually a very cheap operation.
                 {
                     if let Some(ref path) = *shared.ground_path.read()? {
+                        // Move lcm
+                        local_cost_map.move_map(&nav_pose);
+
+                        // Apply gpp
                         if let Err(e) = local_cost_map.apply_ground_planned_path(path) {
                             main_sender.send(WorkerSignal::Error(Box::new(
                                 TravMgrError::CostMapError(e),
                             )))?;
                             continue;
                         }
+
+                        // Move lcm back to it's origin
+                        local_cost_map.move_map(&NavPose::default());
                     }
                 }
 
-                // Calculate the escape boundary from the local cost map
+                session::save_with_timestamp("local_cost_map/lcm.json", local_cost_map.clone());
+
+                // Calculate the escape boundary from the local cost map if there is a ground path
+                // follow
                 let esc_boundary = {
-                    match EscapeBoundary::calculate(
-                        &shared.params.escape_boundary,
-                        &local_cost_map,
-                        &pose,
-                    ) {
-                        Ok(e) => e,
-                        Err(e) => {
-                            main_sender.send(WorkerSignal::Error(Box::new(e)))?;
-                            continue;
+                    if shared.ground_path.read()?.is_some() {
+                        match EscapeBoundary::calculate(
+                            &shared.params.escape_boundary,
+                            &local_cost_map,
+                            &pose,
+                        ) {
+                            Ok(e) => Some(e),
+                            Err(e) => {
+                                main_sender.send(WorkerSignal::Error(Box::new(e)))?;
+                                continue;
+                            }
                         }
+                    } else {
+                        None
                     }
                 };
 
+                // Save escape boundary for debugging
+                if let Some(ref eb) = esc_boundary {
+                    session::save_with_timestamp("escape_boundaries/eb.json", eb.clone());
+                }
+
                 // Merge the local maps into the global maps, doing each in a scope so we can drop
-                // their locks when needed
+                // their locks when needed.
                 {
+                    // First move the local map into the global map frame with the given pose
+                    local_terr_map.move_map(&nav_pose);
+
+                    // Get the lock on the global map
                     let mut gtm = shared.global_terr_map.write()?;
+
+                    // Merge them
                     gtm.merge(&local_terr_map);
+
+                    // Save the updated global terrain map
+                    session::save_with_timestamp("global_terr_map/gtm.json", gtm.clone());
                 }
                 {
+                    // Move the cost map
+                    local_cost_map.move_map(&nav_pose);
+
+                    // Get the lock on the global
                     let mut gcm = shared.global_cost_map.write()?;
+
+                    // Merge them
                     gcm.merge(&local_cost_map);
+
+                    // Save the updated global cost map
+                    session::save_with_timestamp("global_cost_map/gcm.json", gcm.clone());
                 }
 
                 // Plan paths
@@ -150,24 +194,36 @@ pub(super) fn worker_thread(
                         (start_pose, 1)
                     };
 
+                    // Get the target, either the global GOTO or from the escape boundary for a
+                    // ground planned path
+                    let target = match esc_boundary {
+                        Some(ref eb) => eb.min_cost_target,
+                        None => match *shared.global_target.read()? {
+                            Some(ref t) => *t,
+                            None => {
+                                main_sender.send(WorkerSignal::Error(Box::new(
+                                    TravMgrError::NoValidTarget,
+                                )))?;
+                                continue;
+                            }
+                        },
+                    };
+
                     // Get the path planner and a read copy of the gcm
                     let path_planner = shared.path_planner.write()?;
                     let gcm = shared.global_cost_map.read()?;
 
                     // Plan the path(s)
-                    let mut paths = match path_planner.plan_direct(
-                        &gcm,
-                        &start_pose,
-                        &esc_boundary.min_cost_target,
-                        num_paths,
-                    ) {
-                        Ok(p) => p,
-                        Err(e) => {
-                            main_sender
-                                .send(WorkerSignal::Error(Box::new(TravMgrError::NavError(e))))?;
-                            continue;
-                        }
-                    };
+                    let mut paths =
+                        match path_planner.plan_direct(&gcm, &start_pose, &target, num_paths) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                main_sender.send(WorkerSignal::Error(Box::new(
+                                    TravMgrError::NavError(e),
+                                )))?;
+                                continue;
+                            }
+                        };
 
                     // Put the secondary path into the shared data. We do this before the primary
                     // potential secondary path since we can use pop to take the last element out.

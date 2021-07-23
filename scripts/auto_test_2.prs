@@ -1,0 +1,11 @@
+1.0: {
+    "Autonomy": {
+        "Check": {
+            "DirectTo": {
+                "separation_m": 0.1,
+                "x": 7.0,
+                "y": 7.0
+            }
+        }
+    }
+};

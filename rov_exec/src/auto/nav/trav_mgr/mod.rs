@@ -17,7 +17,10 @@ use std::{
 use cell_map::CellMapParams;
 use comms_if::eqpt::perloc::DepthImage;
 use log::{error, info, warn};
-use util::params::{load as load_params, LoadError};
+use util::{
+    params::{load as load_params, LoadError},
+    session,
+};
 
 use crate::auto::{
     auto_mgr::{
@@ -63,9 +66,6 @@ pub struct TravMgr {
     worker_task_started: bool,
 
     pub traj_ctrl: TrajCtrl,
-
-    /// The final target of the traverse
-    pub target: Option<NavPose>,
 }
 
 /// Output from the traverse manager
@@ -84,6 +84,8 @@ struct Shared {
     pub cost_map_params: CostMapParams,
 
     pub traverse_state: RwLock<TraverseState>,
+
+    pub global_target: RwLock<Option<NavPose>>,
 
     pub per_mgr: RwLock<PerMgr>,
     pub global_terr_map: RwLock<TerrainMap>,
@@ -154,6 +156,9 @@ pub enum TravMgrError {
 
     #[error("A point on the escape boundary was outside the local cost map")]
     EscapeBoundaryPointOutsideMap,
+
+    #[error("Couldn't get a valid target to plot path towards")]
+    NoValidTarget,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -193,6 +198,7 @@ impl TravMgr {
             cost_map_params,
             traverse_state: RwLock::new(TraverseState::Off),
             per_mgr: RwLock::new(per_mgr),
+            global_target: RwLock::new(None),
             global_terr_map: RwLock::new(global_terr_map),
             global_cost_map: RwLock::new(global_cost_map),
             path_planner: RwLock::new(path_planner),
@@ -221,25 +227,43 @@ impl TravMgr {
             traj_ctrl,
             depth_img_request_sent: false,
             worker_task_started: false,
-            target: None,
         })
     }
 
     /// Start a traverse towards the given final target
     ///
     /// Note the user must call step before any actions will be taken
-    pub fn start(
-        &mut self,
-        target: NavPose,
-        ground_path: Option<Path>,
-    ) -> Result<(), TravMgrError> {
+    pub fn start_goto(&mut self, target: NavPose) -> Result<(), TravMgrError> {
         // If we're not in OFF raise error
         if !matches!(*self.shared.traverse_state.read()?, TraverseState::Off) {
             Err(TravMgrError::AlreadyTraversing)
         } else {
-            self.target = Some(target);
             *self.shared.traverse_state.write()? = TraverseState::FirstStop;
-            *self.shared.ground_path.write()? = ground_path;
+            *self.shared.global_target.write()? = Some(target);
+
+            Ok(())
+        }
+    }
+
+    /// Start a traverse following the given ground path
+    ///
+    /// Note the user must call step before any actions will be taken
+    pub fn start_check(&mut self, ground_path: Path) -> Result<(), TravMgrError> {
+        // If we're not in OFF raise error
+        if !matches!(*self.shared.traverse_state.read()?, TraverseState::Off) {
+            Err(TravMgrError::AlreadyTraversing)
+        } else {
+            // TEMP: get the per_mgr's dummy terr map and calculate a global cost map from it
+            let mut cm = CostMap::calculate(
+                self.shared.cost_map_params.clone(),
+                self.shared.per_mgr.read()?.get_dummy_terr_map(),
+            )
+            .unwrap();
+            cm.apply_ground_planned_path(&ground_path).ok();
+            session::save("global_cost.json", cm);
+
+            *self.shared.traverse_state.write()? = TraverseState::FirstStop;
+            *self.shared.ground_path.write()? = Some(ground_path);
 
             Ok(())
         }
@@ -371,8 +395,10 @@ impl TravMgr {
                 // Once we have the image send it and the current pose to the worker
                 if !self.worker_task_started {
                     info!("Starting background processing of depth image");
-                    self.worker_sender
-                        .send(WorkerSignal::NewDepthImg(depth_img.unwrap().clone(), *pose))?;
+                    self.worker_sender.send(WorkerSignal::NewDepthImg(
+                        Box::new(depth_img.unwrap().clone()),
+                        *pose,
+                    ))?;
                     self.worker_task_started = true;
                 }
 

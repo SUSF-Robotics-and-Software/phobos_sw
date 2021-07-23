@@ -14,7 +14,6 @@ use crate::auto::{
     auto_mgr::{
         states::Pause, wait_new_pose::WaitNewPose, AutoMgrOutput, AutoMgrState, StackAction,
     },
-    nav::NavPose,
     path::Path,
 };
 
@@ -90,10 +89,9 @@ impl Check {
             );
 
             // Start the traverse manager
-            persistant.trav_mgr.start(
-                NavPose::from_path_last_point(self.ground_path.as_ref().unwrap()),
-                self.ground_path.clone(),
-            )?;
+            persistant
+                .trav_mgr
+                .start_check(self.ground_path.clone().unwrap())?;
 
             info!("Autonomous traverse started in Check mode");
         }

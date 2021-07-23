@@ -81,6 +81,8 @@ def plot_grid_map(map, paths, plan_report = None, show_leaves=False):
             plots[layer].set_visible(False)
 
     plt.title(selected_layer)
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('y [m]')
 
     if map['data_type'] == 'CostMap':
         color_bar = plt.colorbar(plots[selected_layer], extend='both')
@@ -163,10 +165,10 @@ def load_map(path):
         map['data_type'] = 'TerrainMap'
 
     # Calculate meshgrids for easy plotting
-    axis_length = map['cm'].num_cells * map['cm'].cell_size
+    axis_length = map['cm'].cell_bounds * map['cm'].cell_size
     print(axis_length)
-    map['x_coords'] = np.linspace(0, axis_length[0], map['cm'].num_cells[0])
-    map['y_coords'] = np.linspace(0, axis_length[1], map['cm'].num_cells[1])
+    map['x_coords'] = np.linspace(axis_length[0][0], axis_length[0][1], map['cm'].num_cells[1])
+    map['y_coords'] = np.linspace(axis_length[1][0], axis_length[1][1], map['cm'].num_cells[0])
     map['x_grid'], map['y_grid'] = np.meshgrid(map['x_coords'], map['y_coords'])
 
     print(f'Map of {map["cm"].num_cells} cells loaded')

@@ -19,7 +19,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use crate::auto::path::Path;
+use crate::auto::{nav::NavPose, path::Path};
 
 use super::{TerrainMap, TerrainMapLayer};
 use cell_map::{CellMap, CellMapParams, Error as CellMapError, Layer};
@@ -121,8 +121,49 @@ impl CostMap {
         }
     }
 
+    /// Move the map to the new nav pose
+    pub fn move_map(&mut self, new_pose: &NavPose) {
+        self.map
+            .move_map(new_pose.position_m.coords, new_pose.heading_rad);
+    }
+
     /// Merge `other` into `self`, modifying `self`.
-    pub fn merge(&mut self, other: &Self) {}
+    ///
+    /// This will average the cost of any overlapping cells between self and other
+    pub fn merge(&mut self, other: &Self) {
+        self.map.merge(&other.map, |my_cell, other_cells| {
+            // Approach here is to average the costs, ignoring any Unknowns, and propagating any
+            // Unsafes.
+            let mut num_costs = 0;
+            let mut acc = match my_cell {
+                CostMapData::None => None,
+                CostMapData::Unsafe => return CostMapData::Unsafe,
+                CostMapData::Cost(ref c) => {
+                    num_costs = 1;
+                    Some(*c)
+                }
+            };
+
+            for cell in other_cells {
+                match cell {
+                    CostMapData::None => (),
+                    CostMapData::Unsafe => return CostMapData::Unsafe,
+                    CostMapData::Cost(ref c) => {
+                        num_costs += 1;
+                        match acc {
+                            Some(ref mut acc) => *acc += *c,
+                            None => acc = Some(*c),
+                        }
+                    }
+                }
+            }
+
+            match acc {
+                Some(c) => CostMapData::Cost(c / num_costs as f64),
+                None => CostMapData::None,
+            }
+        });
+    }
 
     /// Calculate the cost map from the given terrain map
     pub fn calculate(
@@ -305,7 +346,7 @@ impl CostMap {
             unsafe {
                 let map = &*map_ptr;
                 cost.add(&map.get(CostMapLayer::Gradient, idx).unwrap());
-                cost.add(&map.get(CostMapLayer::GroundPlannedPath, idx).unwrap());
+                cost.add_ignore_other_none(&map.get(CostMapLayer::GroundPlannedPath, idx).unwrap());
             }
         }
 
@@ -398,6 +439,33 @@ impl CostMapData {
         *self = match (*self, other) {
             (None, _) => None,
             (_, None) => None,
+            (Unsafe, _) => Unsafe,
+            (_, Unsafe) => Unsafe,
+            (Cost(s), Cost(o)) => {
+                let sum = s + o;
+                if sum >= 1.0 {
+                    Unsafe
+                } else {
+                    Cost(sum)
+                }
+            }
+        }
+    }
+
+    /// Adds other to self, mutating self, but ignoring any other cell which is `None`.
+    ///
+    /// Follows these rules:
+    ///  - If other is `None`, self is unchanged,
+    ///  - If self is `None`, it is unchanged
+    ///  - If either self or other is `Unsafe`, self becomes `Unsafe`.
+    ///  - If both self and other have a `Cost`, add the costs together. If the cost is greater
+    ///    than 1, self beocmes `Unsafe`.
+    pub fn add_ignore_other_none(&mut self, other: &CostMapData) {
+        use CostMapData::*;
+
+        *self = match (*self, other) {
+            (_, None) => *self,
+            (None, _) => None,
             (Unsafe, _) => Unsafe,
             (_, Unsafe) => Unsafe,
             (Cost(s), Cost(o)) => {

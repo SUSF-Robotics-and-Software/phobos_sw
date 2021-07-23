@@ -51,7 +51,7 @@ fn main() -> Result<()> {
     // Starting pose
     let start_pose = &Pose::default();
 
-    terrain_map.clip_to_rov_view(Point2::origin(), 0.0, 0.3..2.0, 1.2);
+    terrain_map.clip_to_rov_view(start_pose, 0.3..2.0, 1.2);
 
     // Ground planned path to test
     let ground_planned_path = Path::from_path_spec(
