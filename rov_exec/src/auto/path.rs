@@ -42,12 +42,6 @@ pub struct PathSegment {
     /// The length of the segment
     pub length_m: f64,
 
-    /// The slope (dy/dx) of the segment
-    pub slope_m: f64,
-
-    /// The intercept (the c in y = mx + c) of the segment
-    pub intercept_m: f64,
-
     /// The heading (angle to the +ve x axis) of the segment
     pub heading_rad: f64,
 
@@ -176,17 +170,12 @@ impl Path {
 
         let dx = seg.target_m[0] - seg.start_m[0];
         let dy = seg.target_m[1] - seg.start_m[1];
-        // Slope is the change in y over the change in x
-        seg.slope_m = dy / dx;
 
         // The heading is then the arctan of the slope
         seg.heading_rad = dy.atan2(dx);
 
-        // The intercept is then targ_y - slope * targ_x
-        seg.intercept_m = seg.target_m[1] - seg.slope_m * seg.target_m[0];
-
         // Direction vector is [dx, dy] normalized by the length
-        seg.direction = Vector2::new(dx / seg.length_m, dy / seg.length_m);
+        seg.direction = (seg.target_m - seg.start_m) / seg.length_m;
 
         // Return the segment
         Some(seg)

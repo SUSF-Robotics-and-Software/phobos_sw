@@ -21,6 +21,7 @@ mod auto_mnvr;
 mod check;
 mod follow;
 mod img_stop;
+mod kickstart;
 mod params;
 mod pause;
 mod stop;
@@ -53,6 +54,7 @@ pub mod states {
     pub use super::check::Check;
     pub use super::follow::Follow;
     pub use super::img_stop::ImgStop;
+    pub use super::kickstart::KickStart;
     pub use super::pause::Pause;
     pub use super::stop::Stop;
     pub use super::wait_new_pose::WaitNewPose;
@@ -62,7 +64,7 @@ use comms_if::{
     eqpt::perloc::{DepthImage, PerlocCmd},
     tc::{auto::AutoCmd, loco_ctrl::MnvrCmd},
 };
-use log::{error, info, warn};
+use log::{error, info, trace, warn};
 use states::*;
 use util::session::Session;
 
@@ -181,8 +183,9 @@ pub enum AutoMgrState {
     Pause(Pause),
     WaitNewPose(WaitNewPose),
     ImgStop(ImgStop),
-    AutoMnvr(AutoMnvr),
+    KickStart(KickStart),
     // In a box to reduce the size of the state enum
+    AutoMnvr(Box<AutoMnvr>),
     Follow(Box<Follow>),
     Check(Box<Check>),
     Goto,
@@ -247,7 +250,7 @@ impl AutoMgr {
                 match cmd {
                     Some(AutoCmd::Manouvre(m)) => {
                         self.stack
-                            .push_above(AutoMgrState::AutoMnvr(AutoMnvr::new(m)));
+                            .push_above(AutoMgrState::AutoMnvr(Box::new(AutoMnvr::new(m))));
                         StepOutput::none()
                     }
                     Some(AutoCmd::Follow(p)) => {
@@ -262,6 +265,11 @@ impl AutoMgr {
                     }
                     Some(AutoCmd::ImgStop) => {
                         self.stack.push_above(AutoMgrState::ImgStop(ImgStop::new()));
+                        StepOutput::none()
+                    }
+                    Some(AutoCmd::KickStart) => {
+                        self.stack
+                            .push_above(AutoMgrState::KickStart(KickStart::new()));
                         StepOutput::none()
                     }
                     Some(_) => {
@@ -294,8 +302,12 @@ impl AutoMgr {
             }
         }
 
-        if self.stack.top().is_some() && is_action {
-            info!("AutoMgr state change to: {}", self.stack.top().unwrap());
+        if is_action {
+            if let Some(top) = self.stack.top() {
+                info!("AutoMgr state change to: {}", top);
+            } else {
+                info!("AutoMgr state changed to Off");
+            }
         }
 
         // Output data to loco_ctrl
@@ -368,6 +380,7 @@ impl Display for AutoMgrState {
             AutoMgrState::Pause(_) => write!(f, "AutoMgrState::Pause"),
             AutoMgrState::WaitNewPose(_) => write!(f, "AutoMgrState::WaitNewPose"),
             AutoMgrState::ImgStop(_) => write!(f, "AutoMgrState::ImgStop"),
+            &AutoMgrState::KickStart(_) => write!(f, "AutoMgrState::KickStart"),
             AutoMgrState::AutoMnvr(_) => write!(f, "AutoMgrState::AutoMnvr"),
             AutoMgrState::Follow(_) => write!(f, "AutoMgrState::Follow"),
             AutoMgrState::Check(_) => write!(f, "AutoMgrState::Check"),
@@ -391,6 +404,7 @@ impl AutoMgrState {
             AutoMgrState::Follow(follow) => follow.step(params, persistant, cmd),
             AutoMgrState::Check(check) => check.step(params, persistant, cmd),
             AutoMgrState::ImgStop(img_stop) => img_stop.step(params, persistant, cmd),
+            AutoMgrState::KickStart(kick_start) => kick_start.step(params, persistant, cmd),
             _ => unimplemented!(),
         };
 

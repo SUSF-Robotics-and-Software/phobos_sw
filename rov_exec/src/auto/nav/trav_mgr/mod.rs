@@ -62,8 +62,9 @@ pub struct TravMgr {
     worker_sender: Sender<WorkerSignal>,
     worker_reciever: Receiver<WorkerSignal>,
 
+    recalc_running: bool,
     depth_img_request_sent: bool,
-    worker_task_started: bool,
+    img_proc_task_started: bool,
 
     pub traj_ctrl: TrajCtrl,
 }
@@ -76,6 +77,18 @@ pub struct TravMgrOutput {
 
     /// Status report from traj ctrl
     pub traj_ctrl_status: Option<StatusReport>,
+
+    /// Optionally a new global terrain map
+    pub new_global_terr_map: Option<TerrainMap>,
+
+    /// Optionally a new global cost map
+    pub new_global_cost_map: Option<CostMap>,
+
+    /// The primary path to be driven by traj_ctrl
+    pub primary_path: Option<Path>,
+
+    /// The secondary path to be driven once primary_path is complete
+    pub secondary_path: Option<Path>,
 }
 
 #[derive(Debug)]
@@ -105,6 +118,8 @@ struct Shared {
 pub enum TraverseState {
     /// Manager is off
     Off,
+    /// Perform a kickstart to get terrain and cost data but don't plan a path
+    KickStart,
     /// First stop, plan both primary and secondary path at the same time before traversing
     FirstStop,
     /// Traversing the primary path and planning the secondary path
@@ -225,9 +240,24 @@ impl TravMgr {
             worker_sender,
             worker_reciever,
             traj_ctrl,
+            recalc_running: false,
             depth_img_request_sent: false,
-            worker_task_started: false,
+            img_proc_task_started: false,
         })
+    }
+
+    /// Perform a kickstart to populate the global terrain and cost maps
+    ///
+    /// Note the user must call step before any actions will be taken
+    pub fn kickstart(&mut self) -> Result<(), TravMgrError> {
+        // If we're not in OFF raise error
+        if !matches!(*self.shared.traverse_state.read()?, TraverseState::Off) {
+            Err(TravMgrError::AlreadyTraversing)
+        } else {
+            *self.shared.traverse_state.write()? = TraverseState::KickStart;
+
+            Ok(())
+        }
     }
 
     /// Start a traverse towards the given final target
@@ -240,6 +270,11 @@ impl TravMgr {
         } else {
             *self.shared.traverse_state.write()? = TraverseState::FirstStop;
             *self.shared.global_target.write()? = Some(target);
+
+            // Recompute the global cost map with no gpp
+            self.worker_sender
+                .send(WorkerSignal::RecalcGlobalCost(None))?;
+            self.recalc_running = true;
 
             Ok(())
         }
@@ -263,7 +298,12 @@ impl TravMgr {
             session::save("global_cost.json", cm);
 
             *self.shared.traverse_state.write()? = TraverseState::FirstStop;
-            *self.shared.ground_path.write()? = Some(ground_path);
+            *self.shared.ground_path.write()? = Some(ground_path.clone());
+
+            // Recompute the global cost map with a gpp
+            self.worker_sender
+                .send(WorkerSignal::RecalcGlobalCost(Some(ground_path)))?;
+            self.recalc_running = true;
 
             Ok(())
         }
@@ -286,30 +326,50 @@ impl TravMgr {
         // Get a read only copy of the traverse state so we can modify it during the state machine
         let trav_state = { *self.shared.traverse_state.read()? };
 
+        // Check for signal from the worker
+        let mut signal = match self.worker_reciever.try_recv() {
+            Ok(s) => Some(s),
+            Err(e) => match e {
+                std::sync::mpsc::TryRecvError::Empty => None,
+                std::sync::mpsc::TryRecvError::Disconnected => {
+                    error!("Worker has stopped, aborting");
+                    return Ok(TravMgrOutput {
+                        step_output: StepOutput {
+                            action: StackAction::Abort,
+                            data: AutoMgrOutput::None,
+                        },
+                        ..Default::default()
+                    });
+                }
+            },
+        };
+
+        // Get a copy of the new maps if they've been computed
+        let (new_global_terr_map, new_global_cost_map) = if let Some(ref sig) = signal {
+            match sig {
+                WorkerSignal::GlobalMapsUpdated => {
+                    // Mark the signal as None so the state machine won't process this one
+                    signal = None;
+                    (
+                        Some(self.shared.global_terr_map.read()?.clone()),
+                        Some(self.shared.global_cost_map.read()?.clone()),
+                    )
+                }
+                _ => (None, None),
+            }
+        } else {
+            (None, None)
+        };
+
         // Main state machine
         match trav_state {
             TraverseState::Off => Ok(TravMgrOutput {
                 step_output: StepOutput::none(),
-                traj_ctrl_status: None,
+                ..Default::default()
             }),
             TraverseState::Traverse => {
-                // Check for signal from the worker
-                if let Some(signal) = match self.worker_reciever.try_recv() {
-                    Ok(s) => Some(s),
-                    Err(e) => match e {
-                        std::sync::mpsc::TryRecvError::Empty => None,
-                        std::sync::mpsc::TryRecvError::Disconnected => {
-                            error!("Worker has stopped, aborting");
-                            return Ok(TravMgrOutput {
-                                step_output: StepOutput {
-                                    action: StackAction::Abort,
-                                    data: AutoMgrOutput::None,
-                                },
-                                traj_ctrl_status: None,
-                            });
-                        }
-                    },
-                } {
+                // Check for worker completion
+                if let Some(ref signal) = signal {
                     match signal {
                         WorkerSignal::Complete => info!("Secondary path calculated"),
                         WorkerSignal::Error(e) => {
@@ -321,7 +381,11 @@ impl TravMgr {
                                     action: StackAction::Abort,
                                     data: AutoMgrOutput::None,
                                 },
-                                traj_ctrl_status: None,
+                                new_global_terr_map,
+                                new_global_cost_map,
+                                primary_path: self.shared.primary_path.read()?.clone(),
+                                secondary_path: self.shared.secondary_path.read()?.clone(),
+                                ..Default::default()
                             });
                         }
                         s => warn!("Unexpected signal from worker: {:?}", s),
@@ -334,7 +398,14 @@ impl TravMgr {
                 // Check for TrajCtrl finishing
                 if traj_ctrl_status.sequence_finished {
                     if traj_ctrl_status.sequence_aborted {
-                        error!("TrajCtrl aborted the path sequence");
+                        error!("TrajCtrl aborted the path, aborting traverse");
+                        return Ok(TravMgrOutput {
+                            step_output: StepOutput {
+                                action: StackAction::Abort,
+                                data: AutoMgrOutput::None,
+                            },
+                            ..Default::default()
+                        });
                     }
                     info!("TrajCtrl reached end of path");
 
@@ -353,10 +424,14 @@ impl TravMgr {
                         },
                         None => StepOutput::none(),
                     },
-                    traj_ctrl_status: Some(traj_ctrl_status),
+                    new_global_terr_map,
+                    new_global_cost_map,
+                    primary_path: self.shared.primary_path.read()?.clone(),
+                    secondary_path: self.shared.secondary_path.read()?.clone(),
+                    ..Default::default()
                 })
             }
-            TraverseState::Stop | TraverseState::FirstStop => {
+            TraverseState::Stop | TraverseState::FirstStop | TraverseState::KickStart => {
                 let mut end_of_stop = false;
 
                 // If this is a normal stop and we have a secondary path plotted promote it to the
@@ -370,6 +445,44 @@ impl TravMgr {
                     }
                 }
 
+                // Check for optional recalc complete
+                if self.recalc_running {
+                    if let Some(ref signal) = signal {
+                        match signal {
+                            WorkerSignal::Complete => {
+                                info!("Global cost map recalculated");
+                                self.recalc_running = false;
+                            }
+                            WorkerSignal::Error(e) => {
+                                error!("Failed to recalculate global cost map: {}", e);
+
+                                // TODO: more graceful recovery such as trying the image again?
+                                return Ok(TravMgrOutput {
+                                    step_output: StepOutput {
+                                        action: StackAction::Abort,
+                                        data: AutoMgrOutput::None,
+                                    },
+                                    new_global_terr_map,
+                                    new_global_cost_map,
+                                    primary_path: self.shared.primary_path.read()?.clone(),
+                                    secondary_path: self.shared.secondary_path.read()?.clone(),
+                                    ..Default::default()
+                                });
+                            }
+                            s => warn!("Unexpected signal from worker: {:?}", s),
+                        }
+                    } else {
+                        return Ok(TravMgrOutput {
+                            step_output: StepOutput::none(),
+                            new_global_terr_map,
+                            new_global_cost_map,
+                            primary_path: self.shared.primary_path.read()?.clone(),
+                            secondary_path: self.shared.secondary_path.read()?.clone(),
+                            ..Default::default()
+                        });
+                    }
+                }
+
                 // Push an image stop onto the stack
                 if !self.depth_img_request_sent {
                     self.depth_img_request_sent = true;
@@ -380,7 +493,11 @@ impl TravMgr {
                             )),
                             data: AutoMgrOutput::None,
                         },
-                        traj_ctrl_status: None,
+                        new_global_terr_map,
+                        new_global_cost_map,
+                        primary_path: self.shared.primary_path.read()?.clone(),
+                        secondary_path: self.shared.secondary_path.read()?.clone(),
+                        ..Default::default()
                     });
                 }
 
@@ -388,53 +505,58 @@ impl TravMgr {
                 if depth_img.is_none() {
                     return Ok(TravMgrOutput {
                         step_output: StepOutput::none(),
-                        traj_ctrl_status: None,
+                        new_global_terr_map,
+                        new_global_cost_map,
+                        primary_path: self.shared.primary_path.read()?.clone(),
+                        secondary_path: self.shared.secondary_path.read()?.clone(),
+                        ..Default::default()
                     });
                 }
 
-                // Once we have the image send it and the current pose to the worker
-                if !self.worker_task_started {
+                // Once we have the image send it and the current pose to the worker, with a flag
+                // if it's for a kickstart or not
+                if !self.img_proc_task_started {
                     info!("Starting background processing of depth image");
                     self.worker_sender.send(WorkerSignal::NewDepthImg(
                         Box::new(depth_img.unwrap().clone()),
                         *pose,
+                        matches!(trav_state, TraverseState::KickStart),
                     ))?;
-                    self.worker_task_started = true;
+                    self.img_proc_task_started = true;
                 }
 
                 // If we're in stop mode once the image is sent on we can return to traverse,
-                // otherwise we have to wait for the worker to send the "complet" signal
-                let mut output = Ok(StepOutput::none());
+                // otherwise we have to wait for the worker to send the "complete" signal
+                let mut step_output = StepOutput::none();
                 match trav_state {
                     TraverseState::Stop => {
                         *self.shared.traverse_state.write()? = TraverseState::Traverse;
                         end_of_stop = true;
                     }
-                    TraverseState::FirstStop => {
-                        let signal = match self.worker_reciever.try_recv() {
-                            Ok(s) => Some(s),
-                            Err(e) => {
-                                if matches!(e, std::sync::mpsc::TryRecvError::Disconnected) {
-                                    output = Err(TravMgrError::RecvError);
-                                }
-                                None
-                            }
-                        };
-
-                        if let Some(signal) = signal {
+                    TraverseState::FirstStop | TraverseState::KickStart => {
+                        if let Some(ref signal) = signal {
                             match signal {
                                 WorkerSignal::Complete => {
-                                    *self.shared.traverse_state.write()? = TraverseState::Traverse;
+                                    // Switch into Traverse if in the FirstStop, but if it's a
+                                    // KickStart switch to Off
+                                    *self.shared.traverse_state.write()? = match trav_state {
+                                        TraverseState::FirstStop => {
+                                            info!("Primary and secondary paths calculated");
+                                            TraverseState::Traverse
+                                        }
+                                        TraverseState::KickStart => TraverseState::Off,
+                                        _ => unreachable!("Unexpected traverse state"),
+                                    };
                                     end_of_stop = true;
                                 }
                                 WorkerSignal::Error(e) => {
                                     error!("Error processing last depth image: {:?}", e);
 
                                     // TODO: more graceful recovery such as trying the image again?
-                                    output = Ok(StepOutput {
+                                    step_output = StepOutput {
                                         action: StackAction::Abort,
                                         data: AutoMgrOutput::None,
-                                    });
+                                    };
                                 }
                                 s => {
                                     warn!("Unexpected signal from worker: {:?}", s);
@@ -448,12 +570,25 @@ impl TravMgr {
                 // Reset internal flags if the stop is over
                 if end_of_stop {
                     self.depth_img_request_sent = false;
-                    self.worker_task_started = false;
+                    self.img_proc_task_started = false;
+                }
+
+                // If we have switched into traverse during the state machine start traj_ctrl on
+                // the primary path
+                if matches!(*self.shared.traverse_state.read()?, TraverseState::Traverse) {
+                    if let Some(ref primary) = *self.shared.primary_path.read()? {
+                        info!("Traversing primary path");
+                        self.traj_ctrl.begin_path_sequence(vec![primary.clone()])?;
+                    }
                 }
 
                 Ok(TravMgrOutput {
-                    step_output: output?,
-                    traj_ctrl_status: None,
+                    step_output,
+                    new_global_terr_map,
+                    new_global_cost_map,
+                    primary_path: self.shared.primary_path.read()?.clone(),
+                    secondary_path: self.shared.secondary_path.read()?.clone(),
+                    ..Default::default()
                 })
             }
         }
@@ -496,5 +631,18 @@ impl From<SendError<WorkerSignal>> for TravMgrError {
 impl From<RecvError> for TravMgrError {
     fn from(_: RecvError) -> Self {
         Self::RecvError
+    }
+}
+
+impl Default for TravMgrOutput {
+    fn default() -> Self {
+        Self {
+            step_output: StepOutput::none(),
+            traj_ctrl_status: None,
+            new_global_terr_map: None,
+            new_global_cost_map: None,
+            primary_path: None,
+            secondary_path: None,
+        }
     }
 }

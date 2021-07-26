@@ -108,8 +108,8 @@ class CellMap:
 
         # Setup the axis grid
         if parent_relative:
-            # Get the grid
-            grid = ax.add_artist(self._get_parent_rel_grid(show_grid=show_grid, cmap=cmap, vmin=vmin, vmax=vmax))
+            # Get the grid            
+            grid = self._get_parent_rel_grid(ax, show_grid=show_grid, cmap=cmap, vmin=vmin, vmax=vmax)
 
             # Update self origin
             origin = self.transform_to_parent(origin.reshape((1, 2))).reshape((2,))
@@ -152,7 +152,7 @@ class CellMap:
 
         return grid
 
-    def _get_parent_rel_grid(self, show_grid=False, cmap='viridis', vmin=None, vmax=None):
+    def _get_parent_rel_grid(self, ax, show_grid=False, cmap='viridis', vmin=None, vmax=None):
         '''
         Gets the parent-relative grid as a matplotlib.collections.LineCollection
         '''
@@ -168,7 +168,7 @@ class CellMap:
         mesh_points = self.transform_to_parent(mesh_points)
         mesh_x, mesh_y = [mesh_points[:,0].reshape(mesh_shape), mesh_points[:,1].reshape(mesh_shape)]
         
-        mesh = plt.pcolormesh(
+        return ax.pcolormesh(
             mesh_x, mesh_y, self.data[self.layers[0]], 
             shading='flat', 
             edgecolors='grey' if show_grid else None, 
@@ -178,5 +178,3 @@ class CellMap:
             vmin=vmin,
             vmax=vmax,
         )
-
-        return mesh

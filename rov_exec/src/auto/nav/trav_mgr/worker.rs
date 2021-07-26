@@ -10,7 +10,7 @@ use std::sync::{
 };
 
 use comms_if::eqpt::perloc::DepthImage;
-use log::warn;
+use log::{debug, warn};
 use util::session;
 
 use crate::auto::{
@@ -20,6 +20,7 @@ use crate::auto::{
         trav_mgr::{escape_boundary::EscapeBoundary, TraverseState},
         NavPose,
     },
+    path::Path,
 };
 
 use super::{Shared, TravMgrError};
@@ -33,10 +34,18 @@ pub enum WorkerSignal {
     /// The worker should stop it's operations
     Stop,
 
-    /// A new depth image was acquired, plus the pose when the image was taken
-    NewDepthImg(Box<DepthImage>, Pose),
+    /// A new depth image was acquired, plus the pose when the image was taken, and if this image
+    /// is associated with a kickstart or not.
+    NewDepthImg(Box<DepthImage>, Pose, bool),
 
-    /// The previous depth image processing request has been completed
+    /// Recompute the global cost map from the global terrain map, optionally applying the wrapped
+    /// ground planned path
+    RecalcGlobalCost(Option<Path>),
+
+    /// The global cost and terrain maps have been updated
+    GlobalMapsUpdated,
+
+    /// The requested work has been completed
     Complete,
 
     /// Unhandlable error
@@ -57,7 +66,36 @@ pub(super) fn worker_thread(
         // Process the signal
         match signal {
             WorkerSignal::Stop => break,
-            WorkerSignal::NewDepthImg(img, pose) => {
+            WorkerSignal::RecalcGlobalCost(ground_path) => {
+                let gtm = shared.global_terr_map.read()?;
+                let mut gcm = shared.global_cost_map.write()?;
+
+                let mut map = match CostMap::calculate(shared.cost_map_params.clone(), &gtm) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        main_sender
+                            .send(WorkerSignal::Error(Box::new(TravMgrError::CostMapError(e))))?;
+                        continue;
+                    }
+                };
+
+                if let Some(gpp) = ground_path {
+                    match map.apply_ground_planned_path(&gpp) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            main_sender.send(WorkerSignal::Error(Box::new(
+                                TravMgrError::CostMapError(e),
+                            )))?;
+                            continue;
+                        }
+                    }
+                }
+
+                *gcm = map;
+
+                main_sender.send(WorkerSignal::Complete)?;
+            }
+            WorkerSignal::NewDepthImg(img, pose, is_kickstart) => {
                 let nav_pose = NavPose::from_parent_pose(&pose);
 
                 // Calculate the local terrain map from the depth image, we do this in a scope so
@@ -165,6 +203,15 @@ pub(super) fn worker_thread(
 
                     // Save the updated global cost map
                     session::save_with_timestamp("global_cost_map/gcm.json", gcm.clone());
+                }
+
+                // Send signal that the maps have been updated
+                main_sender.send(WorkerSignal::GlobalMapsUpdated)?;
+
+                // If this is a kickstart we end here
+                if is_kickstart {
+                    main_sender.send(WorkerSignal::Complete)?;
+                    continue;
                 }
 
                 // Plan paths

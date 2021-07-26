@@ -91,7 +91,7 @@ impl Tc {
         };
 
         // Print the value
-        info!("{:#?}", json_value);
+        // info!("{:#?}", json_value);
 
         // If the value is an object whos' only key is "raw_tc", the TC needs
         // processing

@@ -104,7 +104,24 @@ impl Check {
         // If there's traj ctrl status set it in the tm
         persistant.auto_tm.traj_ctrl_status = trav_mgr_output.traj_ctrl_status.take();
 
-        // Output the step data
-        Ok(trav_mgr_output.step_output)
+        // If there's a new global cost map set it in the tm
+        persistant.auto_tm.global_cost_map = trav_mgr_output.new_global_cost_map.take();
+
+        // Take paths into the TM
+        persistant.auto_tm.path = trav_mgr_output.primary_path.take();
+        persistant.auto_tm.secondary_path = trav_mgr_output.secondary_path.take();
+
+        // If travmgr has switched off we should pop ourself off the stack
+        if persistant.trav_mgr.is_off() {
+            info!("Check traverse complete");
+            Ok(StepOutput {
+                action: StackAction::Pop,
+                data: AutoMgrOutput::None,
+            })
+        }
+        // Otherwise output the step data
+        else {
+            Ok(trav_mgr_output.step_output)
+        }
     }
 }

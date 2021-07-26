@@ -8,7 +8,7 @@
 use super::*;
 use crate::auto::{loc::Pose, path::*};
 use comms_if::tc::loco_ctrl::MnvrCmd;
-use log::{info, warn};
+use log::{error, info, trace, warn};
 use nalgebra::{Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use util::{params, session};
@@ -338,9 +338,9 @@ impl TrajCtrl {
 
         // Check for error exceedance
         if self.report.lat_error_limit_exceeded || self.report.head_error_limit_exceeded {
-            warn!("Limits exceeded:");
-            info!("Lateral error = {} m", self.report.lat_error_m);
-            info!("Heading error = {} rad", self.report.head_error_rad);
+            error!("Limits exceeded:");
+            warn!("Lateral error = {} m", self.report.lat_error_m);
+            warn!("Heading error = {} rad", self.report.head_error_rad);
 
             self.report.sequence_aborted = true;
 
@@ -472,29 +472,13 @@ impl TrajCtrl {
             .get_segment_to_target(self.target_point_index)
             .unwrap();
 
-        // Get the slope and intercept of the line that passes through the
-        // rover's position and is perpendicular to the segment.
-        let lat_slope_m = -1f64 / segment.slope_m;
-        let lat_intercept_m = pose.position_m[1] - lat_slope_m * pose.position_m[0];
-
-        // Find the point of intersection by equating the lines for the segment
-        // and the lateral.
-        let mut isect_m_lm = [0f64; 2];
-        isect_m_lm[0] = (lat_intercept_m - segment.intercept_m) / (segment.slope_m - lat_slope_m);
-        isect_m_lm[1] = segment.slope_m * isect_m_lm[0] + segment.intercept_m;
-
-        // Get the vector from the intersection to the target
-        let isect_vec = segment.target_m - Vector2::from(isect_m_lm);
-
-        // Get the vector from the start to the target
-        let seg_vec = segment.target_m - segment.start_m;
-
-        // The sign of the error is the sign of the dot of these vectors
-        let dot = isect_vec.dot(&seg_vec);
+        // Get the component of (pose -> target) along segment, the raw error
+        let err = (segment.target_m - pose.position2()).dot(&(segment.target_m - segment.start_m))
+            / segment.length_m;
 
         // The error is then the length of the intersection vector, multiplied by the sign of the
         // dot product
-        self.report.long_error_m = isect_vec.norm() * dot.signum();
+        self.report.long_error_m = err;
 
         Ok(self.report.long_error_m)
     }

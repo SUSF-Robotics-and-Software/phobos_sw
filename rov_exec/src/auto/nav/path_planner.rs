@@ -336,18 +336,20 @@ impl PathPlanner {
         }
 
         // Remove all paths before the lowest cost index, since the planner may actually
-        // overestimate some times.
-        paths = paths
-            .iter()
-            .enumerate()
-            .filter_map(|(i, p)| {
-                if i < lowest_cost_idx - 1 {
-                    None
-                } else {
-                    Some(p.clone())
-                }
-            })
-            .collect();
+        // overestimate some times, don't do this if the lowest cost index is 0
+        if lowest_cost_idx != 0 {
+            paths = paths
+                .iter()
+                .enumerate()
+                .filter_map(|(i, p)| {
+                    if i < lowest_cost_idx - 1 {
+                        None
+                    } else {
+                        Some(p.clone())
+                    }
+                })
+                .collect();
+        }
 
         // Reverse the path list to get one that goes from the start to the target.
         paths.reverse();

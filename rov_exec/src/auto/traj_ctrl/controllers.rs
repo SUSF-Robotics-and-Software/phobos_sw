@@ -7,6 +7,7 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+use log::trace;
 // External
 use nalgebra::{Vector2, Vector3};
 use serde::Serialize;
@@ -194,25 +195,20 @@ impl TrajControllers {
     /// Lateral error will be positive if the rover is to the "left" of the segment, and negative
     /// if it's to the right (following right hand rule).
     fn calc_lat_error(&self, segment: &PathSegment, pose: &Pose) -> f64 {
-        // Get the slope and intercept of the line that passes through the
-        // rover's position and is perpendicular to the segment.
-        let lat_slope_m = -1f64 / segment.slope_m;
-        let lat_intercept_m = pose.position_m[1] - lat_slope_m * pose.position_m[0];
-
-        // Find the point of intersection by equating the lines for the segment
-        // and the lateral.
-        let isect_x = (lat_intercept_m - segment.intercept_m) / (segment.slope_m - lat_slope_m);
-        let isect_m_lm = Vector2::new(isect_x, segment.slope_m * isect_x + segment.intercept_m);
-
-        // Get 2D position vector of the rover
-        let pos_m_lm = Vector2::new(pose.position_m[0], pose.position_m[1]);
+        // Use the triangular formula from
+        // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+        let err = (((segment.target_m.x - segment.start_m.x)
+            * (segment.start_m.y - pose.position_m.y))
+            - ((segment.start_m.x - pose.position_m.x) * (segment.target_m.y - segment.start_m.y)))
+            .abs()
+            / segment.length_m;
 
         // We can get which side of the segment the rover is on by using the cross product of the
         // start->end and rov->end vectors. +ve cross is left, -ve is right
         let cross =
-            Vector3::new(segment.direction[0], segment.direction[1], 0.0).cross(&Vector3::new(
-                pos_m_lm[0] - segment.start_m[0],
-                pos_m_lm[1] - segment.start_m[1],
+            Vector3::new(segment.direction.x, segment.direction.y, 0.0).cross(&Vector3::new(
+                pose.position_m.x - segment.start_m.x,
+                pose.position_m.y - segment.start_m.y,
                 0.0,
             ));
 
@@ -220,7 +216,7 @@ impl TrajControllers {
         // right, so multiplying by both signnums of signs will do this.
         //
         // Get the distance between them
-        (isect_m_lm - pos_m_lm).norm() * cross[2].signum()
+        -err * cross[2].signum()
     }
 
     /// Calculate the heading error to the segment

@@ -31,6 +31,11 @@ pub enum AutoCmd {
     #[structopt(name = "imgstop")]
     ImgStop,
 
+    /// Populate the global terrain and cost maps at the rover's current position, but do not plan
+    /// a path
+    #[structopt(name = "kickstart")]
+    KickStart,
+
     /// Follow a LocoCtrl style manouvre for a given distance.
     #[structopt(name = "mnvr")]
     Manouvre(AutoMnvrCmd),

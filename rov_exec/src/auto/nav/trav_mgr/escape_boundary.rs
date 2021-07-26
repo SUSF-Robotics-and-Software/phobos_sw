@@ -4,10 +4,9 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use log::error;
+use log::{debug, error};
 use nalgebra::{Isometry2, Point2, Translation2, Unit, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
-use util::session;
 
 use crate::auto::{
     loc::Pose,
@@ -124,7 +123,7 @@ impl EscapeBoundary {
 
         // Initialise the radius for the search to max_radius
         let mut radius_m = params.max_radius_m;
-        let mut last_valid_radius_m = None;
+        let mut max_valid_radius_m = None;
 
         // start radius binary search
         let mut loops = 1;
@@ -144,8 +143,14 @@ impl EscapeBoundary {
             }
             // Or if not valid and at end (but not on first loop)
             else if !valid && at_end && loops != 1 {
-                // Start radius not found, error
-                return Err(TravMgrError::EscBoundaryInvalidCentreline);
+                // Check for a last valid centreline radius
+                if let Some(r) = max_valid_radius_m {
+                    radius_m = r;
+                    break;
+                } else {
+                    // Start radius not found, error
+                    return Err(TravMgrError::EscBoundaryInvalidCentreline);
+                }
             }
             // If still searching
             else {
@@ -156,7 +161,14 @@ impl EscapeBoundary {
 
                 // If the point is valid and we should move, move radius out
                 if valid && keep_moving {
-                    last_valid_radius_m = Some(radius_m);
+                    // If this radius is larger than the previous max valid radius update it
+                    if let Some(ref mut r) = max_valid_radius_m {
+                        if radius_m > *r {
+                            *r = radius_m;
+                        }
+                    } else {
+                        max_valid_radius_m = Some(radius_m);
+                    }
                     radius_m += dist_to_move;
                 }
                 // If it wasn't valid and we should keep moving, move radius in
@@ -169,7 +181,7 @@ impl EscapeBoundary {
                     break;
                 }
                 // If we previously found a valid radius return that
-                else if let Some(r) = last_valid_radius_m {
+                else if let Some(r) = max_valid_radius_m {
                     radius_m = r;
                     break;
                 // Otherwise the centreline wasn't valid

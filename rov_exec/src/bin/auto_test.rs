@@ -17,15 +17,16 @@ use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use comms_if::eqpt::perloc::DepthImage;
+use comms_if::{eqpt::perloc::DepthImage, net::NetParams, tc::loco_ctrl::MnvrCmd};
 use image::ImageBuffer;
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 
-use nalgebra::{UnitQuaternion, UnitVector3, Vector3};
+use nalgebra::{Unit, UnitQuaternion, UnitVector3, Vector2, Vector3};
 use rov_lib::{
-    auto::{auto_mgr::AutoMgrOutput, loc::Pose, AutoMgr},
+    auto::{auto_mgr::AutoMgrOutput, loc::Pose, nav::NavPose, AutoMgr},
     data_store::DataStore,
     tc_processor,
+    tm_server::TmServer,
 };
 use util::{
     host,
@@ -64,6 +65,11 @@ fn main() -> Result<()> {
         host::get_uname().wrap_err("Failed to get host information")?
     );
     info!("Session directory: {:?}\n", session.session_root);
+
+    // ---- LOAD PARAMETERS ----
+
+    let net_params: NetParams =
+        util::params::load("net.toml").wrap_err("Could not load net params")?;
 
     // ---- INITIALISE TC SCRIPT ----
 
@@ -114,6 +120,19 @@ fn main() -> Result<()> {
     // Set initial pose
     auto_mgr.persistant.loc_mgr.set_pose(start_pose);
 
+    // ---- INITIALISE NETWORK ----
+
+    info!("Initialising network");
+
+    let zmq_ctx = comms_if::net::zmq::Context::new();
+
+    // TM server
+    let mut tm_server = {
+        let s = TmServer::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise TmServer")?;
+        info!("TmServer initialised");
+        s
+    };
+
     // ---- MAIN LOOP ----
 
     info!("Begining main loop\n");
@@ -123,6 +142,15 @@ fn main() -> Result<()> {
     loop {
         // Get cycle start time
         let cycle_start_instant = Instant::now();
+
+        // ---- SIMULATION PROCESSING ----
+
+        // If there's a loco ctrl command to execute do it
+        if let Some(mnvr) = ds.loco_ctrl_input.cmd {
+            let new_pose =
+                get_new_pose_from_mnvr(mnvr, auto_mgr.persistant.loc_mgr.get_pose().unwrap());
+            auto_mgr.persistant.loc_mgr.set_pose(new_pose);
+        }
 
         // Clear items that need wiping at the start of the cycle
         ds.cycle_start(CYCLE_FREQUENCY_HZ);
@@ -165,6 +193,19 @@ fn main() -> Result<()> {
             info!("Empty depth image set in AutoMgr");
         }
 
+        // Or if it wanted some loco_ctrl output put it in the data store
+        if let AutoMgrOutput::LocoCtrlMnvr(mnvr) = auto_mgr_output {
+            ds.loco_ctrl_input.cmd = Some(mnvr);
+        }
+
+        // ---- TELEMETRY ----
+
+        ds.auto_tm = Some(auto_mgr.get_tm());
+        match tm_server.send(&ds) {
+            Ok(_) => (),
+            Err(e) => warn!("TmServer error: {}", e),
+        };
+
         // ---- CYCLE MANAGEMENT ----
 
         let cycle_dur = Instant::now() - cycle_start_instant;
@@ -197,4 +238,78 @@ fn main() -> Result<()> {
     session.exit();
 
     Ok(())
+}
+
+// ------------------------------------------------------------------------------------------------
+// FUNCTIONS
+// ------------------------------------------------------------------------------------------------
+
+// Simulate the given loco ctrl manouvre
+fn get_new_pose_from_mnvr(mnvr: MnvrCmd, pose: Pose) -> Pose {
+    match mnvr {
+        MnvrCmd::Ackerman {
+            speed_ms,
+            curv_m,
+            crab_rad,
+        } => {
+            let position_m = pose.position2();
+            let heading_rad = pose.get_heading();
+
+            // Case: curv approx zero, straight line
+            if curv_m.abs() < f64::EPSILON {
+                let end_pos = position_m
+                    + (speed_ms * CYCLE_PERIOD_S)
+                        * Vector2::new(
+                            (heading_rad - crab_rad).cos(),
+                            (heading_rad - crab_rad).sin(),
+                        );
+
+                // Create nav pose to auto compute a pose
+                let nav_pose = NavPose::from_parts(&end_pos.into(), &heading_rad);
+
+                // return pose
+                nav_pose.pose_parent
+            } else {
+                // Position of the centre of the circle
+                let centre = position_m
+                    + (1.0 / curv_m)
+                        * Vector2::new(
+                            (crab_rad - heading_rad).sin(),
+                            (crab_rad - heading_rad).cos(),
+                        );
+
+                // Angular distance to move along circle
+                let delta_angle = speed_ms * curv_m * CYCLE_PERIOD_S;
+
+                // Angle along circle we started at
+                let start_angle = 1.5 * std::f64::consts::PI - crab_rad + heading_rad;
+
+                // End point
+                let end_pos = centre
+                    + (1.0 / curv_m)
+                        * Vector2::new(
+                            (start_angle + delta_angle).cos(),
+                            (start_angle + delta_angle).sin(),
+                        );
+
+                // End heading
+                let end_head = heading_rad + delta_angle;
+
+                // Create nav pose to auto compute a pose
+                let nav_pose = NavPose::from_parts(&end_pos.into(), &end_head);
+
+                // return pose
+                nav_pose.pose_parent
+            }
+        }
+        MnvrCmd::PointTurn { rate_rads } => Pose::new(
+            pose.position_m,
+            UnitQuaternion::from_axis_angle(
+                &Unit::new_normalize(Vector3::z()),
+                rate_rads * CYCLE_PERIOD_S,
+            ) * pose.attitude_q,
+        ),
+        // Other commands don't move us
+        _ => pose,
+    }
 }
