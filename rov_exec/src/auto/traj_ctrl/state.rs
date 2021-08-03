@@ -406,15 +406,17 @@ impl TrajCtrl {
                 0.0,
             ));
 
+            trace!("Heading adjust, error = {} rad", head_err_rad);
+
             // If we're within the fine threshold drive at the fine rate, otherwise drive at the
             // coarse rate.
             if head_err_rad.abs() < self.params.head_adjust_fine_threshold_rad {
                 self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
-                    rate_rads: cross[0].signum() * self.params.head_adjust_fine_rate_rads,
+                    rate_rads: cross[2].signum() * self.params.head_adjust_fine_rate_rads,
                 });
             } else {
                 self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
-                    rate_rads: cross[0].signum() * self.params.head_adjust_coarse_rate_rads,
+                    rate_rads: cross[2].signum() * self.params.head_adjust_coarse_rate_rads,
                 });
             }
         }

@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut, Range};
 
 use cell_map::{Bounds, CellMap, CellMapParams, Error as CellMapError, Layer};
 use log::trace;
-use nalgebra::{Isometry2, Point2};
+use nalgebra::{Isometry2, Matrix1x2, Matrix2, Matrix2x1, Point2, Vector2};
 use noise::{NoiseFn, Perlin};
 use serde::{Deserialize, Serialize};
 
@@ -52,26 +52,82 @@ impl TerrainMap {
     ///
     /// This will average overlapping heights
     pub fn merge(&mut self, other: &Self) {
-        self.0.merge(&other.0, |my_cell, other_cells| {
-            // Aproach is to average any overlapping heights
-            let mut acc = *my_cell;
-            let mut num_cells = if acc.is_some() { 1 } else { 0 };
+        // First get the bounds of `other` wrt `self`, which we have to do by accounting for the
+        // potential different alignment of `other` wrt `parent`. We do this by getting the corner
+        // points, transforming from `other` to `parent`, then from `parent` to `self`. We have to
+        // transform all corner points because rotation may lead to the corners being in different
+        // positions than when aligned to `other`.
+        let other_bounds = other.cell_bounds();
+        let corners_in_other = vec![
+            Point2::new(other_bounds.x.0, other_bounds.y.0).cast(),
+            Point2::new(other_bounds.x.1, other_bounds.y.0).cast() + Vector2::new(1.0, 0.0),
+            Point2::new(other_bounds.x.0, other_bounds.y.1).cast() + Vector2::new(0.0, 1.0),
+            Point2::new(other_bounds.x.1, other_bounds.y.1).cast() + Vector2::new(1.0, 1.0),
+        ];
+        let corners_in_parent: Vec<Point2<f64>> = corners_in_other
+            .iter()
+            .map(|c| other.to_parent().transform_point(c))
+            .collect();
+        let other_bl_parent = Point2::new(
+            corners_in_parent
+                .iter()
+                .min_by_key(|c| c.x.floor() as isize)
+                .unwrap()
+                .x
+                .floor(),
+            corners_in_parent
+                .iter()
+                .min_by_key(|c| c.y.floor() as isize)
+                .unwrap()
+                .y
+                .floor(),
+        );
+        let other_ur_parent = Point2::new(
+            corners_in_parent
+                .iter()
+                .max_by_key(|c| c.x.ceil() as isize)
+                .unwrap()
+                .x
+                .ceil(),
+            corners_in_parent
+                .iter()
+                .max_by_key(|c| c.y.ceil() as isize)
+                .unwrap()
+                .y
+                .ceil(),
+        );
+        let other_in_self = Bounds::from_corner_positions(&self, other_bl_parent, other_ur_parent);
 
-            for cell in other_cells {
-                match cell {
-                    Some(h) => {
-                        num_cells += 1;
-                        match acc {
-                            Some(ref mut acc) => *acc += *h,
-                            None => acc = Some(*h),
-                        }
-                    }
-                    None => (),
+        // Calculate the union of both bounds
+        let new_bounds = self.cell_bounds().union(&other_in_self);
+
+        // Resize self
+        self.resize(new_bounds);
+
+        // Iterate over the cells in self which overlap with other
+        for ((layer, pos), value) in self.iter_mut().positioned() {
+            // Interpolate the cost of the point, if it's Some we need to modify self
+            // TODO: interp seems to not work very well, just using get instead
+            // if let Some(cost) = other.bilinterp(layer, pos) {
+            let idx = match other.index(pos) {
+                Some(i) => i,
+                None => continue,
+            };
+            if let Some(height) = other.get(layer, idx) {
+                let cost = match height {
+                    Some(h) => *h,
+                    None => continue,
+                };
+
+                // If the current value is some replace it with the average of the two, otherwise
+                // just asign the interpolated value
+                if let Some(current) = value {
+                    *current = 0.5 * (cost + *current);
+                } else {
+                    *value = Some(cost);
                 }
             }
-
-            acc.map(|h| h / num_cells as f64)
-        });
+        }
     }
 
     /// Generate a random terrain map using a Perlin noise system
@@ -158,45 +214,38 @@ impl TerrainMap {
         // Get transform from self to the pose frame
         let position: Point2<f64> = pose.position2().into();
         let heading = pose.get_heading();
-        let self_to_submap = Isometry2::new(position.coords, heading).inverse();
+        let submap_to_self = Isometry2::new(position.coords, heading);
 
         // Loop variables
         let mut in_fov;
 
-        for ((layer, pos), value) in self.iter().positioned() {
-            // Skip none
-            if value.is_none() {
+        for ((layer, pos), value) in submap.0.iter_mut().positioned() {
+            // Check if position is inside the field of view
+            in_fov = true;
+
+            // Polar coordinates between the rover and the pos.
+            let radius = pos.coords.norm();
+            let theta = pos.y.atan2(pos.x);
+
+            // Check radius is within the view range
+            if radius < view_range_m.start || radius > view_range_m.end {
+                in_fov = false;
+            }
+
+            // Check the theta is within the field of view
+            if theta.abs() > field_of_view_rad / 2.0 {
+                in_fov = false;
+            }
+
+            // If not inside the FOV skip this position
+            if !in_fov {
                 continue;
             }
 
-            // Transform the position into the submap frame
-            let pos_submap = self_to_submap.transform_point(&pos);
+            // If inside the FOV transform the position into the self frame
+            let pos_self = submap_to_self.transform_point(&pos);
 
-            // Get the index of this position in the submap, if it's not in the map skip it
-            if let Some(idx) = submap.index(pos_submap) {
-                // Check if position is inside the field of view
-                in_fov = true;
-
-                // Polar coordinates between the rover and the pos.
-                let radius = pos_submap.coords.norm();
-                let theta = pos_submap.y.atan2(pos_submap.x);
-
-                // Check radius is within the view range
-                if radius < view_range_m.start || radius > view_range_m.end {
-                    in_fov = false;
-                }
-
-                // Check the theta is within the field of view
-                if theta.abs() > field_of_view_rad / 2.0 {
-                    in_fov = false;
-                }
-
-                // If the cell is in the FOV we keep it, if it isn't we set it to None
-                if in_fov {
-                    // trace!("    {} -> {}", pos, pos_submap);
-                    submap[(layer, idx)] = *value;
-                }
-            }
+            *value = self.bilinterp(layer, pos_self);
         }
 
         Some(submap)
@@ -240,6 +289,11 @@ impl TerrainMap {
                 *height = None;
             }
         }
+    }
+
+    /// Do bilinear interpolation to get the value at the given position
+    fn bilinterp(&self, layer: TerrainMapLayer, position: Point2<f64>) -> Option<f64> {
+        super::bilinterp(&self.0, layer, position, |height| *height)
     }
 }
 

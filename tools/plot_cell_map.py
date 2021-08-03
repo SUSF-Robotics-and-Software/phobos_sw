@@ -184,12 +184,13 @@ def conv_cost_map_data(data):
 
     def conv(val):
         if isinstance(val, dict):
-            return val['Cost']
+            if 'Cost' in val:
+                return val['Cost']
+            elif 'Unsafe' in val:
+                return val['Unsafe']
         elif isinstance(val, str):
             if val == 'None':
                 return np.nan
-            elif val == 'Unsafe':
-                return 1.1
             else:
                 raise RuntimeError(f'Unknown CostMapData variant {val}')
 

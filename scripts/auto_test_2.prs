@@ -7,7 +7,7 @@
         "Follow": {
             "AckSeq": {
                 "separation_m": 0.05,
-                "seq": [0.0, 1.25]
+                "seq": [0.0, 1.0]
             }
         }
     }
