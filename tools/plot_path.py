@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 from pprint import pprint
 
-def plot_path(path, items=None, ax=None, linespec='-b', startspec='gx', endspec='rx'):
+def plot_path(path, items=None, ax=None, linespec='-b', linecolor=None, startspec='gx', endspec='rx'):
     '''
     Plots a path in 2D coords, x upwards
     '''
@@ -34,6 +34,9 @@ def plot_path(path, items=None, ax=None, linespec='-b', startspec='gx', endspec=
         items[0] = ax.plot(path[:,0], path[:,1], linespec)[0]
     else:
         items[0].set_data(path[:, 0], path[:, 1])
+    
+    if linecolor is not None:
+        items[0].set_color(linecolor)
 
     # Plot the start and end points
     if items[1] is None:

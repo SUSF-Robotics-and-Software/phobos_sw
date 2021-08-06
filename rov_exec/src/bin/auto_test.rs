@@ -302,13 +302,11 @@ fn get_new_pose_from_mnvr(mnvr: MnvrCmd, pose: Pose) -> Pose {
                 nav_pose.pose_parent
             }
         }
-        MnvrCmd::PointTurn { rate_rads } => Pose::new(
-            pose.position_m,
-            UnitQuaternion::from_axis_angle(
-                &Unit::new_normalize(Vector3::z()),
-                rate_rads * CYCLE_PERIOD_S,
-            ) * pose.attitude_q,
-        ),
+        MnvrCmd::PointTurn { rate_rads } => {
+            let end_head = pose.get_heading() + (rate_rads * CYCLE_PERIOD_S);
+            let nav_pose = NavPose::from_parts(&pose.position2().into(), &end_head);
+            nav_pose.pose_parent
+        }
         // Other commands don't move us
         _ => pose,
     }

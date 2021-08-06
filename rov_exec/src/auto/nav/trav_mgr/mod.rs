@@ -34,6 +34,7 @@ use crate::auto::{
 };
 
 use self::{
+    escape_boundary::EscapeBoundary,
     params::TravMgrParams,
     worker::{worker_thread, WorkerSignal},
 };
@@ -99,6 +100,7 @@ struct Shared {
     pub traverse_state: RwLock<TraverseState>,
 
     pub global_target: RwLock<Option<NavPose>>,
+    pub esc_boundary: RwLock<Option<EscapeBoundary>>,
 
     pub per_mgr: RwLock<PerMgr>,
     pub global_terr_map: RwLock<TerrainMap>,
@@ -214,6 +216,7 @@ impl TravMgr {
             traverse_state: RwLock::new(TraverseState::Off),
             per_mgr: RwLock::new(per_mgr),
             global_target: RwLock::new(None),
+            esc_boundary: RwLock::new(None),
             global_terr_map: RwLock::new(global_terr_map),
             global_cost_map: RwLock::new(global_cost_map),
             path_planner: RwLock::new(path_planner),
@@ -288,15 +291,6 @@ impl TravMgr {
         if !matches!(*self.shared.traverse_state.read()?, TraverseState::Off) {
             Err(TravMgrError::AlreadyTraversing)
         } else {
-            // TEMP: get the per_mgr's dummy terr map and calculate a global cost map from it
-            let mut cm = CostMap::calculate(
-                self.shared.cost_map_params.clone(),
-                self.shared.per_mgr.read()?.get_dummy_terr_map(),
-            )
-            .unwrap();
-            cm.apply_ground_planned_path(&ground_path).ok();
-            session::save("global_cost.json", cm);
-
             *self.shared.traverse_state.write()? = TraverseState::FirstStop;
             *self.shared.ground_path.write()? = Some(ground_path.clone());
 

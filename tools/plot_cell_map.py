@@ -16,7 +16,7 @@ import copy
 from plot_path import load_path, plot_path
 from cell_map import CellMap
 
-def plot_grid_map(map, paths, plan_report = None, show_leaves=False):
+def plot_grid_map(map, paths, plan_report = None, show_leaves=False, eb=None):
     '''
     Plots the given grid map in an interactive way.
     '''
@@ -68,6 +68,8 @@ def plot_grid_map(map, paths, plan_report = None, show_leaves=False):
                     
             if plan_report is not None:
                 plot_plan_report(plan_report, ax, show_leaves)
+            if eb is not None:
+                plot_path(np.array(eb['path']['points_m']), ax=ax, linespec='-k')
         else:
             plots[layer] = ax.plot_surface(
                 map['x_grid'], map['y_grid'], map['cm'].data[layer],
@@ -184,12 +186,13 @@ def conv_cost_map_data(data):
 
     def conv(val):
         if isinstance(val, dict):
-            return val['Cost']
+            if 'Cost' in val:
+                return val['Cost']
+            elif 'Unsafe' in val:
+                return val['Unsafe']
         elif isinstance(val, str):
             if val == 'None':
                 return np.nan
-            elif val == 'Unsafe':
-                return 1.1
             else:
                 raise RuntimeError(f'Unknown CostMapData variant {val}')
 
@@ -213,6 +216,8 @@ def plot_plan_report(plan_report, ax, show_leaves = False):
     '''
     Plots a PathPlannerReport file to the given axis
     '''
+
+    ax.plot(plan_report['target']['position_m'][0], plan_report['target']['position_m'][0], 'xk')
 
     def plot_node(node, ax):
         if node['node'] is not None:
@@ -253,6 +258,12 @@ if __name__ == '__main__':
         help='Path to PathPlannerReport file.'
     )
     parser.add_argument(
+        '--eb',
+        metavar='ESCBDRY',
+        nargs='?',
+        help='Escape boundary to plot'
+    )
+    parser.add_argument(
         '--show_leaves',
         action='store_true',
         help='If a PathPlannerReport is provided, show the leaves of any planning'
@@ -268,6 +279,12 @@ if __name__ == '__main__':
     else:
         plan_report = None
 
+    if args.eb is not None:
+        with open(args.eb) as f:
+            eb = json.load(f)
+    else:
+        eb = None
+
     paths = []
     for path in args.paths:
         loaded_path = load_path(path)
@@ -276,5 +293,5 @@ if __name__ == '__main__':
         else:
             paths.append(loaded_path)
 
-    plot_grid_map(map, paths, plan_report=plan_report, show_leaves=args.show_leaves)
+    plot_grid_map(map, paths, plan_report=plan_report, show_leaves=args.show_leaves, eb=eb)
 

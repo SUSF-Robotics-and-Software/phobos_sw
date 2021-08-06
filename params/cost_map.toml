@@ -14,4 +14,4 @@ max_gnd_path_cost_semi_width_m = 1.216
 
 # Assigned so that, in extreme cases, the rover is still allowed outside the
 # path if it is the only way to continue
-max_gnd_path_added_cost = 0.6
+max_gnd_path_added_cost = 1.0

@@ -22,8 +22,8 @@ use std::ops::{Deref, DerefMut};
 use crate::auto::{nav::NavPose, path::Path};
 
 use super::{TerrainMap, TerrainMapLayer};
-use cell_map::{CellMap, CellMapParams, Error as CellMapError, Layer};
-use nalgebra::{Point2, Vector2};
+use cell_map::{Bounds, CellMap, CellMapParams, Error as CellMapError, Layer};
+use nalgebra::{Matrix1x2, Matrix2, Matrix2x1, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use util::{convert::Convert, quadtree::Quad};
 
@@ -77,8 +77,8 @@ pub enum CostMapData {
     /// This cell is empty (has not been analysed - do not plan path)
     None,
 
-    /// This cell cannot be travesed as it is unsafe
-    Unsafe,
+    /// This cell cannot be travesed as it is unsafe. Contains a cost greater than 1
+    Unsafe(f64),
 
     /// General cost associated with an analysed safe cell. Values are between 0 and 1 (inclusive).
     /// 0 represents the lowest cost, and 1 the highest. Any values above 1 would be converted to
@@ -131,38 +131,93 @@ impl CostMap {
     ///
     /// This will average the cost of any overlapping cells between self and other
     pub fn merge(&mut self, other: &Self) {
-        self.map.merge(&other.map, |my_cell, other_cells| {
-            // Approach here is to average the costs, ignoring any Unknowns, and propagating any
-            // Unsafes.
-            let mut num_costs = 0;
-            let mut acc = match my_cell {
-                CostMapData::None => None,
-                CostMapData::Unsafe => return CostMapData::Unsafe,
-                CostMapData::Cost(ref c) => {
-                    num_costs = 1;
-                    Some(*c)
-                }
-            };
+        // First get the bounds of `other` wrt `self`, which we have to do by accounting for the
+        // potential different alignment of `other` wrt `parent`. We do this by getting the corner
+        // points, transforming from `other` to `parent`, then from `parent` to `self`. We have to
+        // transform all corner points because rotation may lead to the corners being in different
+        // positions than when aligned to `other`.
+        let other_bounds = other.cell_bounds();
+        let corners_in_other = vec![
+            Point2::new(other_bounds.x.0, other_bounds.y.0).cast(),
+            Point2::new(other_bounds.x.1, other_bounds.y.0).cast() + Vector2::new(1.0, 0.0),
+            Point2::new(other_bounds.x.0, other_bounds.y.1).cast() + Vector2::new(0.0, 1.0),
+            Point2::new(other_bounds.x.1, other_bounds.y.1).cast() + Vector2::new(1.0, 1.0),
+        ];
+        let corners_in_parent: Vec<Point2<f64>> = corners_in_other
+            .iter()
+            .map(|c| other.to_parent().transform_point(c))
+            .collect();
+        let other_bl_parent = Point2::new(
+            corners_in_parent
+                .iter()
+                .min_by_key(|c| c.x.floor() as isize)
+                .unwrap()
+                .x
+                .floor(),
+            corners_in_parent
+                .iter()
+                .min_by_key(|c| c.y.floor() as isize)
+                .unwrap()
+                .y
+                .floor(),
+        );
+        let other_ur_parent = Point2::new(
+            corners_in_parent
+                .iter()
+                .max_by_key(|c| c.x.ceil() as isize)
+                .unwrap()
+                .x
+                .ceil(),
+            corners_in_parent
+                .iter()
+                .max_by_key(|c| c.y.ceil() as isize)
+                .unwrap()
+                .y
+                .ceil(),
+        );
+        let other_in_self =
+            Bounds::from_corner_positions(&self.map, other_bl_parent, other_ur_parent);
 
-            for cell in other_cells {
-                match cell {
-                    CostMapData::None => (),
-                    CostMapData::Unsafe => return CostMapData::Unsafe,
-                    CostMapData::Cost(ref c) => {
-                        num_costs += 1;
-                        match acc {
-                            Some(ref mut acc) => *acc += *c,
-                            None => acc = Some(*c),
-                        }
+        // Calculate the union of both bounds
+        let new_bounds = self.cell_bounds().union(&other_in_self);
+
+        // Resize self
+        self.resize(new_bounds);
+
+        // Iterate over the cells in self which overlap with other
+        // TODO: Looks like linterp isn't actually needed, and performs better with just lookups,
+        // should be tested in the future
+        for ((layer, pos), value) in self.iter_mut().positioned() {
+            // Check if this position is inside other, if not skip
+            // if let Some(cost) = other.bilinterp(layer, pos) {
+            let idx = match other.index(pos) {
+                Some(i) => i,
+                None => continue,
+            };
+            if let Some(cost) = other.get(layer, idx) {
+                let cost = match cost.cost() {
+                    Some(&c) => c,
+                    None => continue,
+                };
+                // If the current value has a cost average it with the interpolated cost
+                if let Some(current) = value.cost() {
+                    let new = 0.5 * (current + cost);
+
+                    if new > 1.0 {
+                        *value = CostMapData::Unsafe(new);
+                    } else {
+                        *value = CostMapData::Cost(new);
                     }
                 }
+                // Otherwise just assign the interpolated cost to the value, applying the
+                // unsafe rule
+                else if cost > 1.0 {
+                    *value = CostMapData::Unsafe(cost);
+                } else {
+                    *value = CostMapData::Cost(cost);
+                }
             }
-
-            match acc {
-                Some(c) => CostMapData::Cost(c / num_costs as f64),
-                None => CostMapData::None,
-            }
-        });
+        }
     }
 
     /// Calculate the cost map from the given terrain map
@@ -188,7 +243,7 @@ impl CostMap {
         // which case it's considered unsafe
         let max_cost_val: CostMapData;
         if self.cost_map_params.max_gnd_path_added_cost >= 1.0 {
-            max_cost_val = CostMapData::Unsafe;
+            max_cost_val = CostMapData::Unsafe(self.cost_map_params.max_gnd_path_added_cost);
         } else {
             max_cost_val = CostMapData::Cost(self.cost_map_params.max_gnd_path_added_cost);
         }
@@ -249,7 +304,7 @@ impl CostMap {
 
                 // Clamp cost to the unsafe value of 1.0
                 if cost_val >= 1.0 {
-                    *cost = CostMapData::Unsafe;
+                    *cost = CostMapData::Unsafe(cost_val);
                 } else {
                     *cost = CostMapData::Cost(cost_val);
                 }
@@ -273,6 +328,9 @@ impl CostMap {
         }
 
         // Zip together windows in the terrain map and cost map
+        //
+        // TODO: Gradient calculation has stripes when the terrain map is not aligned correctly,
+        // seems to be very odd
         for (height, mut gradient) in terrain_map
             .window_iter(Vector2::new(1, 1))?
             .layer(TerrainMapLayer::Height)
@@ -299,7 +357,7 @@ impl CostMap {
                     // Check if cost is above max
                     let cost = (x * x + y * y).sqrt() * self.cost_map_params.gradient_cost_factor;
                     if cost > self.cost_map_params.max_safe_gradient {
-                        CostMapData::Unsafe
+                        CostMapData::Unsafe(cost)
                     } else {
                         CostMapData::Cost(cost)
                     }
@@ -308,7 +366,7 @@ impl CostMap {
                     // Check if cost is above max
                     let cost = x.abs() * self.cost_map_params.gradient_cost_factor;
                     if cost > self.cost_map_params.max_safe_gradient {
-                        CostMapData::Unsafe
+                        CostMapData::Unsafe(cost)
                     } else {
                         CostMapData::Cost(cost)
                     }
@@ -317,7 +375,7 @@ impl CostMap {
                     // Check if cost is above max
                     let cost = y.abs() * self.cost_map_params.gradient_cost_factor;
                     if cost > self.cost_map_params.max_safe_gradient {
-                        CostMapData::Unsafe
+                        CostMapData::Unsafe(cost)
                     } else {
                         CostMapData::Cost(cost)
                     }
@@ -397,6 +455,10 @@ impl CostMap {
 
         Ok(cost)
     }
+
+    fn bilinterp(&self, layer: CostMapLayer, position: Point2<f64>) -> Option<f64> {
+        super::bilinterp(&self.map, layer, position, |val| val.cost().cloned())
+    }
 }
 
 impl Deref for CostMap {
@@ -426,6 +488,14 @@ impl From<CellMapError> for CostMapError {
 }
 
 impl CostMapData {
+    pub fn cost(&self) -> Option<&f64> {
+        match self {
+            Self::None => None,
+            Self::Unsafe(c) => Some(c),
+            Self::Cost(c) => Some(c),
+        }
+    }
+
     /// Adds other to self, mutating self.
     ///
     /// Follows these rules:
@@ -439,14 +509,16 @@ impl CostMapData {
         *self = match (*self, other) {
             (None, _) => None,
             (_, None) => None,
-            (Unsafe, _) => Unsafe,
-            (_, Unsafe) => Unsafe,
-            (Cost(s), Cost(o)) => {
-                let sum = s + o;
-                if sum >= 1.0 {
-                    Unsafe
+            (a, b) => {
+                let s = a.cost().unwrap();
+                let o = b.cost().unwrap();
+
+                let total = *s + *o;
+
+                if total > 1.0 {
+                    Unsafe(total)
                 } else {
-                    Cost(sum)
+                    Cost(total)
                 }
             }
         }
@@ -466,14 +538,16 @@ impl CostMapData {
         *self = match (*self, other) {
             (_, None) => *self,
             (None, _) => None,
-            (Unsafe, _) => Unsafe,
-            (_, Unsafe) => Unsafe,
-            (Cost(s), Cost(o)) => {
-                let sum = s + o;
-                if sum >= 1.0 {
-                    Unsafe
+            (a, b) => {
+                let s = a.cost().unwrap();
+                let o = b.cost().unwrap();
+
+                let total = *s + *o;
+
+                if total > 1.0 {
+                    Unsafe(total)
                 } else {
-                    Cost(sum)
+                    Cost(total)
                 }
             }
         }
@@ -491,8 +565,8 @@ impl CostMapData {
         *self = match (*self, other) {
             (None, _) => None,
             (_, None) => None,
-            (Unsafe, _) => Unsafe,
-            (_, Unsafe) => Unsafe,
+            (Unsafe(c), _) => Unsafe(c),
+            (_, Unsafe(c)) => Unsafe(*c),
             (Cost(s), Cost(o)) => Cost(s + o),
         }
     }
