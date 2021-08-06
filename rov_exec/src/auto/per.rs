@@ -4,7 +4,7 @@
 // IMPORTS
 // -----------------------------------------------------------------------------------------------
 
-use nalgebra::Point3;
+use nalgebra::{Point2, Point3};
 use serde::{Deserialize, Serialize};
 
 use crate::auto::{
@@ -30,7 +30,16 @@ pub struct PerMgr {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerMgrParams {}
+pub struct PerMgrParams {
+    /// Multiplier to convert from depth units to meters
+    pub depth_to_m: f64,
+
+    /// The principle point (middle) of the calibrated depth image.
+    pub principle_point_pixels: Point2<f64>,
+
+    /// The focal length of the x and y axes.
+    pub focal_length_pixels: Point2<f64>
+}
 
 // -----------------------------------------------------------------------------------------------
 // ENUMS
@@ -56,10 +65,47 @@ impl PerMgr {
     /// `depth_img` - the image to process
     /// `pose` - the pose of the rover when the image was taken, in the global map frame.
     pub fn calculate(&self, depth_img: &DepthImage, pose: &Pose) -> Result<TerrainMap, PerError> {
+        let mut point_cloud: Vec<Point3<f64>> = Vec::with_capacity(depth_img.image.len());
+
+        // Calculating the bounds of the point cloud
+        let mut min_bound = Point3::new(f64::MAX, f64::MAX, f64::MAX);
+        let mut max_bound = Point3::new(f64::MIN, f64::MIN, f64::MIN);
+
+        // Calculation of each point
+        for (u, v, depth) in depth_img.image.enumerate_pixels() {
+            let depth_m = depth * self.params.depth_to_m;
+            
+            let point_m = Point3::new(
+                (u - self.params.principle_point_pixels.x) * depth_m / self.params.focal_length_pixels.x,
+                (y - self.params.principle_point_pixels.y) * depth_m / self.params.focal_length_pixels.y,
+                depth_m,
+            );
+
+            // TODO: probably a way of doing this using iterators but I can't be bothered to find it now
+            if point_m.x < min_bound.x {
+                min_bound.x = point_m.x;
+            }
+            if point_m.y < min_bound.y {
+                min_bound.y = point_m.y;
+            }
+            if point_m.z < min_bound.z {
+                min_bound.z = point_m.z;
+            }
+            if point_m.x > max_bound.x {
+                min_bound.x = point_m.x;
+            }
+            if point_m.y > max_bound.y {
+                min_bound.y = point_m.y;
+            }
+            if point_m.z > max_bound.z {
+                min_bound.z = point_m.z;
+            }
+
+            point_cloud.push(point_m);
+        }
+
         // Calculate point cloud
         //  need min and max bounds of the point cloud.
-
-        let mut point_cloud: Vec<Point3<f64>> = Vec::new();
 
         // From point cloud, create empty terrain map
         //  point cloud goes from (0.5, 7.0) -> (10.0, 15.0), need map to include that region of
@@ -69,4 +115,4 @@ impl PerMgr {
 
         todo!()
     }
-}
+
