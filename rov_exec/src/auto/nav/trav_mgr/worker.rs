@@ -10,7 +10,7 @@ use std::sync::{
 };
 
 use comms_if::eqpt::perloc::DepthImage;
-use log::warn;
+use log::{error, info, warn};
 use util::session;
 
 use crate::auto::{
@@ -249,6 +249,8 @@ pub(super) fn worker_thread(
                         (start_pose, 1)
                     };
 
+                    info!("Planning {} paths", num_paths);
+
                     // Get the target, either the global GOTO or from the escape boundary for a
                     // ground planned path
                     let target = match *shared.esc_boundary.read()? {
@@ -289,6 +291,7 @@ pub(super) fn worker_thread(
                     *shared.secondary_path.write()? = match paths.pop() {
                         Some(p) => Some(p),
                         None => {
+                            error!("Couldn't get secondary path");
                             main_sender.send(WorkerSignal::Error(Box::new(
                                 TravMgrError::PathPlannerFailed,
                             )))?;
@@ -301,6 +304,7 @@ pub(super) fn worker_thread(
                         *shared.primary_path.write()? = match paths.pop() {
                             Some(p) => Some(p),
                             None => {
+                                error!("Couldn't get primary path");
                                 main_sender.send(WorkerSignal::Error(Box::new(
                                     TravMgrError::PathPlannerFailed,
                                 )))?;

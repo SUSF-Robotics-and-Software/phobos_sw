@@ -8,10 +8,11 @@ use std::collections::{BinaryHeap, HashMap};
 
 use comms_if::tc::auto::PathSpec;
 use log::{info, trace, warn};
-use nalgebra::{Point2, Vector2};
+use nalgebra::{Point2, Unit, UnitQuaternion, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 
 use crate::auto::{
+    loc::Pose,
     map::{CostMap, CostMapData},
     path::{Path, PathError},
 };
@@ -32,6 +33,9 @@ pub struct PathPlannerParams {
     /// Possible curvatures of path to assess, in 1/meters.
     pub test_curvs_m: Vec<f64>,
 
+    /// Possible heading changes (i.e. delta from current heading) to assess, in radians.
+    pub test_heads_rad: Vec<f64>,
+
     /// The separation between points within a path.
     pub path_point_separation_m: f64,
 
@@ -48,6 +52,8 @@ pub struct PathPlannerParams {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PathPlannerReport {
     pub num_tested_paths: usize,
+
+    pub target: NavPose,
 
     pub tree: NodeTree,
 
@@ -163,6 +169,7 @@ impl PathPlanner {
         // Report which we will build as we process, then save
         let mut report = PathPlannerReport {
             num_tested_paths: 0,
+            target: *target_pose,
             tree: NodeTree {
                 node: None,
                 children: vec![],
@@ -335,21 +342,21 @@ impl PathPlanner {
             paths.push(min_node.path.clone());
         }
 
-        // Remove all paths before the lowest cost index, since the planner may actually
-        // overestimate some times, don't do this if the lowest cost index is 0
-        if lowest_cost_idx != 0 {
-            paths = paths
-                .iter()
-                .enumerate()
-                .filter_map(|(i, p)| {
-                    if i < lowest_cost_idx - 1 {
-                        None
-                    } else {
-                        Some(p.clone())
-                    }
-                })
-                .collect();
-        }
+        // // Remove all paths before the lowest cost index, since the planner may actually
+        // // overestimate some times, don't do this if the lowest cost index is 0
+        // if lowest_cost_idx != 0 {
+        //     paths = paths
+        //         .iter()
+        //         .enumerate()
+        //         .filter_map(|(i, p)| {
+        //             if i < lowest_cost_idx - 1 {
+        //                 None
+        //             } else {
+        //                 Some(p.clone())
+        //             }
+        //         })
+        //         .collect();
+        // }
 
         // Reverse the path list to get one that goes from the start to the target.
         paths.reverse();
@@ -376,20 +383,29 @@ impl PathPlanner {
         start_pose: &NavPose,
         path_length_m: f64,
     ) -> Result<Vec<Path>, PathError> {
-        self.params
-            .test_curvs_m
-            .iter()
-            .map(|&curv_m| {
+        let mut fan = Vec::new();
+        for head_rad in self.params.test_heads_rad.iter() {
+            let pose = Pose::new(
+                start_pose.pose_parent.position_m,
+                start_pose.pose_parent.attitude_q
+                    * UnitQuaternion::from_axis_angle(
+                        &Unit::new_normalize(Vector3::z()),
+                        *head_rad,
+                    ),
+            );
+            for curv_m in self.params.test_curvs_m.iter() {
                 // Build path spec
                 let spec = PathSpec::AckSeq {
                     separation_m: self.params.path_point_separation_m,
-                    seq: vec![curv_m, path_length_m],
+                    seq: vec![*curv_m, path_length_m],
                 };
 
                 // Build the path
-                Path::from_path_spec(spec, &start_pose.pose_parent)
-            })
-            .collect()
+                fan.push(Path::from_path_spec(spec, &pose)?);
+            }
+        }
+
+        Ok(fan)
     }
 
     /// Returns the cost for the given path towards the target pose.

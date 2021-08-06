@@ -19,6 +19,7 @@ from matplotlib.rcsetup import interactive_bk as _interactive_bk
 from plot_path import plot_path, conv_path
 from plot_cell_map import conv_cost_map_data
 from cell_map import CellMap
+import copy
 
 matplotlib.use('Qt5agg')
 
@@ -50,6 +51,12 @@ def main():
     map_plot = None
     target_plot = None
     pose_plot = None
+
+    # Set color maps
+    cmap = copy.copy(matplotlib.cm.get_cmap('viridis'))
+    cmap.set_bad('white')
+    cmap.set_over('red')
+    cmap.set_under('white')
          
     while True:
 
@@ -94,7 +101,7 @@ def main():
                         cm.data[layer] = conv_cost_map_data(cm.data[layer])
                     if map_plot is not None:
                         del map_plot
-                    map_plot = cm.plot(ax=ax, vmin=0.0, vmax=1.0)
+                    map_plot = cm.plot(ax=ax, cmap=cmap, vmin=0.0, vmax=1.0)
         pause(0.00001, False)
 
 num_packets = 0

@@ -113,7 +113,7 @@ fn main() -> Result<()> {
         // UnitQuaternion::identity()
         UnitQuaternion::from_axis_angle(
             &UnitVector3::new_unchecked(Vector3::z()),
-            std::f64::consts::FRAC_PI_4,
+            std::f64::consts::FRAC_PI_2,
         ),
     );
 
