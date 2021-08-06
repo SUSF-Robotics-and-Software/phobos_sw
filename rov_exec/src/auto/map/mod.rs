@@ -25,7 +25,7 @@ mod cost_map;
 
 use std::{fs::File, path::Path};
 
-pub use cost_map::{CostMap, CostMapData, CostMapLayer, CostMapParams};
+pub use cost_map::{CostMap, CostMapData, CostMapError, CostMapLayer, CostMapParams};
 use serde::Serialize;
 pub use terrain_map::{TerrainMap, TerrainMapLayer};
 

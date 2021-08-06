@@ -6,12 +6,19 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-use comms_if::tc::auto::PathSpec;
+use std::{
+    cmp::Reverse,
+    collections::{BTreeSet, BinaryHeap},
+};
+
+use color_eyre::owo_colors::OwoColorize;
 // External
-use nalgebra::Vector2;
+use nalgebra::{Point2, Vector2};
+use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
-use super::loc::Pose;
+use super::{loc::Pose, nav::NavPose};
+use comms_if::tc::auto::PathSpec;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -34,12 +41,6 @@ pub struct PathSegment {
 
     /// The length of the segment
     pub length_m: f64,
-
-    /// The slope (dy/dx) of the segment
-    pub slope_m: f64,
-
-    /// The intercept (the c in y = mx + c) of the segment
-    pub intercept_m: f64,
 
     /// The heading (angle to the +ve x axis) of the segment
     pub heading_rad: f64,
@@ -85,11 +86,54 @@ impl Path {
         }
     }
 
+    /// Produces a direct path between the two position vectors, with each point in the path having
+    /// at most the given separation.
+    pub fn direct(
+        from: Vector2<f64>,
+        to: Vector2<f64>,
+        point_sep_m: f64,
+    ) -> Result<Self, PathError> {
+        let diff_vec = to - from;
+        let dist = diff_vec.norm();
+        // If the points are closer than the separation just produce a new path with the from and
+        // to being the only points.
+        if dist <= point_sep_m {
+            Ok(Path {
+                points_m: vec![from, to],
+            })
+        } else {
+            // Get the number of points needed to get regular spacing of the given separation,
+            // noting that we should floor this so we don't end up with the last two points being
+            // more than the separation apart
+            let num_points = (dist / point_sep_m).floor() as usize;
+
+            // Get the delta vector that we can add to the previous step at each new point, i.e.
+            // the difference vector but of length point_sep_m.
+            let delta = point_sep_m / dist * diff_vec;
+
+            // Create new path with only the first point
+            let mut path = Self {
+                points_m: vec![from],
+            };
+
+            // Add the new points to the path
+            for i in 1..num_points {
+                path.points_m.push(path.points_m[i - 1] + delta);
+            }
+
+            // Return the path
+            Ok(path)
+        }
+    }
+
     /// Convert from a [`PathSpec`] object into a new path.
     pub fn from_path_spec(spec: PathSpec, pose: &Pose) -> Result<Self, PathError> {
         match spec {
-            PathSpec::AckSeq { .. } => AckSequence::from_path_spec(spec)?.to_path(pose),
-            PathSpec::File { path } => {
+            PathSpec::DirectTo { x, y, separation_m } => {
+                Self::direct(pose.position2(), Vector2::new(x, y), separation_m)
+            }
+            PathSpec::AckSeq { .. } => AckSequence::from_path_spec(spec)?.into_path(pose),
+            PathSpec::File { .. } => {
                 unimplemented!()
             }
         }
@@ -126,17 +170,12 @@ impl Path {
 
         let dx = seg.target_m[0] - seg.start_m[0];
         let dy = seg.target_m[1] - seg.start_m[1];
-        // Slope is the change in y over the change in x
-        seg.slope_m = dy / dx;
 
         // The heading is then the arctan of the slope
         seg.heading_rad = dy.atan2(dx);
 
-        // The intercept is then targ_y - slope * targ_x
-        seg.intercept_m = seg.target_m[1] - seg.slope_m * seg.target_m[0];
-
         // Direction vector is [dx, dy] normalized by the length
-        seg.direction = Vector2::new(dx / seg.length_m, dy / seg.length_m);
+        seg.direction = (seg.target_m - seg.start_m) / seg.length_m;
 
         // Return the segment
         Some(seg)
@@ -169,15 +208,178 @@ impl Path {
     pub fn is_empty(&self) -> bool {
         self.points_m.len() == 0
     }
+
+    // /// Get the intersection points of self and other as a list of `NavPose`s.
+    // pub fn intersect(&self, other: &Self) -> Vec<NavPose> {
+    //     // Based on https://www.youtube.com/watch?v=I9EsN2DTnN8 and https://en.wikipedia.org/wiki/Bentley%E2%80%93Ottmann_algorithm
+
+    //     // Create a list of all points in both self and other, inserting new segments by joining
+    //     // points in each path
+    //     let segments: Vec<Segment> = self
+    //         .points_m
+    //         .as_slice()
+    //         .windows(2)
+    //         .filter_map(|points| {
+    //             Some(Segment {
+    //                 start: Point2::new(
+    //                     NotNan::new(points[0].x).ok()?,
+    //                     NotNan::new(points[0].y).ok()?,
+    //                 ),
+    //                 end: Point2::new(
+    //                     NotNan::new(points[1].x).ok()?,
+    //                     NotNan::new(points[1].y).ok()?,
+    //                 ),
+    //                 in_self: true,
+    //             })
+    //         })
+    //         .chain(other.points_m.as_slice().windows(2).filter_map(|points| {
+    //             Some(Segment {
+    //                 start: Point2::new(
+    //                     NotNan::new(points[0].x).ok()?,
+    //                     NotNan::new(points[0].y).ok()?,
+    //                 ),
+    //                 end: Point2::new(
+    //                     NotNan::new(points[1].x).ok()?,
+    //                     NotNan::new(points[1].y).ok()?,
+    //                 ),
+    //                 in_self: false,
+    //             })
+    //         }))
+    //         .collect();
+
+    //     #[derive(Clone, Copy, PartialEq, Eq)]
+    //     struct Segment {
+    //         start: Point2<NotNan<f64>>,
+    //         end: Point2<NotNan<f64>>,
+    //         in_self: bool,
+    //     }
+
+    //     #[derive(Clone, Copy, PartialEq, Eq)]
+    //     enum Event<'a> {
+    //         Start(&'a Segment),
+    //         End(&'a Segment),
+    //         Intersect(&'a Point2<NotNan<f64>>),
+    //     }
+
+    //     impl<'a> PartialOrd for Event<'a> {
+    //         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    //             let self_x = match self {
+    //                 Event::Start(s) => &s.start.x,
+    //                 Event::End(e) => &e.end.x,
+    //                 Event::Intersect(p) => &p.x,
+    //             };
+    //             let other_x = match other {
+    //                 Event::Start(s) => &s.start.x,
+    //                 Event::End(e) => &e.end.x,
+    //                 Event::Intersect(p) => &p.x,
+    //             };
+
+    //             self_x.partial_cmp(other_x)
+    //         }
+    //     }
+    //     impl<'a> Ord for Event<'a> {
+    //         fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    //             let self_x = match self {
+    //                 Event::Start(s) => &s.start.x,
+    //                 Event::End(e) => &e.end.x,
+    //                 Event::Intersect(p) => &p.x,
+    //             };
+    //             let other_x = match other {
+    //                 Event::Start(s) => &s.start.x,
+    //                 Event::End(e) => &e.end.x,
+    //                 Event::Intersect(p) => &p.x,
+    //             };
+
+    //             self_x.cmp(other_x)
+    //         }
+    //     }
+
+    //     #[derive(Clone, Copy, PartialEq, Eq)]
+    //     enum Cross<'a> {
+    //         Start(&'a Segment),
+    //         End(&'a Segment),
+    //         Intersect(&'a Point2<NotNan<f64>>),
+    //     }
+
+    //     impl<'a> PartialOrd for Cross<'a> {
+    //         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    //             let self_y = match self {
+    //                 Cross::Start(s) => &s.start.y,
+    //                 Cross::End(e) => &e.end.y,
+    //                 Cross::Intersect(p) => &p.y,
+    //             };
+    //             let other_y = match other {
+    //                 Cross::Start(s) => &s.start.y,
+    //                 Cross::End(e) => &e.end.y,
+    //                 Cross::Intersect(p) => &p.y,
+    //             };
+
+    //             self_y.partial_cmp(other_y)
+    //         }
+    //     }
+    //     impl<'a> Ord for Cross<'a> {
+    //         fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    //             let self_y = match self {
+    //                 Cross::Start(s) => &s.start.y,
+    //                 Cross::End(e) => &e.end.y,
+    //                 Cross::Intersect(p) => &p.y,
+    //             };
+    //             let other_y = match other {
+    //                 Cross::Start(s) => &s.start.y,
+    //                 Cross::End(e) => &e.end.y,
+    //                 Cross::Intersect(p) => &p.y,
+    //             };
+
+    //             self_y.cmp(other_y)
+    //         }
+    //     }
+
+    //     // Initialise the event queue by inserting all start and end events for the segments into it
+    //     let mut events = BTreeSet::new();
+    //     for seg in segments.iter() {
+    //         // Put start into the set (will not update if it's already there)
+    //         let start = Event::Start(seg);
+    //         events.insert(start);
+
+    //         // End
+    //         let end = Event::End(seg);
+    //         events.insert(end);
+    //     }
+
+    //     // Create empty status tree
+    //     let mut status = BinaryHeap::new();
+
+    //     // Empty intersections list
+    //     let mut intersects = Vec::new();
+
+    //     // Main loop
+    //     while !events.is_empty() {
+    //         if let Some(event) = events.iter().next() {
+    //             match event {
+    //                 Event::Start(seg) => {
+    //                     // Insert a new crossing into the status heap
+    //                     status.push(Cross::Start(seg));
+
+    //                     // Get the neighbours of this crossing
+    //                     let lower = status.
+    //                 }
+    //                 Event::End(_) => todo!(),
+    //                 Event::Intersect(_) => todo!(),
+    //             }
+    //         }
+    //     }
+
+    //     intersects
+    // }
 }
 
 impl AckSequence {
     /// Convert this sequence into a standard [`Path`].
     ///
     /// If the sequence is empty `None` is returned.
-    pub fn to_path(self, start_pose: &Pose) -> Result<Path, PathError> {
+    pub fn into_path(self, start_pose: &Pose) -> Result<Path, PathError> {
         // If sequence is empty just return None
-        if self.seq.len() == 0 {
+        if self.seq.is_empty() {
             return Err(PathError::EmptySequence);
         }
 
@@ -257,10 +459,8 @@ impl AckSequence {
         }
 
         // Remove points, making sure to decrement the indices every time we remove a point
-        let mut num_removed_points = 0;
-        for i in points_to_delete {
-            path.points_m.remove(i - num_removed_points);
-            num_removed_points += 1;
+        for (points_deleted, point_to_delete) in points_to_delete.iter().enumerate() {
+            path.points_m.remove(point_to_delete - points_deleted);
         }
 
         Ok(path)
@@ -278,7 +478,7 @@ impl AckSequence {
                     })
                 }
             }
-            PathSpec::File { .. } => Err(PathError::UnexpectedPathSpecType),
+            _ => Err(PathError::UnexpectedPathSpecType),
         }
     }
 }
@@ -299,10 +499,10 @@ mod test {
 
         // Convert ack_seq to a path
         let path = ack_seq
-            .to_path(&Pose {
-                position_m: Vector3::default(),
-                attitude_q: UnitQuaternion::from_euler_angles(0.0, 0.0, PI),
-            })
+            .into_path(&Pose::new(
+                Vector3::default(),
+                UnitQuaternion::from_euler_angles(0.0, 0.0, PI),
+            ))
             .unwrap();
 
         // Serialize the path and write it out so we can plot it to check it's correct

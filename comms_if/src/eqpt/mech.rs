@@ -4,7 +4,7 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // ------------------------------------------------------------------------------------------------
@@ -16,10 +16,10 @@ use std::collections::HashMap;
 pub struct MechDems {
     /// The demanded position of an actuator in radians.
     pub pos_rad: HashMap<ActId, f64>,
-    
+
     /// The demanded speed of an actuator in radians
     /// TODO: Should this be an Option<f64> so we can disable actuators?
-	pub speed_rads: HashMap<ActId, f64>
+    pub speed_rads: HashMap<ActId, f64>,
 }
 
 /// Sensor data returned by the MechServer to the MechClient
@@ -34,23 +34,23 @@ pub struct MechSensData;
 /// IDs of all actuators available to the rover
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub enum ActId {
-	DrvFL,
-	DrvML,
-	DrvRL,
-	DrvFR,
-	DrvMR,
-	DrvRR,
-	StrFL,
-	StrML,
-	StrRL,
-	StrFR,
-	StrMR,
-	StrRR,
-	ArmBase,
-	ArmShoulder,
-	ArmElbow,
-	ArmWrist,
-	ArmGrabber
+    DrvFL,
+    DrvML,
+    DrvRL,
+    DrvFR,
+    DrvMR,
+    DrvRR,
+    StrFL,
+    StrML,
+    StrRL,
+    StrFR,
+    StrMR,
+    StrRR,
+    ArmBase,
+    ArmShoulder,
+    ArmElbow,
+    ArmWrist,
+    ArmGrabber,
 }
 
 /// Response from the mechanisms server based on the demands sent by the client.
@@ -63,7 +63,7 @@ pub enum MechDemsResponse {
     DemsInvalid,
 
     /// Equipment is invalid so demands cannot be actuated
-    EqptInvalid
+    EqptInvalid,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -97,7 +97,7 @@ impl Default for MechDems {
 
         Self {
             pos_rad,
-            speed_rads: speed_rad_s
+            speed_rads: speed_rad_s,
         }
     }
 }

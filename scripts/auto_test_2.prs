@@ -1,0 +1,26 @@
+1.0: {
+    "Autonomy": "KickStart"
+};
+
+10.0: {
+    "Autonomy": {
+        "Follow": {
+            "AckSeq": {
+                "separation_m": 0.05,
+                "seq": [0.0, 1.25]
+            }
+        }
+    }
+};
+
+40.0: {
+    "Autonomy": {
+        "Check": {
+            "DirectTo": {
+                "separation_m": 0.05,
+                "x": 7.0,
+                "y": 7.0
+            }
+        }
+    }
+};

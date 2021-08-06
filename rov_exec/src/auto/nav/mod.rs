@@ -9,8 +9,7 @@
 // IMPORTS
 // -----------------------------------------------------------------------------------------------
 
-use cell_map::{CellMap, Layer};
-use nalgebra::{Point2, Unit, UnitComplex, UnitQuaternion, Vector2, Vector3};
+use nalgebra::{Point2, Unit, UnitQuaternion, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -23,6 +22,7 @@ use super::{
 // -----------------------------------------------------------------------------------------------
 
 pub mod path_planner;
+pub mod trav_mgr;
 
 // -----------------------------------------------------------------------------------------------
 // STRUCTS
@@ -52,6 +52,9 @@ pub enum NavError {
 
     #[error("Couldn't build the path fan: {0}")]
     CouldNotBuildFan(PathError),
+
+    #[error("Could not find an optimal path that reaches the target, returning best fit instead")]
+    BestPathNotAtTarget(Vec<Path>),
 
     #[error("Couldn't find a traversable path to the target")]
     NoPathToTarget,
@@ -94,10 +97,7 @@ impl NavPose {
         Self {
             position_m: *position_m,
             heading_rad: *heading_rad,
-            pose_parent: Pose {
-                position_m: pos_parent_3d,
-                attitude_q: quat,
-            },
+            pose_parent: Pose::new(pos_parent_3d, quat),
         }
     }
 
@@ -124,5 +124,15 @@ impl NavPose {
             .unwrap();
 
         Self::from_parts(&Point2::from(seg.target_m), &seg.heading_rad)
+    }
+}
+
+impl Default for NavPose {
+    fn default() -> Self {
+        Self {
+            position_m: Point2::origin(),
+            heading_rad: 0.0,
+            pose_parent: Pose::default(),
+        }
     }
 }

@@ -7,14 +7,33 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use std::{env, thread, time::{Duration, Instant}};
+use std::{
+    env, thread,
+    time::{Duration, Instant},
+};
 
-use color_eyre::{Result, eyre::{eyre, WrapErr}};
-use comms_if::tc::{Tc, auto::{self, AutoCmd}};
-use log::{debug, info, warn};
+use chrono::Utc;
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Result,
+};
+use comms_if::{eqpt::perloc::DepthImage, net::NetParams, tc::loco_ctrl::MnvrCmd};
+use image::ImageBuffer;
+use log::{debug, info, trace, warn};
 
-use rov_lib::{auto::{AutoMgr, loc::Pose}, data_store::DataStore, tc_processor};
-use util::{host, logger::{LevelFilter, logger_init}, script_interpreter::{PendingTcs, ScriptInterpreter}, session::Session};
+use nalgebra::{Unit, UnitQuaternion, UnitVector3, Vector2, Vector3};
+use rov_lib::{
+    auto::{auto_mgr::AutoMgrOutput, loc::Pose, nav::NavPose, AutoMgr},
+    data_store::DataStore,
+    tc_processor,
+    tm_server::TmServer,
+};
+use util::{
+    host,
+    logger::{logger_init, LevelFilter},
+    script_interpreter::{PendingTcs, ScriptInterpreter},
+    session::Session,
+};
 
 // ------------------------------------------------------------------------------------------------
 // CONSTANTS
@@ -28,29 +47,29 @@ const CYCLE_FREQUENCY_HZ: f64 = 1.0 / CYCLE_PERIOD_S;
 
 // ------------------------------------------------------------------------------------------------
 // MAIN
-// ------------------------------------------------------------------------------------------------ 
+// ------------------------------------------------------------------------------------------------
 
 fn main() -> Result<()> {
-
     // ---- EARLY INITIALISATION ----
 
     // Initialise session
-    let session = Session::new(
-        "auto_test", 
-        "sessions"
-    ).wrap_err("Failed to create the session")?;
+    let session = Session::new("auto_test", "sessions").wrap_err("Failed to create the session")?;
 
     // Initialise logger
-    logger_init(LevelFilter::Trace, &session)
-        .wrap_err("Failed to initialise logging")?;
+    logger_init(LevelFilter::Trace, &session).wrap_err("Failed to initialise logging")?;
 
     // Log information on this execution.
     info!("Autonomy Test\n");
     info!(
-        "Running on: {:#?}", 
+        "Running on: {:#?}",
         host::get_uname().wrap_err("Failed to get host information")?
     );
     info!("Session directory: {:?}\n", session.session_root);
+
+    // ---- LOAD PARAMETERS ----
+
+    let net_params: NetParams =
+        util::params::load("net.toml").wrap_err("Could not load net params")?;
 
     // ---- INITIALISE TC SCRIPT ----
 
@@ -60,16 +79,13 @@ fn main() -> Result<()> {
     debug!("CLI arguments: {:?}", args);
 
     let mut script_interpreter: ScriptInterpreter;
-    
+
     // If we have a single argument use it as the script path
     if args.len() == 2 {
-
         info!("Loading script from \"{}\"", &args[1]);
 
         // Load the script interpreter
-        script_interpreter = ScriptInterpreter::new(
-            &args[1]
-        ).wrap_err("Failed to load script")?;
+        script_interpreter = ScriptInterpreter::new(&args[1]).wrap_err("Failed to load script")?;
 
         // Display some info
         info!(
@@ -87,12 +103,35 @@ fn main() -> Result<()> {
 
     let mut ds = DataStore::default();
 
-    let mut auto_mgr = AutoMgr::init("auto_mgr.toml", session)
-        .wrap_err("Failed to initialise AutoMgr")?;
+    let mut auto_mgr =
+        AutoMgr::init("auto_mgr.toml", session.clone()).wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
 
-    // Set initial pose to zero
-    auto_mgr.persistant.loc_mgr.set_pose(Pose::default());
+    // Starting pose
+    let start_pose = Pose::new(
+        Vector3::new(1.0, 1.0, 0.0),
+        // UnitQuaternion::identity()
+        UnitQuaternion::from_axis_angle(
+            &UnitVector3::new_unchecked(Vector3::z()),
+            std::f64::consts::FRAC_PI_2,
+        ),
+    );
+
+    // Set initial pose
+    auto_mgr.persistant.loc_mgr.set_pose(start_pose);
+
+    // ---- INITIALISE NETWORK ----
+
+    info!("Initialising network");
+
+    let zmq_ctx = comms_if::net::zmq::Context::new();
+
+    // TM server
+    let mut tm_server = {
+        let s = TmServer::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise TmServer")?;
+        info!("TmServer initialised");
+        s
+    };
 
     // ---- MAIN LOOP ----
 
@@ -101,15 +140,23 @@ fn main() -> Result<()> {
     let mut end_of_script = false;
 
     loop {
-
         // Get cycle start time
         let cycle_start_instant = Instant::now();
+
+        // ---- SIMULATION PROCESSING ----
+
+        // If there's a loco ctrl command to execute do it
+        if let Some(mnvr) = ds.loco_ctrl_input.cmd {
+            let new_pose =
+                get_new_pose_from_mnvr(mnvr, auto_mgr.persistant.loc_mgr.get_pose().unwrap());
+            auto_mgr.persistant.loc_mgr.set_pose(new_pose);
+        }
 
         // Clear items that need wiping at the start of the cycle
         ds.cycle_start(CYCLE_FREQUENCY_HZ);
 
         // ---- TELECOMMAND PROCESSING ----
-        
+
         if !end_of_script {
             match script_interpreter.get_pending_tcs() {
                 PendingTcs::None => (),
@@ -129,29 +176,52 @@ fn main() -> Result<()> {
         // ---- AUTONOMY PROCESSING ----
 
         // Step the autonomy manager
-        let _auto_loco_ctrl_cmd = auto_mgr.step(ds.auto_cmd.take())
+        let auto_mgr_output = auto_mgr
+            .step(ds.auto_cmd.take())
             .wrap_err("Error stepping the autonomy manager")?;
+
+        // If autonomy requested a depth image set an empty one since we're using per's
+        // internal global terrain map
+        if matches!(
+            auto_mgr_output,
+            AutoMgrOutput::PerlocCmd(comms_if::eqpt::perloc::PerlocCmd::AcqDepthFrame)
+        ) {
+            auto_mgr.set_depth_img(DepthImage {
+                timestamp: Utc::now(),
+                image: ImageBuffer::new(0, 0),
+            });
+            info!("Empty depth image set in AutoMgr");
+        }
+
+        // Or if it wanted some loco_ctrl output put it in the data store
+        if let AutoMgrOutput::LocoCtrlMnvr(mnvr) = auto_mgr_output {
+            ds.loco_ctrl_input.cmd = Some(mnvr);
+        }
+
+        // ---- TELEMETRY ----
+
+        ds.auto_tm = Some(auto_mgr.get_tm());
+        match tm_server.send(&ds) {
+            Ok(_) => (),
+            Err(e) => warn!("TmServer error: {}", e),
+        };
 
         // ---- CYCLE MANAGEMENT ----
 
         let cycle_dur = Instant::now() - cycle_start_instant;
 
         // Get sleep duration
-        match Duration::from_secs_f64(CYCLE_PERIOD_S)
-            .checked_sub(cycle_dur)
-        {
+        match Duration::from_secs_f64(CYCLE_PERIOD_S).checked_sub(cycle_dur) {
             Some(d) => {
                 ds.num_consec_cycle_overruns = 0;
                 thread::sleep(d);
-            },
+            }
             None => {
                 warn!(
-                    "Cycle overran by {:.06} s", 
-                    cycle_dur.as_secs_f64() 
-                        - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
+                    "Cycle overran by {:.06} s",
+                    cycle_dur.as_secs_f64() - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
                 );
                 ds.num_consec_cycle_overruns += 1;
-
             }
         }
 
@@ -165,5 +235,81 @@ fn main() -> Result<()> {
         }
     }
 
+    session.exit();
+
     Ok(())
+}
+
+// ------------------------------------------------------------------------------------------------
+// FUNCTIONS
+// ------------------------------------------------------------------------------------------------
+
+// Simulate the given loco ctrl manouvre
+fn get_new_pose_from_mnvr(mnvr: MnvrCmd, pose: Pose) -> Pose {
+    match mnvr {
+        MnvrCmd::Ackerman {
+            speed_ms,
+            curv_m,
+            crab_rad,
+        } => {
+            let position_m = pose.position2();
+            let heading_rad = pose.get_heading();
+
+            // Case: curv approx zero, straight line
+            if curv_m.abs() < f64::EPSILON {
+                let end_pos = position_m
+                    + (speed_ms * CYCLE_PERIOD_S)
+                        * Vector2::new(
+                            (heading_rad - crab_rad).cos(),
+                            (heading_rad - crab_rad).sin(),
+                        );
+
+                // Create nav pose to auto compute a pose
+                let nav_pose = NavPose::from_parts(&end_pos.into(), &heading_rad);
+
+                // return pose
+                nav_pose.pose_parent
+            } else {
+                // Position of the centre of the circle
+                let centre = position_m
+                    + (1.0 / curv_m)
+                        * Vector2::new(
+                            (crab_rad - heading_rad).sin(),
+                            (crab_rad - heading_rad).cos(),
+                        );
+
+                // Angular distance to move along circle
+                let delta_angle = speed_ms * curv_m * CYCLE_PERIOD_S;
+
+                // Angle along circle we started at
+                let start_angle = 1.5 * std::f64::consts::PI - crab_rad + heading_rad;
+
+                // End point
+                let end_pos = centre
+                    + (1.0 / curv_m)
+                        * Vector2::new(
+                            (start_angle + delta_angle).cos(),
+                            (start_angle + delta_angle).sin(),
+                        );
+
+                // End heading
+                let end_head = heading_rad + delta_angle;
+
+                // Create nav pose to auto compute a pose
+                let nav_pose = NavPose::from_parts(&end_pos.into(), &end_head);
+
+                // return pose
+                nav_pose.pose_parent
+            }
+        }
+        MnvrCmd::PointTurn { rate_rads } => Pose::new(
+            pose.position_m,
+            UnitQuaternion::from_axis_angle(
+                &Unit::new_normalize(Vector3::z()),
+                rate_rads * CYCLE_PERIOD_S,
+            ) * pose.attitude_q,
+        ),
+        // Other commands don't move us
+        _ => pose,
+    }
 }

@@ -1,7 +1,17 @@
 //! # AutoMgr module
 //!
 //! This module implements the [`AutoMgr`] state machine, which is responsible for perfoming the
-//! autonomy actions of the rover.
+//! autonomy actions of the rover. The state machine is broken down into a number of modes:
+//!
+//! - `Off` - The autonomy processing is not active
+//! - `Pause` - The autonomy system has been paused. It may be resumed with the `auto resume` tc.
+//! - `Stop` - The autonomy system is stopping, ready to move into Off mode.
+//! - `ImgStop` - The autonomy system is acquiring a pair of images while stationary.
+//! - `Mnvr` - Perform an autonomous LocoCtrl manouvre, TrajCtrl is not used.
+//! - `Follow` - The autonomy system is following a ground-planned path using TrajCtrl.
+//! - `Check` - The autonomy system is checking a ground-planned path and navigating around
+//!   obstacles in the path.
+//! - `Goto` - The autonomy system is navigating itself towards a given coordinate.
 
 // ------------------------------------------------------------------------------------------------
 // MODULES
@@ -11,6 +21,7 @@ mod auto_mnvr;
 mod check;
 mod follow;
 mod img_stop;
+mod kickstart;
 mod params;
 mod pause;
 mod stop;
@@ -28,7 +39,7 @@ pub use self::{params::AutoMgrParams, tm::AutoTm};
 
 use super::{
     loc::{LocMgr, LocSource},
-    map::TerrainMap,
+    nav::trav_mgr::TravMgr,
     path::PathError,
     traj_ctrl::TrajCtrlError,
 };
@@ -43,17 +54,17 @@ pub mod states {
     pub use super::check::Check;
     pub use super::follow::Follow;
     pub use super::img_stop::ImgStop;
+    pub use super::kickstart::KickStart;
     pub use super::pause::Pause;
     pub use super::stop::Stop;
     pub use super::wait_new_pose::WaitNewPose;
 }
 
-use cell_map::CellMapParams;
 use comms_if::{
-    eqpt::{cam::CamImage, perloc::DepthImage},
+    eqpt::perloc::{DepthImage, PerlocCmd},
     tc::{auto::AutoCmd, loco_ctrl::MnvrCmd},
 };
-use log::{error, info, warn};
+use log::{error, info, trace, warn};
 use states::*;
 use util::session::Session;
 
@@ -98,11 +109,11 @@ pub struct AutoMgr {
 }
 
 pub struct AutoMgrPersistantData {
-    /// Global terrain map, the map describing all terrain previously observed by the rover.
-    pub global_terr_map: TerrainMap,
-
     /// Instance of the [`LocMgr`] module, providing localisation source.
     pub loc_mgr: LocMgr,
+
+    /// Traverse manager for fully autonomous traverses.
+    pub trav_mgr: TravMgr,
 
     /// Telemetry packet to be sent by the TM server, summarising the autonomy state.
     pub auto_tm: AutoTm,
@@ -122,10 +133,11 @@ pub struct AutoMgrPersistantData {
 }
 
 /// State stacking abstraction.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AutoMgrStack(Vec<AutoMgrState>);
 
 /// Output of a state's step function.
+#[derive(Debug)]
 pub struct StepOutput {
     /// Action to perform on the stack itself
     pub action: StackAction,
@@ -171,8 +183,9 @@ pub enum AutoMgrState {
     Pause(Pause),
     WaitNewPose(WaitNewPose),
     ImgStop(ImgStop),
-    AutoMnvr(AutoMnvr),
+    KickStart(KickStart),
     // In a box to reduce the size of the state enum
+    AutoMnvr(Box<AutoMnvr>),
     Follow(Box<Follow>),
     Check(Box<Check>),
     Goto,
@@ -191,12 +204,16 @@ pub enum StackAction {
 }
 
 /// Possible data that can be passed out of a state's step function.
+#[derive(Debug)]
 pub enum AutoMgrOutput {
+    /// No action required by the autonomy system
     None,
 
+    /// Locomotion control command required by the autonomy system
     LocoCtrlMnvr(MnvrCmd),
 
-    RequestDepthImg,
+    /// A Perloc command to be executed
+    PerlocCmd(PerlocCmd),
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -214,11 +231,7 @@ impl AutoMgr {
         Ok(Self {
             params: params.clone(),
             last_stack_data: AutoMgrOutput::None,
-            persistant: AutoMgrPersistantData::new(
-                params.terrain_map_params,
-                params.loc_mgr.source,
-                session,
-            )?,
+            persistant: AutoMgrPersistantData::new(params.loc_mgr.source, session)?,
             stack: AutoMgrStack::new(),
         })
     }
@@ -237,7 +250,7 @@ impl AutoMgr {
                 match cmd {
                     Some(AutoCmd::Manouvre(m)) => {
                         self.stack
-                            .push_above(AutoMgrState::AutoMnvr(AutoMnvr::new(m)));
+                            .push_above(AutoMgrState::AutoMnvr(Box::new(AutoMnvr::new(m))));
                         StepOutput::none()
                     }
                     Some(AutoCmd::Follow(p)) => {
@@ -252,6 +265,11 @@ impl AutoMgr {
                     }
                     Some(AutoCmd::ImgStop) => {
                         self.stack.push_above(AutoMgrState::ImgStop(ImgStop::new()));
+                        StepOutput::none()
+                    }
+                    Some(AutoCmd::KickStart) => {
+                        self.stack
+                            .push_above(AutoMgrState::KickStart(KickStart::new()));
                         StepOutput::none()
                     }
                     Some(_) => {
@@ -284,8 +302,12 @@ impl AutoMgr {
             }
         }
 
-        if self.stack.top().is_some() && is_action {
-            info!("AutoMgr state change to: {}", self.stack.top().unwrap());
+        if is_action {
+            if let Some(top) = self.stack.top() {
+                info!("AutoMgr state change to: {}", top);
+            } else {
+                info!("AutoMgr state changed to Off");
+            }
         }
 
         // Output data to loco_ctrl
@@ -358,6 +380,7 @@ impl Display for AutoMgrState {
             AutoMgrState::Pause(_) => write!(f, "AutoMgrState::Pause"),
             AutoMgrState::WaitNewPose(_) => write!(f, "AutoMgrState::WaitNewPose"),
             AutoMgrState::ImgStop(_) => write!(f, "AutoMgrState::ImgStop"),
+            &AutoMgrState::KickStart(_) => write!(f, "AutoMgrState::KickStart"),
             AutoMgrState::AutoMnvr(_) => write!(f, "AutoMgrState::AutoMnvr"),
             AutoMgrState::Follow(_) => write!(f, "AutoMgrState::Follow"),
             AutoMgrState::Check(_) => write!(f, "AutoMgrState::Check"),
@@ -381,6 +404,7 @@ impl AutoMgrState {
             AutoMgrState::Follow(follow) => follow.step(params, persistant, cmd),
             AutoMgrState::Check(check) => check.step(params, persistant, cmd),
             AutoMgrState::ImgStop(img_stop) => img_stop.step(params, persistant, cmd),
+            AutoMgrState::KickStart(kick_start) => kick_start.step(params, persistant, cmd),
             _ => unimplemented!(),
         };
 
@@ -400,14 +424,10 @@ impl AutoMgrState {
 }
 
 impl AutoMgrPersistantData {
-    pub fn new(
-        terr_map_params: CellMapParams,
-        loc_source: LocSource,
-        session: Session,
-    ) -> Result<Self, AutoMgrError> {
+    pub fn new(loc_source: LocSource, session: Session) -> Result<Self, AutoMgrError> {
         Ok(Self {
-            global_terr_map: TerrainMap::new(terr_map_params),
             loc_mgr: LocMgr::new(loc_source),
+            trav_mgr: TravMgr::new()?,
             auto_tm: AutoTm::default(),
             session,
             is_stopped: false,

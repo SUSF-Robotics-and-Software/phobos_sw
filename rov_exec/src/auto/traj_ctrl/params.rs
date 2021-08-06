@@ -14,7 +14,6 @@ use serde::Deserialize;
 /// Parameters for trajectory control
 #[derive(Deserialize, Debug, Clone)]
 pub struct Params {
-    
     /// Lateral controller proportional gain
     pub lat_k_p: f64,
 
@@ -46,7 +45,7 @@ pub struct Params {
     pub max_crab_dem_rad: f64,
 
     /// Curvature to speed map coefficients
-    /// 
+    ///
     /// The order of these coefficients is highest power first, i.e if there
     /// are 3 coefficients it's a 2nd order polynomial with c[0]*x^2 + c[1]*x
     /// + c[2].
@@ -66,11 +65,18 @@ pub struct Params {
     /// be aborted.
     pub head_error_limit_rad: f64,
 
-    /// The rate at which to turn the rover during a heading adjustment 
-    /// manouvre.
-    pub head_adjust_rate_rads: f64,
+    /// The rate at which to turn the rover during a coarse heading adjustment
+    /// manouvre (i.e far away from the target heading)
+    pub head_adjust_coarse_rate_rads: f64,
 
-    /// The threshold under which a heading adjustment will be considered 
-    /// complete.
-    pub head_adjust_threshold_rad: f64
+    /// The rate at which to turn the rover during a fine heading adjustment
+    /// manouvre (i.e close to the target heading)
+    pub head_adjust_fine_rate_rads: f64,
+
+    /// The threshold under which a heading adjustment should be done at the fine rate, i.e. the
+    /// slower more accurate rate
+    pub head_adjust_fine_threshold_rad: f64,
+
+    /// The threshold under which a heading adjustment will be considered complete
+    pub head_adjust_threshold_rad: f64,
 }

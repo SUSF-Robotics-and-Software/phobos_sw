@@ -169,7 +169,7 @@ fn main() -> Result<(), Report> {
     info!("LocoCtrl init complete");
 
     let mut auto_mgr =
-        AutoMgr::init("auto_mgr.toml", session).wrap_err("Failed to initialise AutoMgr")?;
+        AutoMgr::init("auto_mgr.toml", session.clone()).wrap_err("Failed to initialise AutoMgr")?;
     info!("AutoMgr init complete");
 
     info!("Module initialisation complete\n");
@@ -359,7 +359,10 @@ fn main() -> Result<(), Report> {
 
         // If requested by AutoMgr receive depth image from perloc
         #[cfg(feature = "perloc")]
-        if matches!(auto_mgr_output, AutoMgrOutput::RequestDepthImg) {
+        if matches!(
+            auto_mgr_output,
+            AutoMgrOutput::PerlocCmd(comms_if::eqpt::perloc::PerlocCmd::AcqDepthFrame)
+        ) {
             perloc_client
                 .request_depth_img()
                 .wrap_err("Could not request depth image from perloc")?;
@@ -470,6 +473,8 @@ fn main() -> Result<(), Report> {
     // ---- SHUTDOWN ----
 
     info!("End of execution");
+
+    session.exit();
 
     Ok(())
 }

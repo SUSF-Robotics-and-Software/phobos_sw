@@ -8,7 +8,7 @@
 use super::*;
 use crate::auto::{loc::Pose, path::*};
 use comms_if::tc::loco_ctrl::MnvrCmd;
-use log::{debug, info, warn};
+use log::{error, info, trace, warn};
 use nalgebra::{Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use util::{params, session};
@@ -153,11 +153,15 @@ impl TrajCtrl {
             Err(e) => return Err(TrajCtrlError::ParamLoadError(e)),
         };
 
+        Ok(Self::new(params))
+    }
+
+    pub fn new(params: Params) -> Self {
         // Initialise the controllers
         let controllers = TrajControllers::new(&params);
 
         // Build self
-        Ok(Self {
+        Self {
             params,
             mode: TrajCtrlMode::Off,
             controllers,
@@ -168,7 +172,7 @@ impl TrajCtrl {
             path_index: 0,
             target_point_index: 0,
             tuning_output: TrajCtrlTuningOutput::default(),
-        })
+        }
     }
 
     /// Process trajectory control.
@@ -216,7 +220,7 @@ impl TrajCtrl {
         }
 
         // Verify that the new sequence contains at least one path
-        if seq.len() == 0 {
+        if seq.is_empty() {
             return Err(TrajCtrlError::AttemptEmptySeqLoad);
         }
 
@@ -229,7 +233,7 @@ impl TrajCtrl {
         }
 
         // If there were invalid paths
-        if invalid_path_indexes.len() > 0 {
+        if !invalid_path_indexes.is_empty() {
             return Err(TrajCtrlError::SequenceContainsInvalidPaths(
                 invalid_path_indexes,
             ));
@@ -334,9 +338,9 @@ impl TrajCtrl {
 
         // Check for error exceedance
         if self.report.lat_error_limit_exceeded || self.report.head_error_limit_exceeded {
-            warn!("Limits exceeded:");
-            info!("Lateral error = {} m", self.report.lat_error_m);
-            info!("Heading error = {} rad", self.report.head_error_rad);
+            error!("Limits exceeded:");
+            warn!("Lateral error = {} m", self.report.lat_error_m);
+            warn!("Heading error = {} rad", self.report.head_error_rad);
 
             self.report.sequence_aborted = true;
 
@@ -402,9 +406,17 @@ impl TrajCtrl {
                 0.0,
             ));
 
-            self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
-                rate_rads: cross[0].signum() * self.params.head_adjust_rate_rads,
-            });
+            // If we're within the fine threshold drive at the fine rate, otherwise drive at the
+            // coarse rate.
+            if head_err_rad.abs() < self.params.head_adjust_fine_threshold_rad {
+                self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
+                    rate_rads: cross[0].signum() * self.params.head_adjust_fine_rate_rads,
+                });
+            } else {
+                self.output_mnvr_cmd = Some(MnvrCmd::PointTurn {
+                    rate_rads: cross[0].signum() * self.params.head_adjust_coarse_rate_rads,
+                });
+            }
         }
 
         Ok(())
@@ -460,29 +472,13 @@ impl TrajCtrl {
             .get_segment_to_target(self.target_point_index)
             .unwrap();
 
-        // Get the slope and intercept of the line that passes through the
-        // rover's position and is perpendicular to the segment.
-        let lat_slope_m = -1f64 / segment.slope_m;
-        let lat_intercept_m = pose.position_m[1] - lat_slope_m * pose.position_m[0];
-
-        // Find the point of intersection by equating the lines for the segment
-        // and the lateral.
-        let mut isect_m_lm = [0f64; 2];
-        isect_m_lm[0] = (lat_intercept_m - segment.intercept_m) / (segment.slope_m - lat_slope_m);
-        isect_m_lm[1] = segment.slope_m * isect_m_lm[0] + segment.intercept_m;
-
-        // Get the vector from the intersection to the target
-        let isect_vec = segment.target_m - Vector2::from(isect_m_lm);
-
-        // Get the vector from the start to the target
-        let seg_vec = segment.target_m - segment.start_m;
-
-        // The sign of the error is the sign of the dot of these vectors
-        let dot = isect_vec.dot(&seg_vec);
+        // Get the component of (pose -> target) along segment, the raw error
+        let err = (segment.target_m - pose.position2()).dot(&(segment.target_m - segment.start_m))
+            / segment.length_m;
 
         // The error is then the length of the intersection vector, multiplied by the sign of the
         // dot product
-        self.report.long_error_m = isect_vec.norm() * dot.signum();
+        self.report.long_error_m = err;
 
         Ok(self.report.long_error_m)
     }

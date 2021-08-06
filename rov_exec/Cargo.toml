@@ -36,8 +36,9 @@ ndarray = { version = "0.15", features = ["serde"] }
 ndarray-stats = "0.4"
 noise = "0.7"
 csv = "1.1"
-# cell-map = "0.4.1"
-cell-map = { git = "https://github.com/duncanrhamill/cell-map", branch = "dev" }
+# cell-map = "0.5"
+cell-map = { path = "../../../cell-map"}
+ordered-float = "2"
 
 # Internal
 util = { path = "../util" }

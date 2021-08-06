@@ -1,22 +1,23 @@
-//! Defines Telemetry Pack for Autonomy
+//! Parameters for the traverse manager
 
 // -----------------------------------------------------------------------------------------------
 // IMPORTS
 // -----------------------------------------------------------------------------------------------
 
-use serde::{Deserialize, Serialize};
+use nalgebra::Vector2;
+use serde::Deserialize;
 
-use crate::auto::{loc::Pose, map::CostMap, path::Path, traj_ctrl::StatusReport};
+use super::escape_boundary::EscapeBoundaryParams;
 
 // -----------------------------------------------------------------------------------------------
 // STRUCTS
 // -----------------------------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct AutoTm {
-    pub path: Option<Path>,
-    pub secondary_path: Option<Path>,
-    pub pose: Option<Pose>,
-    pub traj_ctrl_status: Option<StatusReport>,
-    pub global_cost_map: Option<CostMap>,
+#[derive(Debug, Deserialize, Clone)]
+pub struct TravMgrParams {
+    /// Size of each cell in maps
+    pub map_cell_size: Vector2<f64>,
+
+    /// Escape boundary parameters
+    pub escape_boundary: EscapeBoundaryParams,
 }

@@ -17,6 +17,8 @@ import matplotlib.animation as animation
 from matplotlib import _pylab_helpers
 from matplotlib.rcsetup import interactive_bk as _interactive_bk
 from plot_path import plot_path, conv_path
+from plot_cell_map import conv_cost_map_data
+from cell_map import CellMap
 
 matplotlib.use('Qt5agg')
 
@@ -35,7 +37,7 @@ def main():
 
     # Create figure
     fig, axs = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]})
-    ax_path = axs[0]
+    ax_map = axs[0]
     ax_errors = axs[1]
     plt.ion()
     plt.show(block=False)
@@ -44,6 +46,12 @@ def main():
     long_err_data = np.empty((0, 2))
     lat_err_data = np.empty((0, 2))
     head_err_data = np.empty((0, 2))
+
+    path_plot = None
+    sec_path_plot = None
+    map_plot = None
+    target_plot = None
+    pose_plot = None
          
     while True:
 
@@ -55,14 +63,13 @@ def main():
             time = tm['sim_time_s']
             
             # Clear the axis
-            ax_path.clear()
-            ax_path.title.set_text(f'Autonomy State (t = {time:.2f})')
+            ax_map.title.set_text(f'Autonomy State (t = {time:.2f})')
 
             if tm['auto'] is not None:
                 if tm['auto']['path'] is not None:
                     # Draw path
                     path = conv_path(tm['auto']['path'])
-                    plot_path(path, ax_path)
+                    path_plot = plot_path(path, items=path_plot, ax=ax_map)
 
                     # Get the min/max of the path x and y
                     path_min_x = np.min(path[:,0])
@@ -80,29 +87,38 @@ def main():
                         MIN_PLOT_BOX_SIZE/2
                     )
 
-                    # Set the limits
-                    ax_path.set_xlim(
-                        path_centre_x - path_semi_range - PATH_BOX_BOUNDARY,
-                        path_centre_x + path_semi_range + PATH_BOX_BOUNDARY
-                    )
-                    ax_path.set_ylim(
-                        path_centre_y - path_semi_range - PATH_BOX_BOUNDARY,
-                        path_centre_y + path_semi_range + PATH_BOX_BOUNDARY
-                    )
+                    # # Set the limits
+                    # ax_map.set_xlim(
+                    #     path_centre_x - path_semi_range - PATH_BOX_BOUNDARY,
+                    #     path_centre_x + path_semi_range + PATH_BOX_BOUNDARY
+                    # )
+                    # ax_map.set_ylim(
+                    #     path_centre_y - path_semi_range - PATH_BOX_BOUNDARY,
+                    #     path_centre_y + path_semi_range + PATH_BOX_BOUNDARY
+                    # )
 
                     if tm['auto']['traj_ctrl_status'] is not None:
                         target_m = path[tm['auto']['traj_ctrl_status']['target_point_idx'], 0:2]
                         # Highlight the target point
-                        ax_path.plot(target_m[0], target_m[1], 'xb')
+                        if target_plot is None:
+                            target_plot = ax_map.plot(target_m[0], target_m[1], 'xb')[0]
+                        else:
+                            target_plot.set_data(target_m[0], target_m[1])
+                if tm['auto']['secondary_path'] is not None:
+                    # Draw path
+                    path = conv_path(tm['auto']['secondary_path'])
+                    sec_path_plot = plot_path(path, items=sec_path_plot, ax=ax_map, linespec=':b')
                 if tm['auto']['pose'] is not None:
                     # Draw pose
-                    r = R.from_quat(tm['auto']['pose']['attitude_q_lm'])
+                    r = R.from_quat(tm['auto']['pose']['attitude_q'])
                     forward = r.as_matrix() * np.array([1, 0, 0])
                     forward = forward[0:2, 0]
                     forward = forward / np.linalg.norm(forward)
-                    ax_path.quiver(
-                        tm['auto']['pose']['position_m_lm'][0],
-                        tm['auto']['pose']['position_m_lm'][1],
+                    if pose_plot is not None:
+                        pose_plot.remove()
+                    pose_plot =  ax_map.quiver(
+                        tm['auto']['pose']['position_m'][0],
+                        tm['auto']['pose']['position_m'][1],
                         forward[0],
                         forward[1]
                     )
@@ -126,16 +142,30 @@ def main():
                     ax_errors.plot(lat_err_data[:,0], lat_err_data[:,1], '-r')
                     ax_errors.plot(long_err_data[:,0], long_err_data[:,1], '-b')
                     ax_errors.plot(head_err_data[:,0], head_err_data[:,1], '-g')
+                if tm['auto']['global_cost_map'] is not None:
+                    cm = CellMap.from_raw_dict(tm['auto']['global_cost_map']['map'])
+                    for layer in cm.layers:
+                        cm.data[layer] = conv_cost_map_data(cm.data[layer])
+                    if map_plot is not None:
+                        del map_plot
+                    map_plot = cm.plot(ax=ax_map, vmin=0.0, vmax=1.0)
                 pause(0.00001, False)
 
+num_packets = 0
 def get_tm(tm_sub):
     '''
     Get next tm packet from the socket
     '''
+    global num_packets
 
     try: 
         tm_str = tm_sub.recv_string()
+        num_packets += 1
         tm = json.loads(tm_str)
+
+        # Only load every 10th packet, or if it has a gcm in it load it
+        if num_packets % 10 != 0 and tm['auto']['global_cost_map'] is None:
+            tm = None
     except zmq.Again:
         tm = None
     except zmq.ZMQError as e:
