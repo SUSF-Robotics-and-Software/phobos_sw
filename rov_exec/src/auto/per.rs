@@ -44,7 +44,7 @@ pub struct PerMgrParams {
     pub principle_point_pixels: Point2<f64>,
 
     /// The focal length of the x and y axes.
-    pub focal_length_pixels: Point2<f64>
+    pub focal_length_pixels: Point2<f64>,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -95,11 +95,13 @@ impl PerMgr {
 
         // Calculation of each point
         for (u, v, depth) in depth_img.image.enumerate_pixels() {
-            let depth_m = depth * self.params.depth_to_m;
-            
+            let depth_m = (depth.0[0] as f64) * self.params.depth_to_m;
+
             let point_m = Point3::new(
-                (u - self.params.principle_point_pixels.x) * depth_m / self.params.focal_length_pixels.x,
-                (y - self.params.principle_point_pixels.y) * depth_m / self.params.focal_length_pixels.y,
+                (u as f64 - self.params.principle_point_pixels.x) * depth_m
+                    / self.params.focal_length_pixels.x,
+                (v as f64 - self.params.principle_point_pixels.y) * depth_m
+                    / self.params.focal_length_pixels.y,
                 depth_m,
             );
 
@@ -114,17 +116,21 @@ impl PerMgr {
                 min_bound.z = point_m.z;
             }
             if point_m.x > max_bound.x {
-                min_bound.x = point_m.x;
+                max_bound.x = point_m.x;
             }
             if point_m.y > max_bound.y {
-                min_bound.y = point_m.y;
+                max_bound.y = point_m.y;
             }
             if point_m.z > max_bound.z {
-                min_bound.z = point_m.z;
+                max_bound.z = point_m.z;
             }
 
             point_cloud.push(point_m);
         }
+
+        util::session::save_with_timestamp("point_cloud/pc.json", point_cloud);
+
+        std::thread::sleep(std::time::Duration::from_secs(10));
 
         // Calculate point cloud
         //  need min and max bounds of the point cloud.
