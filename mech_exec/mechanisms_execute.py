@@ -102,25 +102,22 @@ class Mechanisms:
             # Get the motor group
             group = act_id[:3]
 
-            if group == 'Str':
-                rad_to_sk_map = self.mech_exec['str_ang_rad_to_sk_coeffs'][
+            if group == 'Str' or group == 'Arm':
+                rad_to_sk_map = self.mech_exec[f'{group.lower()}_ang_rad_to_sk_coeffs'][
                     self.motor_id_dict[act_id]
                 ]
                 pos_sk = rad_to_sk_map[0] * position_rad + rad_to_sk_map[1]
                 # Clamp to min/max values
                 pos_sk = max(
-                    self.mech_exec['str_ang_min_sk'][self.motor_id_dict[act_id]],
+                    self.mech_exec[f'{group.lower()}_ang_min_sk'][self.motor_id_dict[act_id]],
                     min(
-                        self.mech_exec['str_ang_max_sk'][self.motor_id_dict[act_id]],
+                        self.mech_exec[f'{group.lower()}_ang_max_sk'][self.motor_id_dict[act_id]],
                         pos_sk
                     )
                 )
                 print(f'{act_id}: raw: {position_rad}, sk: {pos_sk}')
                 # Set the position of the servo in degreee, the demands give the position in radians so RAD_TO_DEGREE_CONV is used to convert
-                self.get_motor(act_id, group).angle = pos_sk                        
-            elif group == 'Arm':
-                # TODO
-                continue
+                self.get_motor(act_id, group).angle = pos_sk
 
         # Actuate speed demands
         for act_id, speed_rads in dems['speed_rads'].items():

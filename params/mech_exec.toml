@@ -43,7 +43,6 @@ arm_idx_map = [
     [0, 0], 
     [0, 0], 
     [0, 0],
-    [0, 0],
     [0, 0]
 ]
 
@@ -64,6 +63,10 @@ drv_rate_norm_to_sk_coeffs = [
 # Min and max drive rates
 drv_rate_min_sk = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
 drv_rate_max_sk = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+# ----------------------------------------------------------------------------
+# STEER
+# ----------------------------------------------------------------------------
 
 # Steer axis angle coefficients. Angles for SK are in degrees, so the 
 # coefficients are just to convert from radians to degrees.
@@ -90,3 +93,32 @@ str_pw_range_min = [1250, 1250, 1100, 1150, 1250, 1150]
 
 # Steering maximum pulse width
 str_pw_range_max = [2000, 2000, 2000, 2000, 2000, 2000]
+
+# ----------------------------------------------------------------------------
+# ARM
+# ----------------------------------------------------------------------------
+
+# Arm axis angle coefficients. Angles for SK are in degrees, so the 
+# coefficients are just to convert from radians to degrees.
+arm_ang_rad_to_sk_coeffs = [
+    [57.2958, 90.0], 
+    [57.2958, 90.0], 
+    [57.2958, 135.0], 
+    [57.2958, 90.0], 
+    [57.2958, 90.0],
+]
+
+# Min and max drive rates
+arm_ang_min_sk = [0.0, 0.0, 0.0, 0.0, 0.0]
+arm_ang_max_sk = [180.0, 180.0, 270.0, 180.0, 180.0]
+
+# Arm motor configurations
+
+# Arm actuator range
+arm_act_range_sk = [180.0, 180.0, 270.0, 180.0, 180.0]
+
+# Arm minimum pulse width
+arm_pw_range_min = [1250, 1250, 1100, 1150, 1250]
+
+# Arm maximum pulse width
+arm_pw_range_max = [2000, 2000, 2000, 2000, 2000]
