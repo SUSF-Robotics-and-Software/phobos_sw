@@ -69,5 +69,5 @@ pub enum MnvrCmd {
     /// Stop the rover, maintaining the current steer axis angles but setting all drive axes to zero
     /// speed.
     #[structopt(name = "stop")]
-    Stop 
+    Stop
 }

@@ -7,6 +7,7 @@
 // ------------------------------------------------------------------------------------------------
 
 pub mod loco_ctrl;
+pub mod arm_ctrl;
 pub mod auto;
 
 // ------------------------------------------------------------------------------------------------
@@ -28,7 +29,7 @@ use structopt::{StructOpt, clap::AppSettings};
     name = "tc",
     about = "Parse a telecommand to be sent to the rover",
     setting(AppSettings::NoBinaryName),
-    global_setting(AppSettings::DeriveDisplayOrder), 
+    global_setting(AppSettings::DeriveDisplayOrder),
     global_setting(AppSettings::DisableVersion),
     global_setting(AppSettings::DontCollapseArgsInUsage),
     global_setting(AppSettings::VersionlessSubcommands),
@@ -46,6 +47,10 @@ pub enum Tc {
     /// Send a direct manouvre command to locomotion control.
     #[structopt(name = "mnvr")]
     LocoCtrlMnvr(loco_ctrl::MnvrCmd),
+
+    /// Send a direct rotation command to arm control.
+    #[structopt(name = "arm")]
+    ArmCtrlRot(arm_ctrl::ArmCmd),
 
     /// Perform a autonomous command.
     #[structopt(name = "auto")]
@@ -116,7 +121,7 @@ impl Tc {
                 return tc;
             }
         }
-        
+
         serde_json::from_str(json_str).map_err(|e| TcParseError::JsonError(e.to_string()))
     }
 }

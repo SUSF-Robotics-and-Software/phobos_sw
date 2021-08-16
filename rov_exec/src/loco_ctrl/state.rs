@@ -10,11 +10,11 @@ use log::debug;
 
 // Internal
 use super::{
-    Params, 
-    LocoConfig, AxisData, 
+    Params,
+    LocoConfig, AxisData,
     NUM_DRV_AXES, NUM_STR_AXES};
 use util::{
-    params, 
+    params,
     module::State,
     archive::{Archived, Archiver},
     session::Session};
@@ -69,7 +69,7 @@ pub struct StatusReport {
 impl State for LocoCtrl {
     type InitData = &'static str;
     type InitError = params::LoadError;
-    
+
     type InputData = InputData;
     type OutputData = MechDems;
     type StatusReport = StatusReport;
@@ -78,10 +78,10 @@ impl State for LocoCtrl {
     /// Initialise the LocoCtrl module.
     ///
     /// Expected init data is the path to the parameter file
-    fn init(&mut self, init_data: Self::InitData, session: &Session) 
-        -> Result<(), Self::InitError> 
+    fn init(&mut self, init_data: Self::InitData, session: &Session)
+        -> Result<(), Self::InitError>
     {
-        
+
         // Load the parameters
         self.params = match params::load(init_data) {
             Ok(p) => p,
@@ -116,7 +116,7 @@ impl State for LocoCtrl {
 
     /// Perform cyclic processing of Locomotion Control.
     fn proc(&mut self, input_data: &Self::InputData)
-        -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError> 
+        -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError>
     {
         // Clear the status report
         self.report = StatusReport::default();
@@ -162,7 +162,7 @@ impl LocoCtrl {
     /// Must result in no motion of the vehicle
     pub fn make_safe(&mut self) {
         self.current_cmd = Some(MnvrCmd::Stop);
-        
+
         self.calc_target_config().unwrap();
 
         self.set_output();
@@ -218,10 +218,10 @@ impl LocoCtrl {
         // Update the output in self
         self.output = Some(output.clone());
     }
-    
+
     /// Based on the current command calculate a target configuration for
     /// the rover to achieve.
-    /// 
+    ///
     /// A valid command should be set in `self.current_cmd` before calling
     /// this function.
     fn calc_target_config(&mut self) -> Result<(), super::LocoCtrlError> {
@@ -256,7 +256,7 @@ impl LocoCtrl {
     /// This function shall modify the current target configuration to ensure
     /// that no capability of the rover is exceeded.
     ///
-    /// If a limit is reached the corresponding flag in the status report will 
+    /// If a limit is reached the corresponding flag in the status report will
     /// be raised.
     fn enforce_limits(&mut self) -> Result<(), super::LocoCtrlError> {
 
@@ -268,20 +268,20 @@ impl LocoCtrl {
 
         // Check steer axis abs pos limits
         for i in 0..NUM_STR_AXES {
-            if target_config.str_axes[i].abs_pos_rad 
-                > 
-                self.params.str_max_abs_pos_rad[i] 
+            if target_config.str_axes[i].abs_pos_rad
+                >
+                self.params.str_max_abs_pos_rad[i]
             {
-                target_config.str_axes[i].abs_pos_rad = 
+                target_config.str_axes[i].abs_pos_rad =
                     self.params.str_max_abs_pos_rad[i];
                 self.report.str_abs_pos_limited[i] = true;
             }
-            if target_config.str_axes[i].abs_pos_rad 
+            if target_config.str_axes[i].abs_pos_rad
                 <
-                self.params.str_min_abs_pos_rad[i] 
+                self.params.str_min_abs_pos_rad[i]
             {
-                target_config.str_axes[i].abs_pos_rad = 
-                    self.params.str_max_abs_pos_rad[i];
+                target_config.str_axes[i].abs_pos_rad =
+                    self.params.str_min_abs_pos_rad[i];
                 self.report.str_abs_pos_limited[i] = true;
             }
         }
@@ -306,13 +306,13 @@ impl LocoCtrl {
         Ok(())
 
     }
-    
+
     /// Perform the stop command calculations.
-    /// 
+    ///
     /// The stop command shall:
     ///     1. Maintain the current steer axis positions
     ///     2. Set all drive axes to stopping.
-    /// 
+    ///
     /// Stop shall never error and must always succeed in bringing the rover to
     /// a full and complete stop.
     fn calc_stop(&mut self) -> Result<(), super::LocoCtrlError> {
@@ -324,8 +324,8 @@ impl LocoCtrl {
         let target = match self.target_loco_config {
             Some(t) => {
                 let mut t = t.clone();
-                
-                // Modify the target's rates to be zero, demanding that the 
+
+                // Modify the target's rates to be zero, demanding that the
                 // rover stop.
                 for i in 0..NUM_DRV_AXES {
                     t.str_axes[i].rate_rads = 0.0;
@@ -349,7 +349,7 @@ impl LocoCtrl {
 
         // Update the target
         self.target_loco_config = Some(target);
-        
+
         Ok(())
     }
 
