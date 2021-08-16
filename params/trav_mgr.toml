@@ -1,14 +1,17 @@
 # Size of cells in a CellMap (terrain or cost)
 map_cell_size = [0.1, 0.1]
 
-[escape_boundary]
-max_radius_m = 2.0
-min_radius_m = 0.5
-radius_threshold_m = 0.01
-radius_step_m = 0.1
-radius_safety_factor = 1.2
+# Distance to an unpopulated cell from the local target (1 rover width)
+local_target_exclusion_distance_m = 0.3
 
-max_heading_rad = 1.0
-min_heading_rad = 0.2
-heading_threshold_rad = 0.05
-heading_safety_factor = 1.2
+# [escape_boundary]
+# max_radius_m = 2.0
+# min_radius_m = 0.5
+# radius_threshold_m = 0.01
+# radius_step_m = 0.1
+# radius_safety_factor = 1.2
+
+# max_heading_rad = 1.0
+# min_heading_rad = 0.2
+# heading_threshold_rad = 0.05
+# heading_safety_factor = 1.2

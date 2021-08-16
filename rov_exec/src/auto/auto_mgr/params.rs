@@ -18,19 +18,11 @@ use super::{auto_mnvr::AutoMnvrParams, stop::StopParams, wait_new_pose::WaitNewP
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AutoMgrParams {
+    pub loc_mgr: LocMgrParams,
+
     pub wait_new_pose: WaitNewPoseParams,
-
-    pub terrain_map_params: CellMapParams,
-
-    pub cost_map_params: CostMapParams,
 
     pub stop: StopParams,
 
-    pub loc_mgr: LocMgrParams,
-
     pub auto_mnvr: AutoMnvrParams,
-
-    pub path_planner: PathPlannerParams,
-
-    pub per_mgr: PerMgrParams,
 }

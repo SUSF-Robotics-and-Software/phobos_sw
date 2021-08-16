@@ -42,12 +42,6 @@ pub enum WorkerSignal {
     /// ground planned path
     RecalcGlobalCost(Option<Path>),
 
-    /// Replan after a previous abort, with the rover at the current pose and the target being the
-    /// given navpose.
-    ///
-    /// A replan will involve potential point turns to avoid obstacles
-    Replan(Pose, NavPose),
-
     /// The global cost and terrain maps have been updated
     GlobalMapsUpdated,
 
@@ -157,32 +151,32 @@ pub(super) fn worker_thread(
 
                 session::save_with_timestamp("local_cost_map/lcm.json", local_cost_map.clone());
 
-                // Calculate the escape boundary from the local cost map if there is a ground path
-                // follow
-                {
-                    let mut eb = shared.esc_boundary.write()?;
-                    if shared.ground_path.read()?.is_some() {
-                        match EscapeBoundary::calculate(
-                            &shared.params.escape_boundary,
-                            &local_cost_map,
-                            &pose,
-                        ) {
-                            Ok(e) => *eb = Some(e),
-                            Err(e) => {
-                                main_sender.send(WorkerSignal::Error(Box::new(e)))?;
-                                *eb = None;
-                                continue;
-                            }
-                        }
-                    } else {
-                        *eb = None;
-                    };
-                }
-
-                // Save escape boundary for debugging
-                if let Some(ref eb) = *shared.esc_boundary.read()? {
-                    session::save_with_timestamp("escape_boundaries/eb.json", eb.clone());
-                }
+                // // Calculate the escape boundary from the local cost map if there is a ground path
+                // // follow
+                // {
+                //     let mut eb = shared.esc_boundary.write()?;
+                //     if shared.ground_path.read()?.is_some() {
+                //         match EscapeBoundary::calculate(
+                //             &shared.params.escape_boundary,
+                //             &local_cost_map,
+                //             &pose,
+                //         ) {
+                //             Ok(e) => *eb = Some(e),
+                //             Err(e) => {
+                //                 main_sender.send(WorkerSignal::Error(Box::new(e)))?;
+                //                 *eb = None;
+                //                 continue;
+                //             }
+                //         }
+                //     } else {
+                //         *eb = None;
+                //     };
+                // }
+                //
+                // // Save escape boundary for debugging
+                // if let Some(ref eb) = *shared.esc_boundary.read()? {
+                //     session::save_with_timestamp("escape_boundaries/eb.json", eb.clone());
+                // }
 
                 // Merge the local maps into the global maps, doing each in a scope so we can drop
                 // their locks when needed.
@@ -246,15 +240,49 @@ pub(super) fn worker_thread(
                                 continue;
                             }
                         };
-                        (start_pose, 1)
+
+                        if let Some(start_pose) = start_pose {
+                            (start_pose, 1)
+                        } else {
+                            main_sender.send(WorkerSignal::Error(Box::new(
+                                TravMgrError::NavError(NavError::EmptyPath),
+                            )))?;
+                            continue;
+                        }
                     };
 
                     info!("Planning {} paths", num_paths);
 
                     // Get the target, either the global GOTO or from the escape boundary for a
                     // ground planned path
-                    let target = match *shared.esc_boundary.read()? {
-                        Some(ref eb) => eb.min_cost_target,
+                    // let target = match *shared.esc_boundary.read()? {
+                    //     Some(ref eb) => eb.min_cost_target,
+                    //     None => match *shared.global_target.read()? {
+                    //         Some(ref t) => *t,
+                    //         None => {
+                    //             main_sender.send(WorkerSignal::Error(Box::new(
+                    //                 TravMgrError::NoValidTarget,
+                    //             )))?;
+                    //             continue;
+                    //         }
+                    //     },
+                    // };
+
+                    // Read a copy of the GCM
+                    let gcm = shared.global_cost_map.read()?;
+
+                    // Get the target, either from the global GOTO or from the local target if
+                    // a path
+                    let target = match *shared.ground_path.read()? {
+                        Some(ref path) => match *shared.local_target.write()? {
+                            Some(ref mut lt) => lt.next(path, &*gcm)?,
+                            None => {
+                                main_sender.send(WorkerSignal::Error(Box::new(
+                                    TravMgrError::NoValidTarget,
+                                )))?;
+                                continue;
+                            }
+                        },
                         None => match *shared.global_target.read()? {
                             Some(ref t) => *t,
                             None => {
@@ -266,9 +294,10 @@ pub(super) fn worker_thread(
                         },
                     };
 
-                    // Get the path planner and a read copy of the gcm
+                    info!("Local target = {:?}", target.position_m);
+
+                    // Get the path planner
                     let path_planner = shared.path_planner.write()?;
-                    let gcm = shared.global_cost_map.read()?;
 
                     // Plan the path(s)
                     let mut paths =
@@ -316,14 +345,6 @@ pub(super) fn worker_thread(
                     // Signal completion of the planning operation to the main thread
                     main_sender.send(WorkerSignal::Complete)?;
                 };
-            }
-            WorkerSignal::Replan(pose, target) => {
-                // TODO:
-                //
-                // - add replan function to PathPlanner which examines different point turns to
-                //   start with
-                // - should attempt to find path of any length, then choose first two as primary
-                //   and secondary, this way will try to navigate around the obstacle
             }
             _ => warn!("Unexpected signal from main thread: {:?}", signal),
         }

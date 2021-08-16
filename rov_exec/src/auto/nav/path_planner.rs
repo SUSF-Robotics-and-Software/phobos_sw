@@ -47,6 +47,12 @@ pub struct PathPlannerParams {
 
     /// Tolerance for a path being at the target position
     pub target_tolerance_m: f64,
+
+    /// The maximum possible individual path length
+    pub max_path_length_m: f64,
+
+    /// The minimum possible individual path length
+    pub min_path_length_m: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -189,6 +195,10 @@ impl PathPlanner {
         // Set to true if the target is reached
         let mut target_reached = false;
 
+        // Limit the path length to the max path length
+        let path_length_m =
+            path_length_m.clamp(self.params.min_path_length_m, self.params.max_path_length_m);
+
         // Start by placing into the heap the paths fanning out from the start pose
         for (fan_id, path) in self
             .get_path_fan(start_pose, path_length_m)
@@ -200,7 +210,7 @@ impl PathPlanner {
             let cost = match self.get_path_cost(cost_map, path, target_pose, None) {
                 Some(c) => c,
                 None => {
-                    warn!("Fan path {} of node {} is untraversable", fan_id, 0);
+                    // warn!("Fan path {} of node {} is untraversable", fan_id, 0);
                     continue;
                 }
             };
@@ -240,7 +250,7 @@ impl PathPlanner {
                 Point2::from(min_node.path.points_m[min_node.path.get_num_points() - 1])
                     - target_pose.position_m;
 
-            trace!("Dist to target = {}", dist_to_target.norm());
+            // trace!("Dist to target = {}", dist_to_target.norm());
 
             // If we're within the threshold to the target we're there, so we can exit.
             if dist_to_target.norm() <= self.params.target_tolerance_m {
@@ -258,7 +268,8 @@ impl PathPlanner {
             };
 
             if extend_path {
-                let path_end_pose = NavPose::from_path_last_point(&min_node.path);
+                let path_end_pose =
+                    NavPose::from_path_last_point(&min_node.path).ok_or(NavError::EmptyPath)?;
                 for path in self
                     .get_path_fan(&path_end_pose, path_length_m)
                     .map_err(NavError::CouldNotBuildFan)?
@@ -342,21 +353,21 @@ impl PathPlanner {
             paths.push(min_node.path.clone());
         }
 
-        // // Remove all paths before the lowest cost index, since the planner may actually
-        // // overestimate some times, don't do this if the lowest cost index is 0
-        // if lowest_cost_idx != 0 {
-        //     paths = paths
-        //         .iter()
-        //         .enumerate()
-        //         .filter_map(|(i, p)| {
-        //             if i < lowest_cost_idx - 1 {
-        //                 None
-        //             } else {
-        //                 Some(p.clone())
-        //             }
-        //         })
-        //         .collect();
-        // }
+        // Remove all paths before the lowest cost index, since the planner may actually
+        // overestimate some times, don't do this if the lowest cost index is 0
+        if lowest_cost_idx != 0 {
+            paths = paths
+                .iter()
+                .enumerate()
+                .filter_map(|(i, p)| {
+                    if i < lowest_cost_idx - 1 {
+                        None
+                    } else {
+                        Some(p.clone())
+                    }
+                })
+                .collect();
+        }
 
         // Reverse the path list to get one that goes from the start to the target.
         paths.reverse();
@@ -432,7 +443,7 @@ impl PathPlanner {
         };
 
         // Get the NavPose at the end of the path, by getting the heading in the last segment.
-        let last_pose = NavPose::from_path_last_point(path);
+        let last_pose = NavPose::from_path_last_point(path)?;
 
         // Check the pose is in the map
         if cost_map.index(last_pose.position_m).is_none() {

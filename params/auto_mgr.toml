@@ -2,43 +2,6 @@
 
 source = "OnSet"
 
-[terrain_map_params]
-
-cell_size = [0.1, 0.1]
-
-cell_bounds = [
-    [-50, 50], 
-    [-50, 50],
-]
-
-position_in_parent = [0.0, 0.0]
-
-rotation_in_parent_rad = 0.0
-
-cell_boundary_precision = 1e-10
-
-[cost_map_params]
-
-# Corresponds to 25 deg
-max_safe_gradient = 0.4668
-# max_safe_gradient = 100.0
-
-# Set at 1/max_safe_gradient so that cost will increase linearly with gradient
-# up to the unsafe value
-gradient_cost_factor = 2.1422
-
-# At rover width, so could be driving with either wheel side on the path and
-# incurr no additional cost.
-gnd_path_cost_onset_semi_width_m = 0.304
-
-# At 4 rover widths, so the rover could drive up to this far away from the path
-max_gnd_path_cost_semi_width_m = 1.216
-
-# Assigned so that, in extreme cases, the rover is still allowed outside the
-# path if it is the only way to continue
-# max_gnd_path_added_cost = 0.8
-max_gnd_path_added_cost = 0.6
-
 [wait_new_pose]
 
 max_wait_time_s = 10.0
@@ -59,29 +22,3 @@ linear_distance_threshold_m = 0.05
 
 # 5 degrees
 angular_distance_threshold_rad = 0.0872665
-
-[path_planner]
-
-# List of curvatures to test in the fan
-test_curvs_m = [-0.9, -0.7, -0.5, -0.3, -0.1, 0.0, 0.1, 0.3, 0.5, 0.7, 0.9]
-test_heads_rad = [-1.57079632679, -0.78539816339, 0.0, 0.78539816339, 1.57079632679]
-
-# Separation of points within the paths
-path_point_separation_m = 0.1
-
-# Weight the path at 1.0, equal to the alignment cost
-heuristic_remaining_cost_weight = 1.0
-
-# Equal weighting with remaining path cost
-heuristic_alignment_cost_weight = 1.0
-
-# Distance to the target which we will accept as reaching the target
-target_tolerance_m = 0.25
-
-[per_mgr]
-depth_range_mm = [30, 4000]
-principle_point_pixels = [320, 240]
-focal_length_pixels = [822.878673973, 822.878673973]
-
-depth_img_pos_m_rb = [0.200, 0.0, 0.044]
-depth_img_att_q_rb = [0.0, 1.0, 0.0, -1.42418832679]

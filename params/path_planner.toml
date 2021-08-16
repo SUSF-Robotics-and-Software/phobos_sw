@@ -15,3 +15,6 @@ heuristic_alignment_cost_weight = 1.0
 
 # Distance to the target which we will accept as reaching the target
 target_tolerance_m = 0.1
+
+max_path_length_m = 1.0
+min_path_length_m = 0.5

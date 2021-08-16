@@ -15,12 +15,9 @@ use std::{
 };
 
 use cell_map::CellMapParams;
-use comms_if::eqpt::perloc::DepthImage;
+use comms_if::{eqpt::perloc::DepthImage, tc::loco_ctrl::MnvrCmd};
 use log::{error, info, warn};
-use util::{
-    params::{load as load_params, LoadError},
-    session,
-};
+use util::params::{load as load_params, LoadError};
 
 use crate::auto::{
     auto_mgr::{
@@ -34,7 +31,7 @@ use crate::auto::{
 };
 
 use self::{
-    escape_boundary::EscapeBoundary,
+    local_target::LocalTarget,
     params::TravMgrParams,
     worker::{worker_thread, WorkerSignal},
 };
@@ -46,6 +43,7 @@ use super::{path_planner::PathPlanner, NavError, NavPose};
 // -----------------------------------------------------------------------------------------------
 
 pub mod escape_boundary;
+mod local_target;
 pub mod params;
 mod worker;
 
@@ -100,7 +98,7 @@ struct Shared {
     pub traverse_state: RwLock<TraverseState>,
 
     pub global_target: RwLock<Option<NavPose>>,
-    pub esc_boundary: RwLock<Option<EscapeBoundary>>,
+    pub local_target: RwLock<Option<LocalTarget>>,
 
     pub per_mgr: RwLock<PerMgr>,
     pub global_terr_map: RwLock<TerrainMap>,
@@ -172,7 +170,7 @@ pub enum TravMgrError {
     EscBoundaryInvalidCentreline,
 
     #[error("A point on the escape boundary was outside the local cost map")]
-    EscapeBoundaryPointOutsideMap,
+    PointOutsideMap,
 
     #[error("Couldn't get a valid target to plot path towards")]
     NoValidTarget,
@@ -216,7 +214,7 @@ impl TravMgr {
             traverse_state: RwLock::new(TraverseState::Off),
             per_mgr: RwLock::new(per_mgr),
             global_target: RwLock::new(None),
-            esc_boundary: RwLock::new(None),
+            local_target: RwLock::new(None),
             global_terr_map: RwLock::new(global_terr_map),
             global_cost_map: RwLock::new(global_cost_map),
             path_planner: RwLock::new(path_planner),
@@ -293,6 +291,9 @@ impl TravMgr {
         } else {
             *self.shared.traverse_state.write()? = TraverseState::FirstStop;
             *self.shared.ground_path.write()? = Some(ground_path.clone());
+            *self.shared.local_target.write()? = Some(LocalTarget::new(
+                self.shared.params.local_target_exclusion_distance_m,
+            ));
 
             // Recompute the global cost map with a gpp
             self.worker_sender
@@ -308,6 +309,49 @@ impl TravMgr {
         match self.shared.traverse_state.read() {
             Ok(lock) => matches!(*lock, TraverseState::Off),
             _ => false,
+        }
+    }
+
+    /// Stops the current traverse
+    pub fn stop(&mut self) -> Result<TravMgrOutput, TravMgrError> {
+        // Set the traverse state to off
+        *self.shared.traverse_state.write()? = TraverseState::Off;
+
+        // Clear the primary and secondary paths
+        *self.shared.primary_path.write()? = None;
+        *self.shared.secondary_path.write()? = None;
+
+        // Stop traj ctrl
+        self.traj_ctrl.abort_path_sequence()?;
+
+        Ok(TravMgrOutput {
+            step_output: StepOutput {
+                action: StackAction::None,
+                data: AutoMgrOutput::LocoCtrlMnvr(MnvrCmd::Stop),
+            },
+            ..Default::default()
+        })
+    }
+
+    /// Replan after failing to calculate a valid secondary path
+    fn replan(&mut self) -> Result<TravMgrOutput, TravMgrError> {
+        info!("Beginning replan");
+
+        // Stop the traverse
+        let out = self.stop()?;
+
+        let gpp = self.shared.ground_path.write()?.take();
+        let target = self.shared.global_target.write()?.take();
+
+        // If there's a ground planned path do check mode again
+        if let Some(gpp) = gpp {
+            self.start_check(gpp).map(|_| out)
+        }
+        // Otherwise this is a goto
+        else if let Some(target) = target {
+            self.start_goto(target).map(|_| out)
+        } else {
+            unreachable!("No ground planned path or target");
         }
     }
 
@@ -369,18 +413,7 @@ impl TravMgr {
                         WorkerSignal::Error(e) => {
                             error!("Failed to calculate secondary path: {}", e);
 
-                            // TODO: more graceful recovery such as trying the image again?
-                            return Ok(TravMgrOutput {
-                                step_output: StepOutput {
-                                    action: StackAction::Abort,
-                                    data: AutoMgrOutput::None,
-                                },
-                                new_global_terr_map,
-                                new_global_cost_map,
-                                primary_path: self.shared.primary_path.read()?.clone(),
-                                secondary_path: self.shared.secondary_path.read()?.clone(),
-                                ..Default::default()
-                            });
+                            return self.replan();
                         }
                         s => warn!("Unexpected signal from worker: {:?}", s),
                     }
@@ -479,6 +512,8 @@ impl TravMgr {
 
                 // Push an image stop onto the stack
                 if !self.depth_img_request_sent {
+                    println!();
+                    info!("---- NAV STOP ----");
                     self.depth_img_request_sent = true;
                     return Ok(TravMgrOutput {
                         step_output: StepOutput {

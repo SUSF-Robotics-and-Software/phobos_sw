@@ -121,6 +121,11 @@ impl CostMap {
         }
     }
 
+    pub fn get_position(&self, layer: CostMapLayer, position: Point2<f64>) -> Option<&CostMapData> {
+        let idx = self.index(position)?;
+        self.get(layer, idx)
+    }
+
     /// Move the map to the new nav pose
     pub fn move_map(&mut self, new_pose: &NavPose) {
         self.map

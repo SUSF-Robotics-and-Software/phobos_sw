@@ -58,6 +58,9 @@ pub enum NavError {
 
     #[error("Couldn't find a traversable path to the target")]
     NoPathToTarget,
+
+    #[error("A path has no points")]
+    EmptyPath,
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -112,18 +115,22 @@ impl NavPose {
     }
 
     /// Creates a new [`NavPose`] at the start of the given path
-    pub fn from_path_first_point(path: &Path) -> Self {
-        let seg = path.get_segment_to_target(1).unwrap();
+    pub fn from_path_first_point(path: &Path) -> Option<Self> {
+        let seg = path.get_segment_to_target(1)?;
 
-        Self::from_parts(&Point2::from(seg.start_m), &seg.heading_rad)
+        Some(Self::from_parts(
+            &Point2::from(seg.start_m),
+            &seg.heading_rad,
+        ))
     }
 
-    pub fn from_path_last_point(path: &Path) -> Self {
-        let seg = path
-            .get_segment_to_target(path.get_num_points() - 1)
-            .unwrap();
+    pub fn from_path_last_point(path: &Path) -> Option<Self> {
+        let seg = path.get_segment_to_target(path.get_num_points() - 1)?;
 
-        Self::from_parts(&Point2::from(seg.target_m), &seg.heading_rad)
+        Some(Self::from_parts(
+            &Point2::from(seg.target_m),
+            &seg.heading_rad,
+        ))
     }
 }
 

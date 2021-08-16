@@ -329,7 +329,7 @@ impl EscapeBoundary {
                             points_m_lm[i],
                             points_m_lm[i - 1]
                         );
-                        TravMgrError::EscapeBoundaryPointOutsideMap
+                        TravMgrError::PointOutsideMap
                     })?
                     .layer(CostMapLayer::Total)
                     .positioned()

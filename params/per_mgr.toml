@@ -1,4 +1,5 @@
 depth_range_mm = [30, 4000]
+depth_to_m = 0.001
 principle_point_pixels = [320, 240]
 focal_length_pixels = [822.878673973, 822.878673973]
 

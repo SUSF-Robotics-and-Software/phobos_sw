@@ -252,13 +252,10 @@ impl TrajCtrl {
     }
 
     /// Abort the currently executing path sequence.
-    ///
-    /// This will transfer the mode into sequence finished so that on the next
-    /// call to `proc` a stop command is issued and the path sequence cleared.
     pub fn abort_path_sequence(&mut self) -> Result<(), TrajCtrlError> {
         // If there's already a loaded path exit, otherwise don't do anything
         if self.path_sequence.is_some() {
-            self.mode = TrajCtrlMode::SequenceFinished;
+            self.mode_seq_finished()?;
         }
 
         Ok(())
@@ -406,7 +403,7 @@ impl TrajCtrl {
                 0.0,
             ));
 
-            trace!("Heading adjust, error = {} rad", head_err_rad);
+            // trace!("Heading adjust, error = {} rad", head_err_rad);
 
             // If we're within the fine threshold drive at the fine rate, otherwise drive at the
             // coarse rate.
