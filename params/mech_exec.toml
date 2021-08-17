@@ -42,8 +42,8 @@ arm_idx_map = [
     [0, 12], # Base
     [0, 13], # Shoulder 
     [0, 14], # Elbow
-    [0, 15], # Claw
-    [0, 0]
+    [0, 15], # Wrist
+    [1, 7] # Claw
 ]
 
 # Drive normalised rate coefficients. Normalised are in -1 to 1 range and the
