@@ -101,11 +101,11 @@ str_pw_range_max = [2000, 2000, 2000, 2000, 2000, 2000]
 # Arm axis angle coefficients. Angles for SK are in degrees, so the 
 # coefficients are just to convert from radians to degrees.
 arm_ang_rad_to_sk_coeffs = [
-    [57.2958, 90.0], 
-    [57.2958, 90.0], 
-    [57.2958, 135.0], 
-    [57.2958, 90.0], 
-    [57.2958, 90.0],
+    [57.2958, 0.0], 
+    [57.2958, 0.0], 
+    [57.2958, 0.0], 
+    [57.2958, 0.0], 
+    [57.2958, 0.0],
 ]
 
 # Min and max drive rates
