@@ -390,9 +390,26 @@ fn main() -> Result<(), Report> {
             }
         };
 
+        // ArmCtrl processing
+        match ds.arm_ctrl.proc(&ds.arm_ctrl_input) {
+            Ok((o, r)) => {
+                ds.arm_ctrl_output = o;
+                ds.arm_ctrl_status_rpt = r;
+            }
+            Err(e) => {
+                // LocoCtrl errors usually just mean you sent the wrong TC, so just issue the
+                // warning and continue.
+                warn!("Error during ArmCtrl processing: {}", e)
+            }
+        };
+
+        // Merge demands from loco and arm ctrls
+        let mut mech_dems = ds.loco_ctrl_output.clone();
+        mech_dems.merge(&ds.arm_ctrl_output);
+
         // Send demands to mechanisms
         #[cfg(feature = "mech")]
-        match mech_client.send_demands(&ds.loco_ctrl_output) {
+        match mech_client.send_demands(&mech_dems) {
             Ok(MechDemsResponse::DemsOk) => {
                 ds.make_unsafe(SafeModeCause::MechClientNotConnected).ok();
 

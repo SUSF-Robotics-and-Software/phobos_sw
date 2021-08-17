@@ -41,8 +41,10 @@ impl ArmCtrl {
 
         // TODO: fix imutable assignments
 
+        let mut horizontal_distance_m = horizontal_distance_m;
+        let mut vertical_distance_m = vertical_distance_m;
         let max_distance_m = self.params.shoulder_length_m + self.params.elbow_length_m;
-        let head_target_distance_m =
+        let mut head_target_distance_m =
             (horizontal_distance_m.powi(2) + vertical_distance_m.powi(2)).sqrt();
         let delta_arm_square_m2 =
             self.params.shoulder_length_m.powi(2) - self.params.elbow_length_m.powi(2);
@@ -50,7 +52,7 @@ impl ArmCtrl {
         if head_target_distance_m > max_distance_m {
             horizontal_distance_m *= max_distance_m / head_target_distance_m;
             vertical_distance_m *= max_distance_m / head_target_distance_m;
-            head_target_distance_m = max_distance_m
+            head_target_distance_m = max_distance_m;
         }
 
         let weighted_mid_point_m =

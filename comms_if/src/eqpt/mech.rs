@@ -25,7 +25,7 @@ const ARM_IDS: [ActId; 5] = [
 // ------------------------------------------------------------------------------------------------
 
 /// Demands that are sent from the MechClient to the MechServer
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct MechDems {
     /// The demanded position of an actuator in radians.
     pub pos_rad: HashMap<ActId, f64>,
@@ -88,10 +88,22 @@ impl ActId {
     }
 }
 
-impl Default for MechDems {
-    fn default() -> Self {
+impl MechDems {
+    /// Merges `other` into `self`. If `other` contains duplicate keys to `self`, the values from
+    /// `self` are used instead.
+    pub fn merge(&mut self, other: &Self) {
+        for (&act_id, &pos) in other.pos_rad.iter() {
+            self.pos_rad.entry(act_id).or_insert(pos);
+        }
+
+        for (&act_id, &speed) in other.speed_rads.iter() {
+            self.pos_rad.entry(act_id).or_insert(speed);
+        }
+    }
+
+    pub fn empty_loco() -> Self {
         let mut pos_rad = HashMap::new();
-        let mut speed_rad_s = HashMap::new();
+        let mut speed_rads = HashMap::new();
 
         pos_rad.insert(ActId::StrFL, 0.0);
         pos_rad.insert(ActId::StrML, 0.0);
@@ -100,40 +112,16 @@ impl Default for MechDems {
         pos_rad.insert(ActId::StrMR, 0.0);
         pos_rad.insert(ActId::StrRR, 0.0);
 
-        pos_rad.insert(ActId::ArmBase, 0.0);
-        pos_rad.insert(ActId::ArmShoulder, 0.0);
-        pos_rad.insert(ActId::ArmElbow, 0.0);
-        pos_rad.insert(ActId::ArmWrist, 0.0);
-        pos_rad.insert(ActId::ArmGrabber, 0.0);
-
-        speed_rad_s.insert(ActId::DrvFL, 0.0);
-        speed_rad_s.insert(ActId::DrvML, 0.0);
-        speed_rad_s.insert(ActId::DrvRL, 0.0);
-        speed_rad_s.insert(ActId::DrvFR, 0.0);
-        speed_rad_s.insert(ActId::DrvMR, 0.0);
-        speed_rad_s.insert(ActId::DrvRR, 0.0);
+        speed_rads.insert(ActId::DrvFL, 0.0);
+        speed_rads.insert(ActId::DrvML, 0.0);
+        speed_rads.insert(ActId::DrvRL, 0.0);
+        speed_rads.insert(ActId::DrvFR, 0.0);
+        speed_rads.insert(ActId::DrvMR, 0.0);
+        speed_rads.insert(ActId::DrvRR, 0.0);
 
         Self {
             pos_rad,
-            speed_rads: speed_rad_s,
-        }
-    }
-}
-
-impl MechDems {
-    /// Merges `other` into `self`. If `other` contains duplicate keys to `self`, the values from
-    /// `self` are used instead.
-    pub fn merge(&mut self, other: &Self) {
-        for (&act_id, &pos) in other.pos_rad.iter() {
-            if !self.pos_rad.contains_key(&act_id) {
-                self.pos_rad.insert(act_id, pos);
-            }
-        }
-
-        for (&act_id, &speed) in other.speed_rads.iter() {
-            if !self.speed_rads.contains_key(&act_id) {
-                self.speed_rads.insert(act_id, speed);
-            }
+            speed_rads,
         }
     }
 }

@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 // External
-use log::debug;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 
 // Internal
@@ -79,7 +79,7 @@ impl State for ArmCtrl {
             Err(e) => return Err(e),
         };
 
-        self.current_arm_config = Some(MechDems::default());
+        self.current_arm_config = Some(self.default_arm_dems());
         self.target_arm_config = self.current_arm_config.clone();
 
         Ok(())
@@ -111,7 +111,7 @@ impl State for ArmCtrl {
         Ok((
             match self.output {
                 Some(ref o) => o.clone(),
-                None => MechDems::default(),
+                None => self.default_arm_dems(),
             },
             self.report,
         ))
@@ -119,6 +119,19 @@ impl State for ArmCtrl {
 }
 
 impl ArmCtrl {
+    fn default_arm_dems(&self) -> MechDems {
+        let mut pos_rad = HashMap::new();
+
+        for (i, &act_id) in ActId::arm_ids().iter().enumerate() {
+            pos_rad.insert(act_id, self.params.default_pos_rad[i]);
+        }
+
+        MechDems {
+            pos_rad,
+            speed_rads: HashMap::new(),
+        }
+    }
+
     /// Function called when entering safe mode.
     ///
     /// Must result in no motion of the vehicle
@@ -173,7 +186,7 @@ impl ArmCtrl {
                         }
                         o
                     }
-                    None => MechDems::default(),
+                    None => self.default_arm_dems(),
                 }
             }
         } else {
@@ -188,7 +201,7 @@ impl ArmCtrl {
                     }
                     o
                 }
-                None => MechDems::default(),
+                None => self.default_arm_dems(),
             }
         }
 
@@ -214,7 +227,13 @@ impl ArmCtrl {
             match cmd {
                 ArmCmd::Stop => self.calc_stop()?,
                 ArmCmd::BasicRotation { dems } => {
-                    self.target_arm_config = Some(dems.clone());
+                    if let Some(ref mut target) = self.target_arm_config {
+                        for (&act_id, &pos) in &dems.pos_rad {
+                            target.pos_rad.insert(act_id, pos);
+                        }
+                    } else {
+                        self.target_arm_config = Some(dems.clone());
+                    }
                 }
                 ArmCmd::InverseKinematics {
                     horizontal_distance_m,
@@ -243,16 +262,16 @@ impl ArmCtrl {
         // Get a copy of the config, or return if there isn't one
         if let Some(ref mut target_config) = self.target_arm_config {
             // Check rotation axis abs pos limits
-            for (i, act_id) in ActId::arm_ids().iter().enumerate() {
-                if target_config.pos_rad[act_id] > self.params.max_abs_pos_rad[i] {
-                    *target_config.pos_rad.get_mut(act_id).unwrap() =
-                        self.params.max_abs_pos_rad[i];
-                    self.report.abs_pos_limited[i] = true;
-                }
-                if target_config.pos_rad[act_id] < self.params.min_abs_pos_rad[i] {
-                    *target_config.pos_rad.get_mut(act_id).unwrap() =
-                        self.params.min_abs_pos_rad[i];
-                    self.report.abs_pos_limited[i] = true;
+            for (i, &act_id) in ActId::arm_ids().iter().enumerate() {
+                if let Some(pos) = target_config.pos_rad.get_mut(&act_id) {
+                    if *pos > self.params.max_abs_pos_rad[i] {
+                        *pos = self.params.max_abs_pos_rad[i];
+                        self.report.abs_pos_limited[i] = true;
+                    }
+                    if *pos < self.params.min_abs_pos_rad[i] {
+                        *pos = self.params.min_abs_pos_rad[i];
+                        self.report.abs_pos_limited[i] = true;
+                    }
                 }
             }
         }

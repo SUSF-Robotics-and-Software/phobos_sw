@@ -4,8 +4,8 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-use serde::Deserialize;
 use super::NUM_ROT_AXES;
+use serde::Deserialize;
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -14,9 +14,7 @@ use super::NUM_ROT_AXES;
 /// Parameters for Locomotion control.
 #[derive(Debug, Default, Deserialize)]
 pub struct Params {
-
     // ---- GEOMETRY ----
-
     /// The length of shoulder.
     ///
     /// Units: meters.
@@ -27,14 +25,7 @@ pub struct Params {
     /// Units: meters.
     pub elbow_length_m: f64,
 
-    /// Positions of all rotational axis in the arm.
-    ///
-    /// Units: radians,
-    /// Frame: Relative
-    pub axis_pos_rad: [[f64; 3]; NUM_ROT_AXES],
-
     // ---- CAPABILITIES ----
-
     /// Maximum rotational axis absolute position (highest positive value)
     ///
     /// Units: radians
@@ -55,4 +46,8 @@ pub struct Params {
     /// Units: radians/second
     pub min_abs_rate_rads: [f64; NUM_ROT_AXES],
 
+    /// Default SAFE position of the arm motors.
+    ///
+    /// Units: radians
+    pub default_pos_rad: [f64; NUM_ROT_AXES],
 }

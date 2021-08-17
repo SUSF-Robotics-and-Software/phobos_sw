@@ -140,7 +140,7 @@ impl DataStore {
         }
 
         self.loco_ctrl_input = loco_ctrl::InputData::default();
-        self.loco_ctrl_output = MechDems::default();
+        self.loco_ctrl_output = MechDems::empty_loco();
         self.loco_ctrl_status_rpt = loco_ctrl::StatusReport::default();
 
         self.sim_time_s = util::session::get_elapsed_seconds();

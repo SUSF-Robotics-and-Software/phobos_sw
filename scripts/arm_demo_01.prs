@@ -1,0 +1,12 @@
+1.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmElbow": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};

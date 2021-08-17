@@ -1,0 +1,11 @@
+shoulder_length_m = 0.12
+# Elbow motor centre to centre of held can
+elbow_length_m = 0.15
+
+max_abs_pos_rad = [3.1415, 3.1415, 3.1415, 3.1415, 3.1415]
+min_abs_pos_rad = [0, 0, 0, 0, 0]
+
+max_abs_rate_rads = [0.31415, 0.31415, 0.31415, 0.31415, 0.31415]
+min_abs_rate_rads = [-0.31415, -0.31415, -0.31415, -0.31415, -0.31415]
+
+default_pos_rad = [1.57, 1.57, 1.57, 1.57, 1.57]
