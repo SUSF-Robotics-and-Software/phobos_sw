@@ -4,6 +4,10 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
+use std::collections::HashMap;
+
+use comms_if::eqpt::mech::{ActId, MechDems};
+
 // Internal imports
 use super::*;
 
@@ -33,7 +37,9 @@ impl ArmCtrl {
         speed_ms: f64,
     ) -> Result<(), super::ArmCtrlError> {
         // Axis array
-        let mut rot_axes = [AxisData::default(); NUM_ROT_AXES];
+        let mut pos_rad = [0.0; NUM_ROT_AXES];
+
+        // TODO: fix imutable assignments
 
         let max_distance_m = self.params.shoulder_length_m + self.params.elbow_length_m;
         let head_target_distance_m =
@@ -62,7 +68,17 @@ impl ArmCtrl {
         .sqrt()
             / (2. * head_target_distance_m.powi(2));
 
-        self.target_arm_config = Some(ArmConfig { rot_axes });
+        // TODO: set pos data
+
+        let mut pos_map = HashMap::new();
+        for (&pos, &act_id) in pos_rad.iter().zip(ActId::arm_ids().iter()) {
+            pos_map.insert(act_id, pos);
+        }
+
+        self.target_arm_config = Some(MechDems {
+            pos_rad: pos_map,
+            speed_rads: HashMap::new(),
+        });
 
         Ok(())
     }

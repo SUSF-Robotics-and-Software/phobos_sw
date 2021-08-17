@@ -5,11 +5,11 @@
 // ------------------------------------------------------------------------------------------------
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 use structopt::StructOpt;
 
 // ------------------------------------------------------------------------------------------------
-//
+// CONSTANTS
 // ------------------------------------------------------------------------------------------------
 
 const ARM_IDS: [ActId; 5] = [
@@ -25,7 +25,7 @@ const ARM_IDS: [ActId; 5] = [
 // ------------------------------------------------------------------------------------------------
 
 /// Demands that are sent from the MechClient to the MechServer
-#[derive(Serialize, Deserialize, Debug, Clone, StructOpt)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MechDems {
     /// The demanded position of an actuator in radians.
     pub pos_rad: HashMap<ActId, f64>,
@@ -116,6 +116,24 @@ impl Default for MechDems {
         Self {
             pos_rad,
             speed_rads: speed_rad_s,
+        }
+    }
+}
+
+impl MechDems {
+    /// Merges `other` into `self`. If `other` contains duplicate keys to `self`, the values from
+    /// `self` are used instead.
+    pub fn merge(&mut self, other: &Self) {
+        for (&act_id, &pos) in other.pos_rad.iter() {
+            if !self.pos_rad.contains_key(&act_id) {
+                self.pos_rad.insert(act_id, pos);
+            }
+        }
+
+        for (&act_id, &speed) in other.speed_rads.iter() {
+            if !self.speed_rads.contains_key(&act_id) {
+                self.speed_rads.insert(act_id, speed);
+            }
         }
     }
 }

@@ -13,13 +13,6 @@ pub mod data_store;
 /// Camera client - requests and recieves images from the camera server
 pub mod cam_client;
 
-/// Electronics driver - controls the motors via the mot borads
-#[deprecated(
-    since = "0.2",
-    note = "Replaced by MechExec/sim in architecture rework"
-)]
-pub mod elec_driver;
-
 /// Localisation module - provides the rover with an idea of where it is in the world
 pub mod loc;
 

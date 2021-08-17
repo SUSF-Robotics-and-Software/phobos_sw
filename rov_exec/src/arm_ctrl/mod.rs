@@ -4,18 +4,15 @@
 // MODULES
 // ---------------------------------------------------------------------------
 
-mod arm_config;
-mod state;
-mod params;
-mod basic_ctrl;
 mod inverse_kinematics;
+mod params;
+mod state;
 
 // ---------------------------------------------------------------------------
 // IMPORTS
 // ---------------------------------------------------------------------------
 
 // Internal
-pub use arm_config::*;
 pub use params::*;
 pub use state::*;
 

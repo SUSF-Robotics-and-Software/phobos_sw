@@ -20,7 +20,10 @@ pub enum ArmCmd {
     /// A rotational command will rotate each joint of
     /// the arm to the desired angular position.
     #[structopt(name = "rot")]
-    BasicRotation(MechDems),
+    BasicRotation {
+        #[structopt(skip)]
+        dems: MechDems,
+    },
 
     /// A simplified control where the user defines the location of the head
     /// and the positions of the motors are calculated to achieve this position.
