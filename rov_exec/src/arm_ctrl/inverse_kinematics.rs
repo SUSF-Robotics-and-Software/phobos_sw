@@ -37,7 +37,7 @@ impl ArmCtrl {
         speed_ms: f64,
     ) -> Result<(), super::ArmCtrlError> {
         // Axis array
-        let mut pos_rad = [0.0; NUM_ROT_AXES];
+        let mut pos_rad = HashMap::new();
 
         // TODO: fix imutable assignments
 
@@ -70,13 +70,8 @@ impl ArmCtrl {
 
         // TODO: set pos data
 
-        let mut pos_map = HashMap::new();
-        for (&pos, &act_id) in pos_rad.iter().zip(ActId::arm_ids().iter()) {
-            pos_map.insert(act_id, pos);
-        }
-
         self.target_arm_config = Some(MechDems {
-            pos_rad: pos_map,
+            pos_rad,
             speed_rads: HashMap::new(),
         });
 
