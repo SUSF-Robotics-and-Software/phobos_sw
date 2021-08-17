@@ -1,9 +1,9 @@
 //! Main rover-side executable entry point.
-//! 
+//!
 //! # Architecture
-//! 
+//!
 //! The general execution methodology consists of:
-//! 
+//!
 //!     - Initialise all modules
 //!     - Main loop:
 //!         - System input acquisition:
@@ -16,12 +16,12 @@
 //!         - Trajcetory control processing
 //!         - Locomotion control processing
 //!         - Electronics driver execution
-//! 
+//!
 //! # Modules
-//! 
+//!
 //! All modules (e.g. `loco_ctrl`) shall meet the following requirements:
 //!     1. Provide a public struct implementing the `util::module::State` trait.
-//!     
+//!
 
 // ---------------------------------------------------------------------------
 // USE MODULES FROM LIBRARY
@@ -34,11 +34,11 @@ use cam_client::{CamClient, CamClientError};
 #[cfg(feature = "sim")]
 use sim_client::SimClient;
 use comms_if::{
-    net::NetParams, 
+    net::NetParams,
     eqpt::{
         mech::{MechDemsResponse, MechDems},
         cam::{CamId, ImageFormat}
-    }, 
+    },
     tc::Tc, tc::TcResponse
 };
 use rov_lib::{*, data_store::{DataStore, SafeModeCause}, loc::Pose, tc_client::{TcClient, TcClientError}};
@@ -60,27 +60,13 @@ use color_eyre::{Report, eyre::{WrapErr, eyre}};
 // Internal
 use util::{
     raise_error,
-    host, 
+    host,
     module::State,
     logger::{logger_init, LevelFilter},
     session::Session,
     script_interpreter::{ScriptInterpreter, PendingTcs},
     //archive::Archived
 };
-
-// ---------------------------------------------------------------------------
-// CONSTANTS
-// ---------------------------------------------------------------------------
-
-/// Target period of one cycle.
-const CYCLE_PERIOD_S: f64 = 0.10;
-
-/// Number of cycles per second
-const CYCLE_FREQUENCY_HZ: f64 = 1.0 / CYCLE_PERIOD_S;
-
-/// Limit of the number of times recieve errors from the mech server can be created consecutively
-/// before safe mode will be engaged.
-const MAX_MECH_RECV_ERROR_LIMIT: u64 = 5;
 
 // ---------------------------------------------------------------------------
 // FUNCTIONS
@@ -93,7 +79,7 @@ fn main() -> Result<(), Report> {
 
     // Initialise session
     let session = Session::new(
-        "rov_exec", 
+        "rov_exec",
         "sessions"
     ).wrap_err("Failed to create the session")?;
 
@@ -104,7 +90,7 @@ fn main() -> Result<(), Report> {
     // Log information on this execution.
     info!("Phobos Rover Executable\n");
     info!(
-        "Running on: {:#?}", 
+        "Running on: {:#?}",
         host::get_uname().wrap_err("Failed to get host information")?
     );
     info!("Session directory: {:?}\n", session.session_root);
@@ -128,7 +114,7 @@ fn main() -> Result<(), Report> {
     let args: Vec<String> = env::args().collect();
 
     debug!("CLI arguments: {:?}", args);
-    
+
     // If we have a single argument use it as the script path
     if args.len() == 2 {
 
@@ -274,7 +260,7 @@ fn main() -> Result<(), Report> {
                                             tc_processor::exec(&mut ds, &tc);
                                             client.send_response(TcResponse::Ok)
                                         }
-                                        _ => 
+                                        _ =>
                                             client.send_response(TcResponse::CannotExecute)
                                     }
                                 },
@@ -303,7 +289,7 @@ fn main() -> Result<(), Report> {
                             if !ds.safe {
                                 error!("Connection to TcServer lost");
                             }
-                            
+
                             ds.make_safe(SafeModeCause::TcClientNotConnected);
                             break;
                         },
@@ -317,7 +303,7 @@ fn main() -> Result<(), Report> {
                 }
             },
 
-            TcSource::Script(ref mut si) => 
+            TcSource::Script(ref mut si) =>
                 match si.get_pending_tcs() {
                     PendingTcs::None => (),
                     PendingTcs::Some(tc_vec) => {
@@ -381,14 +367,14 @@ fn main() -> Result<(), Report> {
                     // // Get path to image to save, in the sessions directory
                     // let mut img_path = session.session_root.clone();
                     // img_path.push(name);
-                    
+
                     // // Save image
                     // cam_image.image.save(img_path).expect("can't save image");
 
                 }
 
                 println!("");
-                
+
             },
             Ok(None) => (),
             Err(CamClientError::NoRequestMade) => (),
@@ -420,7 +406,7 @@ fn main() -> Result<(), Report> {
                 ds.num_consec_mech_recv_errors = 0;
             },
             Ok(r) => warn!(
-                "Recieved non-nominal response from MechServer: {:?}", 
+                "Recieved non-nominal response from MechServer: {:?}",
                 r
             ),
             Err(MechClientError::NotConnected) => {
@@ -471,8 +457,8 @@ fn main() -> Result<(), Report> {
             },
             None => {
                 warn!(
-                    "Cycle overran by {:.06} s", 
-                    cycle_dur.as_secs_f64() 
+                    "Cycle overran by {:.06} s",
+                    cycle_dur.as_secs_f64()
                         - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
                 );
                 ds.num_consec_cycle_overruns += 1;
