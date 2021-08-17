@@ -3,7 +3,7 @@
         "BasicRotation": {
             "dems": {
                 "pos_rad": {
-                    "ArmElbow": 0.707
+                    "ArmElbow": 0.2
                 },
                 "speed_rads": {}
             }
