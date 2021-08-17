@@ -110,15 +110,15 @@ arm_ang_rad_to_sk_coeffs = [
 
 # Min and max drive rates
 arm_ang_min_sk = [0.0, 0.0, 0.0, 0.0, 0.0]
-arm_ang_max_sk = [180.0, 180.0, 270.0, 180.0, 180.0]
+arm_ang_max_sk = [180.0, 180.0, 180.0, 180.0, 180.0]
 
 # Arm motor configurations
 
 # Arm actuator range
-arm_act_range_sk = [180.0, 180.0, 270.0, 180.0, 180.0]
+arm_act_range_sk = [180.0, 180.0, 180.0, 180.0, 180.0]
 
 # Arm minimum pulse width
-arm_pw_range_min = [1250, 1250, 1100, 1150, 1250]
+arm_pw_range_min = [1000, 1000, 1000, 1000, 1000]
 
 # Arm maximum pulse width
 arm_pw_range_max = [2000, 2000, 2000, 2000, 2000]
