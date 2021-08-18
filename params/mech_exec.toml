@@ -118,7 +118,7 @@ arm_ang_max_sk = [180.0, 180.0, 180.0, 180.0, 180.0]
 arm_act_range_sk = [180.0, 180.0, 180.0, 180.0, 180.0]
 
 # Arm minimum pulse width
-arm_pw_range_min = [400, 400, 100, 400, 600]
+arm_pw_range_min = [100, 100, 100, 400, 600]
 
 # Arm maximum pulse width
-arm_pw_range_max = [2500, 2500, 3000, 2500, 2000]
+arm_pw_range_max = [3000, 3000, 3000, 2500, 2000]
