@@ -1,0 +1,43 @@
+  
+1.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmBase": 0
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+5.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmBase": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+10.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmBase": 3.14
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+15.0: {
+    "ArmCmd": "Stop"
+};
