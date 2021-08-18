@@ -162,7 +162,7 @@
         "BasicRotation": {
             "dems": {
                 "pos_rad": {
-                    "ArmBase": 1.57
+                    "ArmBase": 1.57,
                     "ArmElbow": 1.57,
                     "ArmWrist": 1.57,
                     "ArmShoulder": 1.57
@@ -178,7 +178,7 @@
         "BasicRotation": {
             "dems": {
                 "pos_rad": {
-                    "ArmBase": 3.14
+                    "ArmBase": 3.14,
                     "ArmElbow": 1.57,
                     "ArmWrist": 1.57,
                     "ArmShoulder": 1.57
