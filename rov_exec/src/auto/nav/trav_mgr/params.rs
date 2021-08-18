@@ -23,4 +23,7 @@ pub struct TravMgrParams {
 
     /// The minimum distance between the local target and an unpopulated cell.
     pub local_target_exclusion_distance_m: f64,
+
+    /// Maximum distance between the rover's current pose and the local target.
+    pub local_target_max_distance_m: f64,
 }

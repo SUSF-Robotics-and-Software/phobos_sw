@@ -151,7 +151,7 @@ impl Path {
         }
 
         // Catch invalid targets
-        if target_index == 0 || target_index > self.points_m.len() {
+        if target_index == 0 || target_index > self.points_m.len() - 1 {
             return None;
         }
 

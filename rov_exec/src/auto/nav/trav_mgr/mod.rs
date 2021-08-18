@@ -293,6 +293,7 @@ impl TravMgr {
             *self.shared.ground_path.write()? = Some(ground_path.clone());
             *self.shared.local_target.write()? = Some(LocalTarget::new(
                 self.shared.params.local_target_exclusion_distance_m,
+                self.shared.params.local_target_max_distance_m,
             ));
 
             // Recompute the global cost map with a gpp

@@ -21,3 +21,13 @@ pub struct AutoTm {
     pub global_cost_map: Option<CostMap>,
     pub local_target: Option<NavPose>,
 }
+
+// ------------------------------------------------------------------------------------------------
+// IMPLS
+// ------------------------------------------------------------------------------------------------
+
+impl AutoTm {
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+}

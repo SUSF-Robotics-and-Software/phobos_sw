@@ -116,14 +116,20 @@ def get_tm(tm_sub):
         num_packets += 1
         tm = json.loads(tm_str)
 
-        # Only load every 10th packet, or if it has a gcm in it load it
-        if num_packets % 10 != 0 and tm['auto']['global_cost_map'] is None:
-            tm = None
+        # Only show every 10th packet, or packets that have a cost map
+        if num_packets % 10 != 0:
+            if 'auto' not in tm:
+                tm = None
+            elif tm['auto']['global_cost_map'] is None:
+                    tm = None
+
     except zmq.Again:
         tm = None
     except zmq.ZMQError as e:
         print(f'TmClient: Error - {e}, ({e.errno})')
         tm = None
+    except TypeError:
+        pass
     except Exception as e:
         print(f'TmClient Exception: {e}')
         tm = None

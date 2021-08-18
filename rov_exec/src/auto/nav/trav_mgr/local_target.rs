@@ -25,6 +25,9 @@ pub struct LocalTarget {
 
     /// Distance to an unpopulated cell that will cause the target to be invalid.
     exclusion_distance_m: f64,
+
+    /// Maximum distance between the current rover pose and the local target
+    max_distance_m: f64,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -32,16 +35,18 @@ pub struct LocalTarget {
 // ------------------------------------------------------------------------------------------------
 
 impl LocalTarget {
-    pub fn new(exclusion_distance_m: f64) -> Self {
+    pub fn new(exclusion_distance_m: f64, max_distance_m: f64) -> Self {
         Self {
             previous_segment_end: 1,
             exclusion_distance_m,
+            max_distance_m,
         }
     }
 
     /// Get the next valid target in the given global terrain map.
     pub fn next(
         &mut self,
+        current_pose: &NavPose,
         path: &Path,
         global_cost_map: &CostMap,
     ) -> Result<NavPose, TravMgrError> {
@@ -57,6 +62,11 @@ impl LocalTarget {
             self.previous_segment_end += 1;
             extreme_pose = NavPose::from_path_point(path, self.previous_segment_end)
                 .ok_or(TravMgrError::NoValidTarget)?;
+
+            // Check not beyond max path length
+            if (extreme_pose.position_m - current_pose.position_m).norm() > self.max_distance_m {
+                break;
+            }
         }
 
         // Get the point at least the threshold way from the previous target

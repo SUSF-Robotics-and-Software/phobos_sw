@@ -5,24 +5,22 @@
 // ---------------------------------------------------------------------------
 
 // External
-use serde::Serialize;
 use log::debug;
+use serde::Serialize;
 
 // Internal
-use super::{
-    Params, 
-    LocoConfig, AxisData, 
-    NUM_DRV_AXES, NUM_STR_AXES};
-use util::{
-    params, 
-    module::State,
-    archive::{Archived, Archiver},
-    session::Session};
+use super::{AxisData, LocoConfig, Params, NUM_DRV_AXES, NUM_STR_AXES};
 use comms_if::{
+    eqpt::mech::{ActId, MechDems},
     tc::loco_ctrl::MnvrCmd,
-    eqpt::mech::{ActId, MechDems}
 };
 use std::collections::HashMap;
+use util::{
+    archive::{Archived, Archiver},
+    module::State,
+    params,
+    session::Session,
+};
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -31,7 +29,6 @@ use std::collections::HashMap;
 /// Locomotion control module state
 #[derive(Default)]
 pub struct LocoCtrl {
-
     pub(crate) params: Params,
 
     pub(crate) report: StatusReport,
@@ -44,7 +41,7 @@ pub struct LocoCtrl {
     arch_target_loco_config: Archiver,
 
     pub(crate) output: Option<MechDems>,
-    arch_output: Archiver
+    arch_output: Archiver,
 }
 
 /// Input data to Locomotion Control.
@@ -52,7 +49,7 @@ pub struct LocoCtrl {
 pub struct InputData {
     /// The manouvre command to be executed, or `None` if there is no new
     /// command on this cycle.
-    pub cmd: Option<MnvrCmd>
+    pub cmd: Option<MnvrCmd>,
 }
 
 /// Status report for LocoCtrl processing.
@@ -69,7 +66,7 @@ pub struct StatusReport {
 impl State for LocoCtrl {
     type InitData = &'static str;
     type InitError = params::LoadError;
-    
+
     type InputData = InputData;
     type OutputData = MechDems;
     type StatusReport = StatusReport;
@@ -78,14 +75,15 @@ impl State for LocoCtrl {
     /// Initialise the LocoCtrl module.
     ///
     /// Expected init data is the path to the parameter file
-    fn init(&mut self, init_data: Self::InitData, session: &Session) 
-        -> Result<(), Self::InitError> 
-    {
-        
+    fn init(
+        &mut self,
+        init_data: Self::InitData,
+        session: &Session,
+    ) -> Result<(), Self::InitError> {
         // Load the parameters
         self.params = match params::load(init_data) {
             Ok(p) => p,
-            Err(e) => return Err(e)
+            Err(e) => return Err(e),
         };
 
         // Create the arch folder for loco_ctrl
@@ -94,18 +92,11 @@ impl State for LocoCtrl {
         std::fs::create_dir_all(arch_path).unwrap();
 
         // Initialise the archivers
-        self.arch_report = Archiver::from_path(
-            session, "loco_ctrl/status_report.csv"
-        ).unwrap();
-        self.arch_current_cmd = Archiver::from_path(
-            session, "loco_ctrl/current_cmd.csv"
-        ).unwrap();
-        self.arch_target_loco_config = Archiver::from_path(
-            session, "loco_ctrl/target_loco_config.csv"
-        ).unwrap();
-        self.arch_output = Archiver::from_path(
-            session, "loco_ctrl/output.csv"
-        ).unwrap();
+        self.arch_report = Archiver::from_path(session, "loco_ctrl/status_report.csv").unwrap();
+        self.arch_current_cmd = Archiver::from_path(session, "loco_ctrl/current_cmd.csv").unwrap();
+        self.arch_target_loco_config =
+            Archiver::from_path(session, "loco_ctrl/target_loco_config.csv").unwrap();
+        self.arch_output = Archiver::from_path(session, "loco_ctrl/output.csv").unwrap();
 
         // Thoese items wrapped in an `Option` will be defaulted to `None`, and
         // since there's no way we can get information on the current command
@@ -115,9 +106,10 @@ impl State for LocoCtrl {
     }
 
     /// Perform cyclic processing of Locomotion Control.
-    fn proc(&mut self, input_data: &Self::InputData)
-        -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError> 
-    {
+    fn proc(
+        &mut self,
+        input_data: &Self::InputData,
+    ) -> Result<(Self::OutputData, Self::StatusReport), Self::ProcError> {
         // Clear the status report
         self.report = StatusReport::default();
 
@@ -127,7 +119,7 @@ impl State for LocoCtrl {
             self.current_cmd = Some(cmd);
 
             // Ouptut the command in debug mode
-            debug!("New LocoCtrl MnvrCmd::{:#?}", cmd);
+            // debug!("New LocoCtrl MnvrCmd::{:#?}", cmd);
 
             // Calculate the target configuration based on this new command.
             self.calc_target_config()?;
@@ -136,10 +128,13 @@ impl State for LocoCtrl {
         // Calculate the output
         self.set_output();
 
-        Ok((match self.output {
-            Some(ref o) => o.clone(),
-            None => MechDems::default()
-        }, self.report))
+        Ok((
+            match self.output {
+                Some(ref o) => o.clone(),
+                None => MechDems::default(),
+            },
+            self.report,
+        ))
     }
 }
 
@@ -148,7 +143,8 @@ impl Archived for LocoCtrl {
         // Write each one individually
         self.arch_report.serialise(self.report)?;
         self.arch_current_cmd.serialise(self.current_cmd)?;
-        self.arch_target_loco_config.serialise(self.target_loco_config)?;
+        self.arch_target_loco_config
+            .serialise(self.target_loco_config)?;
         self.arch_output.serialise(self.output.clone())?;
 
         Ok(())
@@ -156,13 +152,12 @@ impl Archived for LocoCtrl {
 }
 
 impl LocoCtrl {
-
     /// Function called when entering safe mode.
     ///
     /// Must result in no motion of the vehicle
     pub fn make_safe(&mut self) {
         self.current_cmd = Some(MnvrCmd::Stop);
-        
+
         self.calc_target_config().unwrap();
 
         self.set_output();
@@ -174,7 +169,6 @@ impl LocoCtrl {
 
         // If there's a target config to move to
         if let Some(cfg) = self.target_loco_config {
-
             let mut pos_rad = HashMap::new();
             let mut speed_rads = HashMap::new();
 
@@ -196,10 +190,9 @@ impl LocoCtrl {
 
             output = MechDems {
                 pos_rad,
-                speed_rads
+                speed_rads,
             }
-        }
-        else {
+        } else {
             // If no target keep the previous output with the drive rates
             // zeroed. If there is no previous output use the default (zero)
             // position and rate.
@@ -210,41 +203,38 @@ impl LocoCtrl {
                         *speed_rads = 0.0;
                     }
                     o
-                },
-                None => MechDems::default()
+                }
+                None => MechDems::default(),
             }
         }
 
         // Update the output in self
         self.output = Some(output.clone());
     }
-    
+
     /// Based on the current command calculate a target configuration for
     /// the rover to achieve.
-    /// 
+    ///
     /// A valid command should be set in `self.current_cmd` before calling
     /// this function.
     fn calc_target_config(&mut self) -> Result<(), super::LocoCtrlError> {
-
         // Check we have a valid command
         match self.is_current_cmd_valid() {
             true => (),
-            false => return Err(super::LocoCtrlError::InvalidMnvrCmd)
+            false => return Err(super::LocoCtrlError::InvalidMnvrCmd),
         }
 
         // Perform calculations for each command type. These calculation
         // functions shall update `self.target_loco_config`.
         match self.current_cmd.unwrap() {
             MnvrCmd::Stop => self.calc_stop()?,
-            MnvrCmd::Ackerman{speed_ms, curv_m, crab_rad} => self.calc_ackerman(
-                speed_ms, curv_m, crab_rad
-            )?,
-            MnvrCmd::PointTurn{rate_rads} => self.calc_point_turn(
-                rate_rads
-            )?,
-            MnvrCmd::SkidSteer{speed_ms, curv_m} => self.calc_skid_steer(
-                speed_ms, curv_m
-            )?
+            MnvrCmd::Ackerman {
+                speed_ms,
+                curv_m,
+                crab_rad,
+            } => self.calc_ackerman(speed_ms, curv_m, crab_rad)?,
+            MnvrCmd::PointTurn { rate_rads } => self.calc_point_turn(rate_rads)?,
+            MnvrCmd::SkidSteer { speed_ms, curv_m } => self.calc_skid_steer(speed_ms, curv_m)?,
         };
 
         // Limit target to rover capabilities
@@ -256,45 +246,34 @@ impl LocoCtrl {
     /// This function shall modify the current target configuration to ensure
     /// that no capability of the rover is exceeded.
     ///
-    /// If a limit is reached the corresponding flag in the status report will 
+    /// If a limit is reached the corresponding flag in the status report will
     /// be raised.
     fn enforce_limits(&mut self) -> Result<(), super::LocoCtrlError> {
-
         // Get a copy of the config, or return if there isn't one
         let mut target_config = match self.target_loco_config {
             Some(t) => t,
-            None => return Ok(())
+            None => return Ok(()),
         };
 
         // Check steer axis abs pos limits
         for i in 0..NUM_STR_AXES {
-            if target_config.str_axes[i].abs_pos_rad 
-                > 
-                self.params.str_max_abs_pos_rad[i] 
-            {
-                target_config.str_axes[i].abs_pos_rad = 
-                    self.params.str_max_abs_pos_rad[i];
+            if target_config.str_axes[i].abs_pos_rad > self.params.str_max_abs_pos_rad[i] {
+                target_config.str_axes[i].abs_pos_rad = self.params.str_max_abs_pos_rad[i];
                 self.report.str_abs_pos_limited[i] = true;
             }
-            if target_config.str_axes[i].abs_pos_rad 
-                <
-                self.params.str_min_abs_pos_rad[i] 
-            {
-                target_config.str_axes[i].abs_pos_rad = 
-                    self.params.str_max_abs_pos_rad[i];
+            if target_config.str_axes[i].abs_pos_rad < self.params.str_min_abs_pos_rad[i] {
+                target_config.str_axes[i].abs_pos_rad = self.params.str_max_abs_pos_rad[i];
                 self.report.str_abs_pos_limited[i] = true;
             }
         }
 
         // Check drive axis abs pos limits
         for i in 0..NUM_DRV_AXES {
-            if target_config.drv_axes[i].rate_rads > self.params.drv_max_abs_rate_rads[i]
-            {
+            if target_config.drv_axes[i].rate_rads > self.params.drv_max_abs_rate_rads[i] {
                 target_config.drv_axes[i].rate_rads = self.params.drv_max_abs_rate_rads[i];
                 self.report.drv_rate_limited[i] = true;
             }
-            if target_config.drv_axes[i].rate_rads < self.params.drv_min_abs_rate_rads[i]
-            {
+            if target_config.drv_axes[i].rate_rads < self.params.drv_min_abs_rate_rads[i] {
                 target_config.drv_axes[i].rate_rads = self.params.drv_min_abs_rate_rads[i];
                 self.report.drv_rate_limited[i] = true;
             }
@@ -304,19 +283,17 @@ impl LocoCtrl {
         self.target_loco_config = Some(target_config);
 
         Ok(())
-
     }
-    
+
     /// Perform the stop command calculations.
-    /// 
+    ///
     /// The stop command shall:
     ///     1. Maintain the current steer axis positions
     ///     2. Set all drive axes to stopping.
-    /// 
+    ///
     /// Stop shall never error and must always succeed in bringing the rover to
     /// a full and complete stop.
     fn calc_stop(&mut self) -> Result<(), super::LocoCtrlError> {
-
         // Get the current target or an empty (all zero) target if no target is
         // currently set.
         //
@@ -324,8 +301,8 @@ impl LocoCtrl {
         let target = match self.target_loco_config {
             Some(t) => {
                 let mut t = t.clone();
-                
-                // Modify the target's rates to be zero, demanding that the 
+
+                // Modify the target's rates to be zero, demanding that the
                 // rover stop.
                 for i in 0..NUM_DRV_AXES {
                     t.str_axes[i].rate_rads = 0.0;
@@ -333,23 +310,23 @@ impl LocoCtrl {
                 }
 
                 t
-            },
+            }
             None => {
                 let default = AxisData {
                     abs_pos_rad: 0.0,
-                    rate_rads: 0.0
+                    rate_rads: 0.0,
                 };
 
                 LocoConfig {
                     str_axes: [default; NUM_STR_AXES],
-                    drv_axes: [default; NUM_DRV_AXES]
+                    drv_axes: [default; NUM_DRV_AXES],
                 }
             }
         };
 
         // Update the target
         self.target_loco_config = Some(target);
-        
+
         Ok(())
     }
 
@@ -358,5 +335,4 @@ impl LocoCtrl {
     fn is_current_cmd_valid(&self) -> bool {
         true
     }
-
 }

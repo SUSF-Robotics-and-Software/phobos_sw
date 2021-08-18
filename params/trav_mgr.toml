@@ -4,6 +4,9 @@ map_cell_size = [0.1, 0.1]
 # Distance to an unpopulated cell from the local target (1 rover width)
 local_target_exclusion_distance_m = 0.3
 
+# Local target maximum distance to the current rover pose
+local_target_max_distance_m = 2.0
+
 # [escape_boundary]
 # max_radius_m = 2.0
 # min_radius_m = 0.5

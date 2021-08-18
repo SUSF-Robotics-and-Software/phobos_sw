@@ -335,8 +335,8 @@ fn main() -> Result<(), Report> {
                     _ => None,
                 },
             };
-            ds.auto_tm = Some(auto_mgr.get_tm());
         }
+        ds.auto_tm = Some(auto_mgr.get_tm());
 
         // If the manager is on set the loco_ctrl command in the store
         // if auto_mgr.is_on() {

@@ -237,6 +237,9 @@ impl AutoMgr {
     }
 
     pub fn step(&mut self, cmd: Option<AutoCmd>) -> Result<AutoMgrOutput, AutoMgrError> {
+        // Clear the TM
+        self.persistant.auto_tm.clear();
+
         // Get a reference to the current top state
         let top = self.stack.top();
 

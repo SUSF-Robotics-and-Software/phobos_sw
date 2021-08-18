@@ -104,7 +104,7 @@ pub(super) fn worker_thread(
                     let per_mgr = shared.per_mgr.write()?;
 
                     // Calculate the local terrain map
-                    match per_mgr.calculate(&img, &pose) {
+                    match per_mgr.calculate(&img, &shared.params.map_cell_size) {
                         Ok(t) => t,
                         Err(e) => {
                             main_sender
@@ -275,7 +275,9 @@ pub(super) fn worker_thread(
                     // a path
                     let target = match *shared.ground_path.read()? {
                         Some(ref path) => match *shared.local_target.write()? {
-                            Some(ref mut lt) => lt.next(path, &*gcm)?,
+                            Some(ref mut lt) => {
+                                lt.next(&NavPose::from_parent_pose(&pose), path, &*gcm)?
+                            }
                             None => {
                                 main_sender.send(WorkerSignal::Error(Box::new(
                                     TravMgrError::NoValidTarget,
@@ -314,6 +316,8 @@ pub(super) fn worker_thread(
                                 continue;
                             }
                         };
+
+                    info!("Planner produced {} paths", paths.len());
 
                     // Put the secondary path into the shared data. We do this before the primary
                     // potential secondary path since we can use pop to take the last element out.

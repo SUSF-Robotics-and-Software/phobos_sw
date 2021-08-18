@@ -4,17 +4,17 @@
 
 # Lateral controller proportional gain
 # TODO: Tune
-lat_k_p = -5.0
+lat_k_p = 5.0
 # lat_k_p = -1.0
 
 # Lateral controller integral gain
 # TODO: Tune
-lat_k_i = -0.5
+lat_k_i = 0.5
 # lat_k_i = 0.0
 
 # Lateral controller derivative gain
 # TODO: Tune
-lat_k_d = -0.5
+lat_k_d = 0.5
 # lat_k_d = 0.0
 
 # ----------------------------------------------------------------------------
@@ -23,8 +23,8 @@ lat_k_d = -0.5
 
 # Heading controller proportional gain
 # TODO: Tune
-head_k_p = 15.0
-# head_k_p = 20.0
+# head_k_p = 15.0
+head_k_p = 30.0
 
 # Heading controller integral gain
 # TODO: Tune
