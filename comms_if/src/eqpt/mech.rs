@@ -4,25 +4,8 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-<<<<<<< Updated upstream
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-=======
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
-// ------------------------------------------------------------------------------------------------
-// CONSTANTS
-// ------------------------------------------------------------------------------------------------
-
-const ARM_IDS: [ActId; 5] = [
-    ActId::ArmBase,
-    ActId::ArmShoulder,
-    ActId::ArmElbow,
-    ActId::ArmWrist,
-    ActId::ArmGrabber,
-];
->>>>>>> Stashed changes
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -33,7 +16,7 @@ const ARM_IDS: [ActId; 5] = [
 pub struct MechDems {
     /// The demanded position of an actuator in radians.
     pub pos_rad: HashMap<ActId, f64>,
-    
+
     /// The demanded speed of an actuator in radians
     /// TODO: Should this be an Option<f64> so we can disable actuators?
 	pub speed_rads: HashMap<ActId, f64>
