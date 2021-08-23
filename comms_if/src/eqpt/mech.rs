@@ -4,8 +4,25 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
+<<<<<<< Updated upstream
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
+=======
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+// ------------------------------------------------------------------------------------------------
+// CONSTANTS
+// ------------------------------------------------------------------------------------------------
+
+const ARM_IDS: [ActId; 5] = [
+    ActId::ArmBase,
+    ActId::ArmShoulder,
+    ActId::ArmElbow,
+    ActId::ArmWrist,
+    ActId::ArmGrabber,
+];
+>>>>>>> Stashed changes
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS

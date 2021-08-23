@@ -23,6 +23,14 @@ use comms_if::{
     eqpt::mech::{ActId, MechDems}
 };
 use std::collections::HashMap;
+<<<<<<< Updated upstream
+=======
+use util::{
+    module::State,
+    params,
+    session::Session,
+};
+>>>>>>> Stashed changes
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
@@ -35,16 +43,16 @@ pub struct LocoCtrl {
     pub(crate) params: Params,
 
     pub(crate) report: StatusReport,
-    arch_report: Archiver,
 
     pub(crate) current_cmd: Option<MnvrCmd>,
-    arch_current_cmd: Archiver,
 
     pub(crate) target_loco_config: Option<LocoConfig>,
-    arch_target_loco_config: Archiver,
 
     pub(crate) output: Option<MechDems>,
+<<<<<<< Updated upstream
     arch_output: Archiver
+=======
+>>>>>>> Stashed changes
 }
 
 /// Input data to Locomotion Control.
@@ -78,16 +86,25 @@ impl State for LocoCtrl {
     /// Initialise the LocoCtrl module.
     ///
     /// Expected init data is the path to the parameter file
+<<<<<<< Updated upstream
     fn init(&mut self, init_data: Self::InitData, session: &Session) 
         -> Result<(), Self::InitError> 
     {
         
+=======
+    fn init(
+        &mut self,
+        init_data: Self::InitData,
+        _session: &Session,
+    ) -> Result<(), Self::InitError> {
+>>>>>>> Stashed changes
         // Load the parameters
         self.params = match params::load(init_data) {
             Ok(p) => p,
             Err(e) => return Err(e)
         };
 
+<<<<<<< Updated upstream
         // Create the arch folder for loco_ctrl
         let mut arch_path = session.arch_root.clone();
         arch_path.push("loco_ctrl");
@@ -111,6 +128,8 @@ impl State for LocoCtrl {
         // since there's no way we can get information on the current command
         // or configuration yet there's no need to change them.
 
+=======
+>>>>>>> Stashed changes
         Ok(())
     }
 
@@ -143,6 +162,7 @@ impl State for LocoCtrl {
     }
 }
 
+<<<<<<< Updated upstream
 impl Archived for LocoCtrl {
     fn write(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Write each one individually
@@ -155,6 +175,8 @@ impl Archived for LocoCtrl {
     }
 }
 
+=======
+>>>>>>> Stashed changes
 impl LocoCtrl {
 
     /// Function called when entering safe mode.

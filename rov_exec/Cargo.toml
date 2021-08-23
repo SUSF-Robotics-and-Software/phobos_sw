@@ -24,6 +24,7 @@ thiserror = "1.0"
 pyo3 = "0.12.1" # For electronics driver
 image = "0.23"
 chrono = "0.4"
+ndarray = "0.15.3"
 
 # Internal
 util = { path = "../util" }
