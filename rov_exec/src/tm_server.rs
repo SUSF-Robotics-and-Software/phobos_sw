@@ -36,6 +36,8 @@ pub struct TmPacket {
     pub loco_ctrl_output: MechDems,
 
     pub loco_ctrl_status_rpt: loco_ctrl::StatusReport,
+
+    pub arm_ctrl_output: MechDems,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -80,9 +82,9 @@ impl TmServer {
 
         // Connect the socket
         let socket = MonitoredSocket::new(
-            ctx, 
-            zmq::PUB, 
-            socket_options, 
+            ctx,
+            zmq::PUB,
+            socket_options,
             &params.tm_endpoint
         ).map_err(|e| TmServerError::SocketError(e))?;
 
@@ -114,6 +116,7 @@ impl TmPacket {
             safe_cause: ds.safe_cause_string.clone(),
             loco_ctrl_output: ds.loco_ctrl_output.clone(),
             loco_ctrl_status_rpt: ds.loco_ctrl_status_rpt.clone(),
+            arm_ctrl_output: ds.arm_ctrl_output.clone(),
 
             left_cam_frame: match ds.left_cam_image {
                 Some(ref i) => {
