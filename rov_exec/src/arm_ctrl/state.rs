@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 // External
-use log::{debug, info};
+use log::debug;
 use serde::{Deserialize, Serialize};
 
 // Internal
@@ -71,7 +71,7 @@ impl State for ArmCtrl {
     fn init(
         &mut self,
         init_data: Self::InitData,
-        session: &Session,
+        _session: &Session,
     ) -> Result<(), Self::InitError> {
         // Load the parameters
         self.params = match params::load(init_data) {
@@ -144,13 +144,11 @@ impl ArmCtrl {
     }
 
     /// Set the output based on the target arm config.
-    /// TODO Lerp
     fn set_output(&mut self) {
         let output: MechDems;
 
         // If there's a target config to move to
         if let Some(target_cfg) = &self.target_arm_config {
-            // TODO Lerp here, mutate current
             if let Some(ref mut current_cfg) = self.current_arm_config {
                 let mut pos_rad = HashMap::new();
 
@@ -166,8 +164,6 @@ impl ArmCtrl {
 
                     pos_rad.insert(*act_id, current_cfg.pos_rad[act_id]);
                 }
-                // Rotational axis positions
-                // TODO Insert current
 
                 // TODO (Better comment) Merged so empty speed required
                 output = MechDems {
@@ -236,13 +232,17 @@ impl ArmCtrl {
                     }
                 }
                 ArmCmd::InverseKinematics {
+                    base_pos_rad,
                     horizontal_distance_m,
                     vertical_distance_m,
-                    speed_ms,
+                    wrist_pos_rad,
+                    grabber_pos_rad,
                 } => self.calc_inverse_kinematics(
+                    *base_pos_rad,
                     *horizontal_distance_m,
                     *vertical_distance_m,
-                    *speed_ms,
+                    *wrist_pos_rad,
+                    *grabber_pos_rad,
                 )?,
             }
         }
