@@ -29,6 +29,11 @@ pub enum ArmCmd {
     /// and the positions of the motors are calculated to achieve this position.
     #[structopt(name = "ik")]
     InverseKinematics {
+        /// Angle of base in radians.
+        ///
+        /// Follows right hand rule about axel.
+        base_pos_rad: f64,
+
         /// Horizontal distance from the base of the arm.
         ///
         /// Positive is away from the rover body which is in the
@@ -41,10 +46,15 @@ pub enum ArmCmd {
         /// z+ axis in the frame of the rover.
         vertical_distance_m: f64,
 
-        /// Speed of the rover's head to the target position.
+        /// Angle of wrist in radians.
         ///
-        /// Can only be positive.
-        speed_ms: f64,
+        /// Follows right hand rule about axel.
+        wrist_pos_rad: f64,
+
+        /// Angle of grabber in radians.
+        ///
+        /// Follows right hand rule about axel.
+        grabber_pos_rad: f64,
     },
 
     /// Stop the arm, maintaining the current axis angles but setting

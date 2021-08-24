@@ -23,6 +23,7 @@ color-eyre = "0.5"
 thiserror = "1.0"
 image = "0.23"
 chrono = "0.4"
+ndarray = "0.15.3"
 
 # Internal
 util = { path = "../util" }
