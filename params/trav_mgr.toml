@@ -1,11 +1,14 @@
 # Size of cells in a CellMap (terrain or cost)
-map_cell_size = [0.1, 0.1]
+map_cell_size = [0.05, 0.05]
 
 # Distance to an unpopulated cell from the local target (1 rover width)
 local_target_exclusion_distance_m = 0.3
 
 # Local target maximum distance to the current rover pose
 local_target_max_distance_m = 2.0
+
+# Equal to the maximum path length
+traverse_end_threshold_m = 1.0
 
 # [escape_boundary]
 # max_radius_m = 2.0

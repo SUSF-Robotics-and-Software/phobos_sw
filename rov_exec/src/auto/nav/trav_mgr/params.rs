@@ -26,4 +26,7 @@ pub struct TravMgrParams {
 
     /// Maximum distance between the rover's current pose and the local target.
     pub local_target_max_distance_m: f64,
+
+    /// The threshold distance used to determine if the traverse can end.
+    pub traverse_end_threshold_m: f64,
 }

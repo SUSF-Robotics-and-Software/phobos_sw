@@ -21,7 +21,8 @@ use util::params::{load as load_params, LoadError};
 
 use crate::auto::{
     auto_mgr::{
-        states::ImgStop, AutoMgrError, AutoMgrOutput, AutoMgrState, StackAction, StepOutput,
+        states::{ImgStop, Stop},
+        AutoMgrError, AutoMgrOutput, AutoMgrState, StackAction, StepOutput,
     },
     loc::Pose,
     map::{CostMap, CostMapError, CostMapParams, TerrainMap},
@@ -96,6 +97,7 @@ struct Shared {
     pub cost_map_params: CostMapParams,
 
     pub traverse_state: RwLock<TraverseState>,
+    pub secondary_is_end: RwLock<bool>,
 
     pub global_target: RwLock<Option<NavPose>>,
     pub local_target: RwLock<Option<LocalTarget>>,
@@ -212,6 +214,7 @@ impl TravMgr {
             params,
             cost_map_params,
             traverse_state: RwLock::new(TraverseState::Off),
+            secondary_is_end: RwLock::new(false),
             per_mgr: RwLock::new(per_mgr),
             global_target: RwLock::new(None),
             local_target: RwLock::new(None),
@@ -356,6 +359,30 @@ impl TravMgr {
         }
     }
 
+    fn end_traverse(&mut self) -> Result<TravMgrOutput, TravMgrError> {
+        // Set self to off
+        *self.shared.traverse_state.write()? = TraverseState::Off;
+
+        // Clear the ground path and target if they exist, but don't clear the maps
+        *self.shared.ground_path.write()? = None;
+        *self.shared.global_target.write()? = None;
+        *self.shared.local_target.write()? = None;
+        *self.shared.secondary_is_end.write()? = false;
+
+        // Set flags in self ready for next traverse
+        self.depth_img_request_sent = false;
+        self.img_proc_task_started = false;
+        self.recalc_running = false;
+
+        Ok(TravMgrOutput {
+            step_output: StepOutput {
+                action: StackAction::Replace(AutoMgrState::Stop(Stop::new())),
+                data: AutoMgrOutput::None,
+            },
+            ..Default::default()
+        })
+    }
+
     /// Step the traverse manager
     pub fn step(
         &mut self,
@@ -437,10 +464,14 @@ impl TravMgr {
                     }
                     info!("TrajCtrl reached end of path");
 
-                    // Check if we're at the end of the traverse
-
-                    // Set into stop mode
-                    *self.shared.traverse_state.write()? = TraverseState::Stop;
+                    // Check if we're at the end of the traverse, if so clean up
+                    if *self.shared.secondary_is_end.read()? {
+                        return self.end_traverse();
+                    }
+                    // Set into stop mode if this isn't the last path
+                    else {
+                        *self.shared.traverse_state.write()? = TraverseState::Stop;
+                    }
                 }
 
                 // Output the loco_ctrl command
@@ -470,6 +501,21 @@ impl TravMgr {
                         let mut primary = self.shared.primary_path.write()?;
                         *primary = secondary.take();
                         info!("Secondary path promoted to primary");
+
+                        // If at the end of the traverse
+                        if *self.shared.secondary_is_end.read()? {
+                            info!("New primary is last path of traverse");
+                            *self.shared.traverse_state.write()? = TraverseState::Traverse;
+
+                            return Ok(TravMgrOutput {
+                                step_output: StepOutput::none(),
+                                new_global_terr_map,
+                                new_global_cost_map,
+                                primary_path: self.shared.primary_path.read()?.clone(),
+                                secondary_path: self.shared.secondary_path.read()?.clone(),
+                                ..Default::default()
+                            });
+                        }
                     }
                 }
 

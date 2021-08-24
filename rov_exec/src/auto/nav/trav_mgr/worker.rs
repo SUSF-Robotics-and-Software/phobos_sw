@@ -322,7 +322,26 @@ pub(super) fn worker_thread(
                     // Put the secondary path into the shared data. We do this before the primary
                     // potential secondary path since we can use pop to take the last element out.
                     *shared.secondary_path.write()? = match paths.pop() {
-                        Some(p) => Some(p),
+                        Some(p) => {
+                            // Check if the path end will be at the end of the traverse
+                            let final_target = match *shared.global_target.read()? {
+                                Some(p) => p,
+                                None => NavPose::from_path_last_point(
+                                    shared.ground_path.read()?.as_ref().unwrap(),
+                                )
+                                .unwrap(),
+                            };
+
+                            let end_pose = NavPose::from_path_last_point(&p).unwrap();
+
+                            if (final_target.position_m - end_pose.position_m).norm()
+                                < shared.params.traverse_end_threshold_m
+                            {
+                                *shared.secondary_is_end.write()? = true;
+                            }
+
+                            Some(p)
+                        }
                         None => {
                             error!("Couldn't get secondary path");
                             main_sender.send(WorkerSignal::Error(Box::new(
