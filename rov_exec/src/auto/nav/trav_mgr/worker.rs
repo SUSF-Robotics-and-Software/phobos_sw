@@ -337,7 +337,7 @@ pub(super) fn worker_thread(
                             if (final_target.position_m - end_pose.position_m).norm()
                                 < shared.params.traverse_end_threshold_m
                             {
-                                *shared.secondary_is_end.write()? = true;
+                                *shared.secondary_is_final.write()? = true;
                             }
 
                             Some(p)

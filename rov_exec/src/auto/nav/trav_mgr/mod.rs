@@ -16,7 +16,7 @@ use std::{
 
 use cell_map::CellMapParams;
 use comms_if::{eqpt::perloc::DepthImage, tc::loco_ctrl::MnvrCmd};
-use log::{error, info, warn};
+use log::{error, info, trace, warn};
 use util::params::{load as load_params, LoadError};
 
 use crate::auto::{
@@ -97,7 +97,7 @@ struct Shared {
     pub cost_map_params: CostMapParams,
 
     pub traverse_state: RwLock<TraverseState>,
-    pub secondary_is_end: RwLock<bool>,
+    pub secondary_is_final: RwLock<bool>,
 
     pub global_target: RwLock<Option<NavPose>>,
     pub local_target: RwLock<Option<LocalTarget>>,
@@ -214,7 +214,7 @@ impl TravMgr {
             params,
             cost_map_params,
             traverse_state: RwLock::new(TraverseState::Off),
-            secondary_is_end: RwLock::new(false),
+            secondary_is_final: RwLock::new(false),
             per_mgr: RwLock::new(per_mgr),
             global_target: RwLock::new(None),
             local_target: RwLock::new(None),
@@ -367,18 +367,19 @@ impl TravMgr {
         *self.shared.ground_path.write()? = None;
         *self.shared.global_target.write()? = None;
         *self.shared.local_target.write()? = None;
-        *self.shared.secondary_is_end.write()? = false;
+        *self.shared.secondary_is_final.write()? = false;
+        *self.shared.primary_path.write()? = None;
+        *self.shared.secondary_path.write()? = None;
 
         // Set flags in self ready for next traverse
         self.depth_img_request_sent = false;
         self.img_proc_task_started = false;
         self.recalc_running = false;
 
+        // It is the mode's responsibility to add a stop. This can be detected by checking if
+        //is off.
         Ok(TravMgrOutput {
-            step_output: StepOutput {
-                action: StackAction::Replace(AutoMgrState::Stop(Stop::new())),
-                data: AutoMgrOutput::None,
-            },
+            step_output: StepOutput::none(),
             ..Default::default()
         })
     }
@@ -464,11 +465,16 @@ impl TravMgr {
                     }
                     info!("TrajCtrl reached end of path");
 
-                    // Check if we're at the end of the traverse, if so clean up
-                    if *self.shared.secondary_is_end.read()? {
+                    // Check if we're at the end of the traverse, which is if secondary_is_final is
+                    // true but there is no secondary path. In this case we finish the traverse
+                    // now.
+                    let secondary_is_none = { self.shared.secondary_path.read()?.is_none() };
+                    if *self.shared.secondary_is_final.read()? && secondary_is_none {
+                        info!("Traverse complete");
+
                         return self.end_traverse();
                     }
-                    // Set into stop mode if this isn't the last path
+                    // Set into stop mode if we shouldn't end the traverse
                     else {
                         *self.shared.traverse_state.write()? = TraverseState::Stop;
                     }
@@ -500,19 +506,22 @@ impl TravMgr {
                     if matches!(trav_state, TraverseState::Stop) && secondary.is_some() {
                         let mut primary = self.shared.primary_path.write()?;
                         *primary = secondary.take();
+
                         info!("Secondary path promoted to primary");
 
                         // If at the end of the traverse
-                        if *self.shared.secondary_is_end.read()? {
+                        if *self.shared.secondary_is_final.read()? {
                             info!("New primary is last path of traverse");
                             *self.shared.traverse_state.write()? = TraverseState::Traverse;
+                            self.traj_ctrl
+                                .begin_path_sequence(vec![primary.as_ref().unwrap().clone()])?;
 
                             return Ok(TravMgrOutput {
                                 step_output: StepOutput::none(),
                                 new_global_terr_map,
                                 new_global_cost_map,
-                                primary_path: self.shared.primary_path.read()?.clone(),
-                                secondary_path: self.shared.secondary_path.read()?.clone(),
+                                primary_path: secondary.clone(),
+                                secondary_path: primary.clone(),
                                 ..Default::default()
                             });
                         }

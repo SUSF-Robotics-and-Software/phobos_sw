@@ -12,7 +12,8 @@ use log::{info, warn};
 
 use crate::auto::{
     auto_mgr::{
-        states::Pause, wait_new_pose::WaitNewPose, AutoMgrOutput, AutoMgrState, StackAction,
+        states::Pause, stop::Stop, wait_new_pose::WaitNewPose, AutoMgrOutput, AutoMgrState,
+        StackAction,
     },
     path::Path,
 };
@@ -111,11 +112,11 @@ impl Check {
         persistant.auto_tm.path = trav_mgr_output.primary_path.take();
         persistant.auto_tm.secondary_path = trav_mgr_output.secondary_path.take();
 
-        // If travmgr has switched off we should pop ourself off the stack
+        // If travmgr has switched off we should replace ourself with a Stop mode
         if persistant.trav_mgr.is_off() {
             info!("Check traverse complete");
             Ok(StepOutput {
-                action: StackAction::Pop,
+                action: StackAction::Replace(AutoMgrState::Stop(Stop::new())),
                 data: AutoMgrOutput::None,
             })
         }
