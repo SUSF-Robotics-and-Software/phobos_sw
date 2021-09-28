@@ -22,4 +22,4 @@ util = { path = "../util" }
 
 # Raspberry Pi 2/3/4 Targets only
 [target.'armv7-unknown-linux-gnueabihf'.dependencies]
-rppal = { version = "0.11.3", features = ["hal"] }
+rppal = { version = "0.13.0", features = ["hal"] }
