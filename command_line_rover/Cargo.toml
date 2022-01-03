@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 # clap = "3.0.0-beta.2"
 structopt = "0.3"
-rustyline = "8.0.0"
+rustyline = "9.1.2"
 color-eyre = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
