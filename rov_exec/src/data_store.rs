@@ -55,12 +55,14 @@ pub struct DataStore {
     pub loco_ctrl_input: loco_ctrl::InputData,
     pub loco_ctrl_output: MechDems,
     pub loco_ctrl_status_rpt: loco_ctrl::StatusReport,
+    pub loco_params: loco_ctrl::Params,
 
     // ArmCtrl
     pub arm_ctrl: arm_ctrl::ArmCtrl,
     pub arm_ctrl_input: arm_ctrl::InputData,
     pub arm_ctrl_output: MechDems,
     pub arm_ctrl_status_rpt: arm_ctrl::StatusReport,
+    pub arm_params: arm_ctrl::Params,
 
     // Monitoring Counters
     /// Number of consecutive cycle overruns

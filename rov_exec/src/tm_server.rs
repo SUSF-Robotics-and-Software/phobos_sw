@@ -10,6 +10,7 @@ use comms_if::{eqpt::{cam::{CamFrame, ImageFormat}, mech::MechDems}, net::{Monit
 use crate::data_store::DataStore;
 
 use crate::loco_ctrl;
+use crate::arm_ctrl;
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
@@ -37,7 +38,11 @@ pub struct TmPacket {
 
     pub loco_ctrl_status_rpt: loco_ctrl::StatusReport,
 
+    pub loco_params: loco_ctrl::Params,
+
     pub arm_ctrl_output: MechDems,
+
+    pub arm_params: arm_ctrl::Params,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -117,6 +122,8 @@ impl TmPacket {
             loco_ctrl_output: ds.loco_ctrl_output.clone(),
             loco_ctrl_status_rpt: ds.loco_ctrl_status_rpt.clone(),
             arm_ctrl_output: ds.arm_ctrl_output.clone(),
+            loco_params: ds.loco_params.clone(),
+            arm_params: ds.arm_params.clone(),
 
             left_cam_frame: match ds.left_cam_image {
                 Some(ref i) => {

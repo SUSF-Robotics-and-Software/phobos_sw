@@ -4,7 +4,7 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use super::{NUM_STR_AXES, NUM_DRV_AXES};
 
 // ---------------------------------------------------------------------------
@@ -12,7 +12,7 @@ use super::{NUM_STR_AXES, NUM_DRV_AXES};
 // ---------------------------------------------------------------------------
 
 /// Parameters for Locomotion control.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Params {
 
     // ---- GEOMETRY ----
