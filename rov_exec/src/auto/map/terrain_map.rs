@@ -74,13 +74,13 @@ impl TerrainMap {
                 .min_by_key(|c| c.x.floor() as isize)
                 .unwrap()
                 .x
-                .floor(),
+                .floor() as isize,
             corners_in_parent
                 .iter()
                 .min_by_key(|c| c.y.floor() as isize)
                 .unwrap()
                 .y
-                .floor(),
+                .floor() as isize,
         );
         let other_ur_parent = Point2::new(
             corners_in_parent
@@ -88,15 +88,15 @@ impl TerrainMap {
                 .max_by_key(|c| c.x.ceil() as isize)
                 .unwrap()
                 .x
-                .ceil(),
+                .ceil() as isize,
             corners_in_parent
                 .iter()
                 .max_by_key(|c| c.y.ceil() as isize)
                 .unwrap()
                 .y
-                .ceil(),
+                .ceil() as isize,
         );
-        let other_in_self = Bounds::from_corner_positions(&self, other_bl_parent, other_ur_parent);
+        let other_in_self = Bounds::from_corners_unsorted(other_bl_parent, other_ur_parent);
 
         // Calculate the union of both bounds
         let new_bounds = self.cell_bounds().union(&other_in_self);

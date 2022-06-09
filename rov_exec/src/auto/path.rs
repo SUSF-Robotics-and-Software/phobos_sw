@@ -11,7 +11,7 @@ use std::{
     collections::{BTreeSet, BinaryHeap},
 };
 
-use color_eyre::owo_colors::OwoColorize;
+use owo_colors::OwoColorize;
 // External
 use nalgebra::{Point2, Vector2};
 use ordered_float::NotNan;
