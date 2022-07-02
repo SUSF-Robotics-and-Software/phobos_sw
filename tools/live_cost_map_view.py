@@ -57,16 +57,16 @@ def main():
     cmap.set_bad('white')
     cmap.set_over('red')
     cmap.set_under('white')
-         
+
     while True:
 
         # Get tm data
         tm = get_tm(tm_sub)
-    
+
         # Draw it on the plot
         if tm is not None:
             time = tm['sim_time_s']
-            
+
             # Clear the axis
             ax.title.set_text(f'Autonomy State (t = {time:.2f})')
 
@@ -102,7 +102,7 @@ def main():
                     if map_plot is not None:
                         del map_plot
                     map_plot = cm.plot(ax=ax, cmap=cmap, vmin=0.0, vmax=1.0)
-        pause(0.00001, False)
+        pause(0.01, False)
 
 num_packets = 0
 def get_tm(tm_sub):
@@ -111,7 +111,7 @@ def get_tm(tm_sub):
     '''
     global num_packets
 
-    try: 
+    try:
         tm_str = tm_sub.recv_string(flags=zmq.NOBLOCK)
         num_packets += 1
         tm = json.loads(tm_str)
