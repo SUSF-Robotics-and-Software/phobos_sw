@@ -102,7 +102,7 @@ def main():
                     if map_plot is not None:
                         del map_plot
                     map_plot = cm.plot(ax=ax, cmap=cmap, vmin=0.0, vmax=1.0)
-        pause(0.01, False)
+        pause(0.001, False)
 
 num_packets = 0
 def get_tm(tm_sub):
