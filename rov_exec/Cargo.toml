@@ -36,14 +36,15 @@ ndarray = { version = "0.15", features = ["serde"] }
 ndarray-stats = "0.4"
 noise = "0.7"
 csv = "1.1"
-cell-map = "0.5"
-# cell-map = { path = "../../../cell-map"}
+# cell-map = "0.5"
 ordered-float = "2"
 owo-colors = "3.4.0"
+cmake = "0.1.48"
 
 # Internal
 util = { path = "../util" }
 comms_if = { path = "../comms_if" }
+cell-map = { path = "../../phobos-cell-map"}
 
 [features]
 # Default feature enables all network stacks

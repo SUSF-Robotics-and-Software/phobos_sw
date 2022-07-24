@@ -158,13 +158,13 @@ impl CostMap {
                 .min_by_key(|c| c.x.floor() as isize)
                 .unwrap()
                 .x
-                .floor() as isize,
+                .floor(),
             corners_in_parent
                 .iter()
                 .min_by_key(|c| c.y.floor() as isize)
                 .unwrap()
                 .y
-                .floor() as isize,
+                .floor(),
         );
         let other_ur_parent = Point2::new(
             corners_in_parent
@@ -172,16 +172,16 @@ impl CostMap {
                 .max_by_key(|c| c.x.ceil() as isize)
                 .unwrap()
                 .x
-                .ceil() as isize,
+                .ceil(),
             corners_in_parent
                 .iter()
                 .max_by_key(|c| c.y.ceil() as isize)
                 .unwrap()
                 .y
-                .ceil() as isize,
+                .ceil(),
         );
         let other_in_self =
-            Bounds::from_corners_unsorted(other_bl_parent, other_ur_parent);
+            Bounds::from_corner_positions(&self.map.metadata, other_bl_parent, other_ur_parent);
 
         // Calculate the union of both bounds
         let new_bounds = self.cell_bounds().union(&other_in_self);

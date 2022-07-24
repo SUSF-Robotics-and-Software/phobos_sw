@@ -52,16 +52,16 @@ def main():
     map_plot = None
     target_plot = None
     pose_plot = None
-         
+
     while True:
 
         # Get tm data
         tm = get_tm(tm_sub)
-    
+
         # Draw it on the plot
         if tm is not None:
             time = tm['sim_time_s']
-            
+
             # Clear the axis
             ax_map.title.set_text(f'Autonomy State (t = {time:.2f})')
 
@@ -82,7 +82,7 @@ def main():
                     # Want a square box around the path, so choose the largest
                     # range to use
                     path_semi_range = max(
-                        (path_max_x - path_min_x)/2, 
+                        (path_max_x - path_min_x)/2,
                         (path_max_y - path_min_y)/2,
                         MIN_PLOT_BOX_SIZE/2
                     )
@@ -124,18 +124,18 @@ def main():
                     )
                 if tm['auto']['traj_ctrl_status'] is not None:
                     lat_err_data = np.append(
-                        lat_err_data, 
+                        lat_err_data,
                         np.array([[time, tm['auto']['traj_ctrl_status']['lat_error_m']]]), axis=0
                     )
                     long_err_data = np.append(
-                        long_err_data, 
+                        long_err_data,
                         np.array([[time, tm['auto']['traj_ctrl_status']['long_error_m']]]), axis=0
                     )
                     head_err_data = np.append(
-                        head_err_data, 
+                        head_err_data,
                         np.array([[time, tm['auto']['traj_ctrl_status']['head_error_rad']]]), axis=0
                     )
-                    
+
                     ax_errors.clear()
                     ax_errors.axhline()
                     ax_errors.set_xlabel('Time [s]')
@@ -149,7 +149,7 @@ def main():
                     if map_plot is not None:
                         del map_plot
                     map_plot = cm.plot(ax=ax_map, vmin=0.0, vmax=1.0)
-                pause(0.00001, False)
+                pause(0.001, False)
 
 num_packets = 0
 def get_tm(tm_sub):
@@ -158,7 +158,7 @@ def get_tm(tm_sub):
     '''
     global num_packets
 
-    try: 
+    try:
         tm_str = tm_sub.recv_string()
         num_packets += 1
         tm = json.loads(tm_str)
