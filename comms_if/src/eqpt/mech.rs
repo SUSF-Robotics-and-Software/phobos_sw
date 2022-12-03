@@ -4,22 +4,34 @@
 // IMPORTS
 // ------------------------------------------------------------------------------------------------
 
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, str::FromStr};
+use structopt::StructOpt;
+
+// ------------------------------------------------------------------------------------------------
+// CONSTANTS
+// ------------------------------------------------------------------------------------------------
+
+const ARM_IDS: [ActId; 5] = [
+    ActId::ArmBase,
+    ActId::ArmShoulder,
+    ActId::ArmElbow,
+    ActId::ArmWrist,
+    ActId::ArmGrabber,
+];
 
 // ------------------------------------------------------------------------------------------------
 // STRUCTS
 // ------------------------------------------------------------------------------------------------
 
 /// Demands that are sent from the MechClient to the MechServer
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct MechDems {
     /// The demanded position of an actuator in radians.
     pub pos_rad: HashMap<ActId, f64>,
-    
+
     /// The demanded speed of an actuator in radians
-    /// TODO: Should this be an Option<f64> so we can disable actuators?
-	pub speed_rads: HashMap<ActId, f64>
+    pub speed_rads: HashMap<ActId, f64>,
 }
 
 /// Sensor data returned by the MechServer to the MechClient
@@ -34,23 +46,23 @@ pub struct MechSensData;
 /// IDs of all actuators available to the rover
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub enum ActId {
-	DrvFL,
-	DrvML,
-	DrvRL,
-	DrvFR,
-	DrvMR,
-	DrvRR,
-	StrFL,
-	StrML,
-	StrRL,
-	StrFR,
-	StrMR,
-	StrRR,
-	ArmBase,
-	ArmShoulder,
-	ArmElbow,
-	ArmWrist,
-	ArmGrabber
+    DrvFL,
+    DrvML,
+    DrvRL,
+    DrvFR,
+    DrvMR,
+    DrvRR,
+    StrFL,
+    StrML,
+    StrRL,
+    StrFR,
+    StrMR,
+    StrRR,
+    ArmBase,
+    ArmShoulder,
+    ArmElbow,
+    ArmWrist,
+    ArmGrabber,
 }
 
 /// Response from the mechanisms server based on the demands sent by the client.
@@ -63,17 +75,35 @@ pub enum MechDemsResponse {
     DemsInvalid,
 
     /// Equipment is invalid so demands cannot be actuated
-    EqptInvalid
+    EqptInvalid,
 }
 
 // -----------------------------------------------------------------------------------------------
 // IMPLS
 // -----------------------------------------------------------------------------------------------
 
-impl Default for MechDems {
-    fn default() -> Self {
+impl ActId {
+    pub fn arm_ids() -> &'static [Self] {
+        &ARM_IDS
+    }
+}
+
+impl MechDems {
+    /// Merges `other` into `self`. If `other` contains duplicate keys to `self`, the values from
+    /// `self` are used instead.
+    pub fn merge(&mut self, other: &Self) {
+        for (&act_id, &pos) in other.pos_rad.iter() {
+            self.pos_rad.entry(act_id).or_insert(pos);
+        }
+
+        for (&act_id, &speed) in other.speed_rads.iter() {
+            self.pos_rad.entry(act_id).or_insert(speed);
+        }
+    }
+
+    pub fn empty_loco() -> Self {
         let mut pos_rad = HashMap::new();
-        let mut speed_rad_s = HashMap::new();
+        let mut speed_rads = HashMap::new();
 
         pos_rad.insert(ActId::StrFL, 0.0);
         pos_rad.insert(ActId::StrML, 0.0);
@@ -82,22 +112,16 @@ impl Default for MechDems {
         pos_rad.insert(ActId::StrMR, 0.0);
         pos_rad.insert(ActId::StrRR, 0.0);
 
-        pos_rad.insert(ActId::ArmBase, 0.0);
-        pos_rad.insert(ActId::ArmShoulder, 0.0);
-        pos_rad.insert(ActId::ArmElbow, 0.0);
-        pos_rad.insert(ActId::ArmWrist, 0.0);
-        pos_rad.insert(ActId::ArmGrabber, 0.0);
-
-        speed_rad_s.insert(ActId::DrvFL, 0.0);
-        speed_rad_s.insert(ActId::DrvML, 0.0);
-        speed_rad_s.insert(ActId::DrvRL, 0.0);
-        speed_rad_s.insert(ActId::DrvFR, 0.0);
-        speed_rad_s.insert(ActId::DrvMR, 0.0);
-        speed_rad_s.insert(ActId::DrvRR, 0.0);
+        speed_rads.insert(ActId::DrvFL, 0.0);
+        speed_rads.insert(ActId::DrvML, 0.0);
+        speed_rads.insert(ActId::DrvRL, 0.0);
+        speed_rads.insert(ActId::DrvFR, 0.0);
+        speed_rads.insert(ActId::DrvMR, 0.0);
+        speed_rads.insert(ActId::DrvRR, 0.0);
 
         Self {
             pos_rad,
-            speed_rads: speed_rad_s
+            speed_rads,
         }
     }
 }

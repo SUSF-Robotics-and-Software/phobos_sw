@@ -2,3 +2,123 @@
 
 demands_endpoint = "tcp://*:5000"
 sensor_data_endpoint = "tcp://*:5001"
+
+# ---- MECH CONFIG ----
+
+# Number of boards
+num_boards = 2
+
+# Number of channels connected to the board. (8 or 16 only)
+num_channels = [16, 16]
+
+# Address of each board on the I2C bus. Note JSON doesn't support Hex numbers
+# so these must be in decimal :(.
+#
+# Left board is 0x40 (64) and right board is 0x41 (65)
+board_addresses = [64, 65]
+
+# Drive axis motor maps. First index is board index, second is motor.
+drv_idx_map = [
+    [1, 2],
+    [1, 1], 
+    [1, 0], 
+    [0, 2],
+    [0, 1],
+    [0, 0]
+]
+
+# Steer axis motor maps. First index is board index, second is motor.
+str_idx_map = [
+    [1, 6],
+    [1, 5], 
+    [1, 4], 
+    [0, 6],
+    [0, 5],
+    [0, 4]
+]
+
+# TODO - dummy
+arm_idx_map = [
+    [0, 12], # Base
+    [0, 13], # Shoulder 
+    [0, 14], # Elbow
+    [1, 10], # Wrist
+    [1, 13] # Claw
+]
+
+# Drive normalised rate coefficients. Normalised are in -1 to 1 range and the
+# ServoKit uses the same range so the coeffs are [1, 0] (i.e. sk = norm + 0).
+#
+# Note right hand motors have their sense reversed as they will drive the wrong
+# way otherwise.
+drv_rate_norm_to_sk_coeffs = [
+    [+0.4, +0.05], 
+    [+0.4, +0.065], 
+    [+0.4, +0.05], 
+    [-0.4, +0.1], 
+    [-0.4, +0.1], 
+    [-0.4, +0.0]
+]
+
+# Min and max drive rates
+drv_rate_min_sk = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+drv_rate_max_sk = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+# ----------------------------------------------------------------------------
+# STEER
+# ----------------------------------------------------------------------------
+
+# Steer axis angle coefficients. Angles for SK are in degrees, so the 
+# coefficients are just to convert from radians to degrees.
+str_ang_rad_to_sk_coeffs = [
+    [-57.2958, 90.0], 
+    [-57.2958, 90.0], 
+    [-57.2958, 90.0], 
+    [-57.2958, 90.0], 
+    [-57.2958, 90.0], 
+    [-57.2958, 90.0]
+]
+
+# Min and max drive rates
+str_ang_min_sk = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+str_ang_max_sk = [180.0, 180.0, 270.0, 180.0, 180.0, 180.0]
+
+# Steering motor configurations
+
+# Steering actuator range
+str_act_range_sk = [180.0, 180.0, 270.0, 180.0, 180.0, 180.0]
+
+# Steering minimum pulse width
+str_pw_range_min = [400, 400, 400, 400, 400, 400]
+
+# Steering maximum pulse width
+str_pw_range_max = [2500, 2500, 2500, 2500, 2500, 2500]
+
+# ----------------------------------------------------------------------------
+# ARM
+# ----------------------------------------------------------------------------
+
+# Arm axis angle coefficients. Angles for SK are in degrees, so the 
+# coefficients are just to convert from radians to degrees.
+arm_ang_rad_to_sk_coeffs = [
+    [57.2958, 0.0], 
+    [57.2958, 0.0], 
+    [57.2958, 0.0], 
+    [57.2958, 0.0], 
+    [57.2958, 0.0],
+]
+
+# Min and max drive rates
+arm_ang_min_sk = [0.0, 0.0, 0.0, 0.0, 0.0]
+arm_ang_max_sk = [180.0, 180.0, 180.0, 180.0, 180.0]
+
+# Arm motor configurations
+
+# Arm actuator range
+arm_act_range_sk = [180.0, 180.0, 180.0, 180.0, 180.0]
+
+# Arm minimum pulse width
+arm_pw_range_min = [100, 100, 0, 400, 600]
+
+# Arm maximum pulse width
+arm_pw_range_max = [3000, 3000, 5000, 2500, 2000]

@@ -125,6 +125,9 @@ pub struct NetParams {
     /// Network endpoint for the telecommand client
     pub tc_endpoint: String,
 
+    /// Network endpoint for the telecommand server
+    pub tm_endpoint: String,
+
     /// Network endpoint for the simulation client
     pub sim_endpoint: String
 }

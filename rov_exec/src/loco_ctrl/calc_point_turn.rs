@@ -41,7 +41,7 @@ impl LocoCtrl {
                 / self.params.wheel_radius_m;
             
             // If on the right side reverse direction
-            if i > 3 {
+            if i < 3 {
                 drv_axes[i].rate_rads *= -1.0;
             }
         }

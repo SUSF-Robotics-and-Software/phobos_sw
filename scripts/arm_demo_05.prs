@@ -1,0 +1,194 @@
+1.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmElbow": 0,
+                    "ArmBase": 1.57,
+                    "ArmShoulder": 1.57,
+                    "ArmWrist": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+3.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmElbow": 1.57,
+                    "ArmBase": 1.57,
+                    "ArmShoulder": 1.57,
+                    "ArmWrist": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+6.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmElbow": 3.14,
+                    "ArmBase": 1.57,
+                    "ArmShoulder": 1.57,
+                    "ArmWrist": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+9: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmShoulder": 0,
+                    "ArmElbow": 1.57,
+                    "ArmBase": 1.57,
+                    "ArmWrist": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+12: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmShoulder": 1.57,
+                    "ArmElbow": 1.57,
+                    "ArmBase": 1.57,
+                    "ArmWrist": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+14.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmShoulder": 3.14,
+                    "ArmElbow": 1.57,
+                    "ArmBase": 1.57,
+                    "ArmWrist": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+  
+16.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmWrist": 0,
+                    "ArmElbow": 1.57,
+                    "ArmBase": 1.57,
+                    "ArmShoulder": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+18.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmWrist": 1.57,
+                    "ArmElbow": 1.57,
+                    "ArmBase": 1.57,
+                    "ArmShoulder": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+21.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmWrist": 3.14,
+                    "ArmElbow": 1.57,
+                    "ArmBase": 1.57,
+                    "ArmShoulder": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+24.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmBase": 0,
+                    "ArmElbow": 1.57,
+                    "ArmWrist": 1.57,
+                    "ArmShoulder": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+27.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmBase": 1.57,
+                    "ArmElbow": 1.57,
+                    "ArmWrist": 1.57,
+                    "ArmShoulder": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+30.0: {
+    "ArmCmd": {
+        "BasicRotation": {
+            "dems": {
+                "pos_rad": {
+                    "ArmBase": 3.14,
+                    "ArmElbow": 1.57,
+                    "ArmWrist": 1.57,
+                    "ArmShoulder": 1.57
+                },
+                "speed_rads": {}
+            }
+        }
+    }
+};
+
+33.0: {
+    "ArmCmd": "Stop"
+};

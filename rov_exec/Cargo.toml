@@ -19,11 +19,11 @@ path = "src/main.rs"
 log = "0.4.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-color-eyre = "0.5"
+color-eyre = "0.6"
 thiserror = "1.0"
-pyo3 = "0.12.1" # For electronics driver
 image = "0.23"
 chrono = "0.4"
+ndarray = "0.15.3"
 
 # Internal
 util = { path = "../util" }
@@ -31,7 +31,7 @@ comms_if = { path = "../comms_if" }
 
 [features]
 # Default feature enables all network stacks
-default = ["mech", "cam", "imu", "sim"]
+default = ["mech", "imu"]
 
 # Mechanisms network stack
 mech = []

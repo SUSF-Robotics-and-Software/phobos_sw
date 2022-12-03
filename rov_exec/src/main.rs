@@ -1,9 +1,9 @@
 //! Main rover-side executable entry point.
-//! 
+//!
 //! # Architecture
-//! 
+//!
 //! The general execution methodology consists of:
-//! 
+//!
 //!     - Initialise all modules
 //!     - Main loop:
 //!         - System input acquisition:
@@ -16,32 +16,38 @@
 //!         - Trajcetory control processing
 //!         - Locomotion control processing
 //!         - Electronics driver execution
-//! 
+//!
 //! # Modules
-//! 
+//!
 //! All modules (e.g. `loco_ctrl`) shall meet the following requirements:
 //!     1. Provide a public struct implementing the `util::module::State` trait.
-//!     
+//!
 
 // ---------------------------------------------------------------------------
 // USE MODULES FROM LIBRARY
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "mech")]
-use mech_client::{MechClient, MechClientError};
 #[cfg(feature = "cam")]
 use cam_client::{CamClient, CamClientError};
+use comms_if::{
+    eqpt::{
+        cam::{CamId, ImageFormat},
+        mech::{MechDems, MechDemsResponse},
+    },
+    net::NetParams,
+    tc::Tc,
+    tc::TcResponse,
+};
+#[cfg(feature = "mech")]
+use mech_client::{MechClient, MechClientError};
+use rov_lib::{
+    data_store::{DataStore, SafeModeCause},
+    loc::Pose,
+    tc_client::{TcClient, TcClientError},
+    *,
+};
 #[cfg(feature = "sim")]
 use sim_client::SimClient;
-use comms_if::{
-    net::NetParams, 
-    eqpt::{
-        mech::{MechDemsResponse, MechDems},
-        cam::{CamId, ImageFormat}
-    }, 
-    tc::Tc, tc::TcResponse
-};
-use rov_lib::{*, loc::Pose, tc_client::{TcClient, TcClientError}};
 
 mod tc_processor;
 
@@ -50,80 +56,26 @@ mod tc_processor;
 // ---------------------------------------------------------------------------
 
 // External
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Report,
+};
 use log::{debug, error, info, warn};
 use std::env;
 use std::thread;
 use std::time::{Duration, Instant};
-use color_eyre::{Report, eyre::{WrapErr, eyre}};
+use tm_server::TmServer;
 
 // Internal
 use util::{
-    raise_error,
-    host, 
-    module::State,
+    host,
     logger::{logger_init, LevelFilter},
-    session::Session,
-    script_interpreter::{ScriptInterpreter, PendingTcs},
+    module::State,
+    raise_error,
+    script_interpreter::{PendingTcs, ScriptInterpreter},
     //archive::Archived
+    session::Session,
 };
-
-// ---------------------------------------------------------------------------
-// CONSTANTS
-// ---------------------------------------------------------------------------
-
-/// Target period of one cycle.
-const CYCLE_PERIOD_S: f64 = 0.10;
-
-/// Number of cycles per second
-const CYCLE_FREQUENCY_HZ: f64 = 1.0 / CYCLE_PERIOD_S;
-
-/// Limit of the number of times recieve errors from the mech server can be created consecutively
-/// before safe mode will be engaged.
-const MAX_MECH_RECV_ERROR_LIMIT: u64 = 5;
-
-// ---------------------------------------------------------------------------
-// DATA STRUCTURES
-// ---------------------------------------------------------------------------
-
-/// Global data store for the executable.
-#[derive(Default)]
-struct DataStore {
-
-    // Cycle management
-
-    /// Number of cycles already executed
-    num_cycles: u128,
-
-    /// True if this cycle falls on a 1Hz boundary
-    is_1_hz_cycle: bool,
-
-    // Safe mode variables
-
-    /// Determines if the rover is in safe mode.
-    safe: bool,
-    
-    /// Gives the reason for the rover being in safe mode.
-    safe_cause: Option<SafeModeCause>,
-
-    // Localisation
-
-    rov_pose_lm: Option<Pose>,
-
-    // LocoCtrl
-    
-    loco_ctrl: loco_ctrl::LocoCtrl,
-    loco_ctrl_input: loco_ctrl::InputData,
-    loco_ctrl_output: MechDems,
-    loco_ctrl_status_rpt: loco_ctrl::StatusReport,
-    
-    // Monitoring Counters
-    
-    /// Number of consecutive cycle overruns
-    num_consec_cycle_overruns: u64,
-
-    /// Number of consecutive mechanisms client recieve errors
-    num_consec_mech_recv_errors: u64
-}
 
 // ---------------------------------------------------------------------------
 // FUNCTIONS
@@ -131,32 +83,26 @@ struct DataStore {
 
 /// Executable main function, entry point.
 fn main() -> Result<(), Report> {
-
     // ---- EARLY INITIALISATION ----
 
     // Initialise session
-    let session = Session::new(
-        "rov_exec", 
-        "sessions"
-    ).wrap_err("Failed to create the session")?;
+    let session = Session::new("rov_exec", "sessions").wrap_err("Failed to create the session")?;
 
     // Initialise logger
-    logger_init(LevelFilter::Trace, &session)
-        .wrap_err("Failed to initialise logging")?;
+    logger_init(LevelFilter::Trace, &session).wrap_err("Failed to initialise logging")?;
 
     // Log information on this execution.
     info!("Phobos Rover Executable\n");
     info!(
-        "Running on: {:#?}", 
+        "Running on: {:#?}",
         host::get_uname().wrap_err("Failed to get host information")?
     );
     info!("Session directory: {:?}\n", session.session_root);
 
     // ---- LOAD PARAMETERS ----
 
-    let net_params: NetParams = util::params::load(
-        "net.toml"
-    ).wrap_err("Could not load net params")?;
+    let net_params: NetParams =
+        util::params::load("net.toml").wrap_err("Could not load net params")?;
 
     info!("Exec parameters loaded");
 
@@ -171,15 +117,13 @@ fn main() -> Result<(), Report> {
     let args: Vec<String> = env::args().collect();
 
     debug!("CLI arguments: {:?}", args);
-    
+
     // If we have a single argument use it as the script path
     if args.len() == 2 {
-
         info!("Loading script from \"{}\"", &args[1]);
 
         // Load the script interpreter
-        let si = ScriptInterpreter::new(
-            &args[1]).wrap_err("Failed to load script")?;
+        let si = ScriptInterpreter::new(&args[1]).wrap_err("Failed to load script")?;
 
         // Display some info
         info!(
@@ -193,15 +137,13 @@ fn main() -> Result<(), Report> {
     }
     // If no arguments then setup the tc client
     else if args.len() == 1 {
-
         info!("No script provided, remote control via the TcClient will be used\n");
         use_tc_client = true;
-
-    }
-    else {
+    } else {
         return Err(eyre!(
-            "Expected either zero or one argument, found {}", args.len() - 1)
-        );
+            "Expected either zero or one argument, found {}",
+            args.len() - 1
+        ));
     }
 
     // ---- INITIALISE DATASTORE ----
@@ -212,9 +154,15 @@ fn main() -> Result<(), Report> {
 
     // ---- INITIALISE MODULES ----
 
-    ds.loco_ctrl.init("loco_ctrl.toml", &session)
+    ds.loco_ctrl
+        .init("loco_ctrl.toml", &session)
         .wrap_err("Failed to initialise LocoCtrl")?;
     info!("LocoCtrl init complete");
+
+    ds.arm_ctrl
+        .init("arm_ctrl.toml", &session)
+        .wrap_err("Failed to initialise ArmCtrl")?;
+    info!("ArmCtrl init complete");
 
     info!("Module initialisation complete\n");
 
@@ -226,34 +174,37 @@ fn main() -> Result<(), Report> {
 
     if use_tc_client {
         tc_source = TcSource::Remote(
-            TcClient::new(&zmq_ctx, &net_params)
-                .wrap_err("Failed to initialise the TcClient")?
+            TcClient::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise the TcClient")?,
         );
         info!("TcClient initialised");
     }
 
     #[cfg(feature = "mech")]
     let mut mech_client = {
-        let c = MechClient::new(&zmq_ctx, &net_params)
-            .wrap_err("Failed to initialise MechClient")?;
+        let c =
+            MechClient::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise MechClient")?;
         info!("MechClient initialised");
         c
     };
 
     #[cfg(feature = "cam")]
     let mut cam_client = {
-        let c = CamClient::new(&zmq_ctx, &net_params)
-            .wrap_err("Failed to initialise CamClient")?;
+        let c = CamClient::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise CamClient")?;
         info!("CamClient initialised");
         c
     };
 
     #[cfg(feature = "sim")]
     let sim_client = {
-        let c = SimClient::new(&zmq_ctx, &net_params)
-            .wrap_err("Failed to initialise SimClient")?;
+        let c = SimClient::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise SimClient")?;
         info!("SimClient initialised");
         c
+    };
+
+    let mut tm_server = {
+        let s = TmServer::new(&zmq_ctx, &net_params).wrap_err("Failed to initialise TmServer")?;
+        info!("TmServer initialised");
+        s
     };
 
     info!("Network initialisation complete");
@@ -263,12 +214,11 @@ fn main() -> Result<(), Report> {
     info!("Begining main loop\n");
 
     loop {
-
         // Get cycle start time
         let cycle_start_instant = Instant::now();
 
         // Clear items that need wiping at the start of the cycle
-        ds.cycle_start();
+        ds.cycle_start(CYCLE_FREQUENCY_HZ);
 
         // ---- DATA INPUT ----
 
@@ -290,8 +240,7 @@ fn main() -> Result<(), Report> {
                 // If the client is connected remove any safe mode, otherwise make safe
                 if client.is_connected() {
                     ds.make_unsafe(SafeModeCause::TcClientNotConnected).ok();
-                }
-                else {
+                } else {
                     ds.make_safe(SafeModeCause::TcClientNotConnected);
                 }
 
@@ -310,10 +259,9 @@ fn main() -> Result<(), Report> {
                                             tc_processor::exec(&mut ds, &tc);
                                             client.send_response(TcResponse::Ok)
                                         }
-                                        _ => 
-                                            client.send_response(TcResponse::CannotExecute)
+                                        _ => client.send_response(TcResponse::CannotExecute),
                                     }
-                                },
+                                }
                                 false => {
                                     // Process the TC
                                     tc_processor::exec(&mut ds, &tc);
@@ -326,56 +274,55 @@ fn main() -> Result<(), Report> {
                             // Print warning if couldn't send the response
                             match response_result {
                                 Ok(_) => (),
-                                Err(e) => warn!("Could not respond to TC: {}", e)
+                                Err(e) => warn!("Could not respond to TC: {}", e),
                             }
-
-
-                        },
-                        Ok(None) => {
-                            break
-                        },
+                        }
+                        Ok(None) => break,
                         // If not connected go into safe mode
                         Err(TcClientError::NotConnected) => {
                             if !ds.safe {
                                 error!("Connection to TcServer lost");
                             }
-                            
+
                             ds.make_safe(SafeModeCause::TcClientNotConnected);
                             break;
-                        },
-                        Err(e) => return Err(e)
-                            .wrap_err("An error occured while receiving TCs from the server")
-                    }
-                }
-            },
-
-            TcSource::Script(ref mut si) => 
-                match si.get_pending_tcs() {
-                    PendingTcs::None => (),
-                    PendingTcs::Some(tc_vec) => {
-                        for tc in tc_vec.iter() {
-                            tc_processor::exec(&mut ds, tc);
+                        }
+                        Err(TcClientError::TcParseError(e)) => {
+                            warn!("Could not parse recieved TC: {}", e);
+                            break;
+                        }
+                        Err(e) => {
+                            return Err(e)
+                                .wrap_err("An error occured while receiving TCs from the server")
                         }
                     }
-                    // Exit if end of script reached
-                    PendingTcs::EndOfScript => {
-                        info!("End of TC script reached, stopping");
-                        break
+                }
+            }
+
+            TcSource::Script(ref mut si) => match si.get_pending_tcs() {
+                PendingTcs::None => (),
+                PendingTcs::Some(tc_vec) => {
+                    for tc in tc_vec.iter() {
+                        tc_processor::exec(&mut ds, tc);
                     }
                 }
+                // Exit if end of script reached
+                PendingTcs::EndOfScript => {
+                    info!("End of TC script reached, stopping");
+                    break;
+                }
+            },
         };
 
         // ---- AUTONOMY PROCESSING ----
 
         // Make image request on the 1Hz if not in safe mode
         #[cfg(feature = "cam")]
-        if ds.is_1_hz_cycle && !ds.safe {
-            match cam_client.request_frames(
-                vec![CamId::LeftNav, CamId::RightNav],
-                ImageFormat::Png
-            ) {
+        if ds.num_cycles % 5 == 0 && !ds.safe {
+            match cam_client.request_frames(vec![CamId::LeftNav, CamId::RightNav], ImageFormat::Png)
+            {
                 Ok(()) => info!("Camera request sent"),
-                Err(e) => warn!("Error processing camera request: {}", e)
+                Err(e) => warn!("Error processing camera request: {}", e),
             }
         }
 
@@ -388,13 +335,22 @@ fn main() -> Result<(), Report> {
                 let now = chrono::Utc::now();
 
                 for (cam_id, cam_image) in images {
-
                     // Get the time difference between the image and now
                     let time_diff_ms = now
                         .signed_duration_since(cam_image.timestamp)
                         .num_milliseconds();
 
-                    info!("{:?} image is {} seconds old", cam_id, (time_diff_ms as f64) * 0.001);
+                    info!(
+                        "{:?} image is {} seconds old",
+                        cam_id,
+                        (time_diff_ms as f64) * 0.001
+                    );
+
+                    // Set images in datastore
+                    match cam_id {
+                        CamId::LeftNav => ds.left_cam_image = Some(cam_image),
+                        CamId::RightNav => ds.right_cam_image = Some(cam_image),
+                    };
 
                     // TODO: image saving should go in a separate thread
                     // // Get image name
@@ -407,18 +363,16 @@ fn main() -> Result<(), Report> {
                     // // Get path to image to save, in the sessions directory
                     // let mut img_path = session.session_root.clone();
                     // img_path.push(name);
-                    
+
                     // // Save image
                     // cam_image.image.save(img_path).expect("can't save image");
-
                 }
 
                 println!("");
-                
-            },
+            }
             Ok(None) => (),
             Err(CamClientError::NoRequestMade) => (),
-            Err(e) => warn!("Could not get image response: {}", e)
+            Err(e) => warn!("Could not get image response: {}", e),
         }
 
         // ---- CONTROL ALGORITHM PROCESSING ----
@@ -428,7 +382,7 @@ fn main() -> Result<(), Report> {
             Ok((o, r)) => {
                 ds.loco_ctrl_output = o;
                 ds.loco_ctrl_status_rpt = r;
-            },
+            }
             Err(e) => {
                 // LocoCtrl errors usually just mean you sent the wrong TC, so just issue the
                 // warning and continue.
@@ -436,19 +390,33 @@ fn main() -> Result<(), Report> {
             }
         };
 
+        // ArmCtrl processing
+        match ds.arm_ctrl.proc(&ds.arm_ctrl_input) {
+            Ok((o, r)) => {
+                ds.arm_ctrl_output = o;
+                ds.arm_ctrl_status_rpt = r;
+            }
+            Err(e) => {
+                // LocoCtrl errors usually just mean you sent the wrong TC, so just issue the
+                // warning and continue.
+                warn!("Error during ArmCtrl processing: {}", e)
+            }
+        };
+
+        // Merge demands from loco and arm ctrls
+        let mut mech_dems = ds.loco_ctrl_output.clone();
+        mech_dems.merge(&ds.arm_ctrl_output);
+
         // Send demands to mechanisms
         #[cfg(feature = "mech")]
-        match mech_client.send_demands(&ds.loco_ctrl_output) {
+        match mech_client.send_demands(&mech_dems) {
             Ok(MechDemsResponse::DemsOk) => {
                 ds.make_unsafe(SafeModeCause::MechClientNotConnected).ok();
 
                 // Reset the recieve error counter
                 ds.num_consec_mech_recv_errors = 0;
-            },
-            Ok(r) => warn!(
-                "Recieved non-nominal response from MechServer: {:?}", 
-                r
-            ),
+            }
+            Ok(r) => warn!("Recieved non-nominal response from MechServer: {:?}", r),
             Err(MechClientError::NotConnected) => {
                 if !ds.safe {
                     error!("Connection to the MechServer lost");
@@ -468,31 +436,35 @@ fn main() -> Result<(), Report> {
                     }
                     ds.make_safe(SafeModeCause::MechClientNotConnected);
                 }
-            },
-            Err(e) => warn!("MechClient processing error: {}", e)
+            }
+            Err(e) => warn!("MechClient processing error: {}", e),
         }
 
         // ---- WRITE ARCHIVES ----
         // FIXME: Currently disabled as archiving isn't working quite right
         // ds.loco_ctrl.write().unwrap();
 
+        // ---- TELEMETRY ----
+
+        match tm_server.send(&ds) {
+            Ok(_) => (),
+            Err(e) => warn!("TmServer error: {}", e),
+        };
+
         // ---- CYCLE MANAGEMENT ----
 
         let cycle_dur = Instant::now() - cycle_start_instant;
 
         // Get sleep duration
-        match Duration::from_secs_f64(CYCLE_PERIOD_S)
-            .checked_sub(cycle_dur)
-        {
+        match Duration::from_secs_f64(CYCLE_PERIOD_S).checked_sub(cycle_dur) {
             Some(d) => {
                 ds.num_consec_cycle_overruns = 0;
                 thread::sleep(d);
-            },
+            }
             None => {
                 warn!(
-                    "Cycle overran by {:.06} s", 
-                    cycle_dur.as_secs_f64() 
-                        - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
+                    "Cycle overran by {:.06} s",
+                    cycle_dur.as_secs_f64() - Duration::from_secs_f64(CYCLE_PERIOD_S).as_secs_f64()
                 );
                 ds.num_consec_cycle_overruns += 1;
 
@@ -525,85 +497,9 @@ fn main() -> Result<(), Report> {
 enum TcSource {
     None,
     Remote(TcClient),
-    Script(ScriptInterpreter)
-}
-
-/// Gives the reason the rover has been put into safe mode
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-enum SafeModeCause {
-    MakeSafeTc,
-    TcClientNotConnected,
-    MechClientNotConnected,
+    Script(ScriptInterpreter),
 }
 
 // ---------------------------------------------------------------------------
 // IMPLEMENTATIONS
 // ---------------------------------------------------------------------------
-
-impl DataStore {
-
-    /// Puts the rover into safe mode with the given cause.
-    fn make_safe(&mut self, cause: SafeModeCause) {
-        if !self.safe {
-            warn!("Make safe requested, cause: {:?}", cause);
-            self.safe = true;
-            self.safe_cause = Some(cause);
-
-            // Make loco_ctrl safe
-            self.loco_ctrl.make_safe();
-        }
-    }
-
-    /// Attempts to disable the safe mode by clearing the given cause.
-    ///
-    /// Returns `Ok(())` if this cause was cleared and safe mode was disabled, or `Err(())` 
-    /// otherwise. To remove safe mode the provided cause must match the initial reason for safe 
-    /// mode being enabled.
-    ///
-    /// If safe mode was not enabled `Ok(())` is returned
-    fn make_unsafe(&mut self, cause: SafeModeCause) -> Result<(), ()> {
-        if !self.safe {
-            return Ok(())
-        }
-
-        match self.safe_cause {
-            Some(root_cause) => {
-                if cause == root_cause {
-                    self.safe = false;
-                    self.safe_cause = None;
-                    info!("Make unsafe requested, root cause match, safe mode disabled");
-                    Ok(())
-                }
-                else {
-                    // info!(
-                    //     "Make unsafe requested, root cause ({:?}) differs from response ({:?}), \
-                    //     rejected", 
-                    //     root_cause,
-                    //     cause
-                    // );
-                    Err(())
-                }
-            },
-            None => Ok(())
-        }
-    }
-
-    /// Perform actions required at the start of a cycle.
-    ///
-    /// Clears those items that need clearing at the start of a cycle, and sets the 1Hz cycle flag.
-    fn cycle_start(&mut self) {
-
-        if self.num_cycles % (CYCLE_FREQUENCY_HZ as u128) == 0 {
-            self.is_1_hz_cycle = true;
-        }
-        else {
-            self.is_1_hz_cycle = false;
-        }
-        
-        self.loco_ctrl_input = loco_ctrl::InputData::default();
-        self.loco_ctrl_output = MechDems::default();
-        self.loco_ctrl_status_rpt = loco_ctrl::StatusReport::default();
-
-
-    }
-}
