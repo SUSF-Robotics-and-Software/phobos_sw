@@ -5,14 +5,14 @@
 // ---------------------------------------------------------------------------
 
 use super::NUM_ROT_AXES;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
 // ---------------------------------------------------------------------------
 // DATA STRUCTURES
 // ---------------------------------------------------------------------------
 
-/// Parameters for Locomotion control.
-#[derive(Debug, Default, Deserialize)]
+/// Parameters for Arm control.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Params {
     // ---- GEOMETRY ----
     /// The length of shoulder.

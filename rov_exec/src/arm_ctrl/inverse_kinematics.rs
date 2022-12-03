@@ -63,12 +63,11 @@ impl ArmCtrl {
             head_target_distance_m = min_distance_m;
         }
 
-        // Calculate elbow y solutions
-        //
-        // Calculate angle for shoulder joint
+        // Weighted y mid point to account for different arm lengths
         let y_weighted_mid_point_m =
             0.5 * vertical_distance_m * (1. + delta_arm_square_m2 / head_target_distance_m.powi(2));
 
+        // Above and below offset from weighted mid point for bending of arm
         let y_mid_point_offset_m = (-head_target_distance_m.powi(6)
             + head_target_distance_m.powi(4)
                 * (vertical_distance_m.powi(2) - 2. * delta_arm_square_m2)
@@ -81,22 +80,26 @@ impl ArmCtrl {
         .sqrt()
             / (2. * head_target_distance_m.powi(2));
 
+        // y coordinates of the elbow joint
         let mut y_elbow_m = array![
             y_weighted_mid_point_m + y_mid_point_offset_m,
             y_weighted_mid_point_m - y_mid_point_offset_m
         ];
 
+        // Test if there is over extension
         let shoulder_length_solutions = y_elbow_m.mapv(|i| {
             self.params.shoulder_length_m - i < 0.
                 && (self.params.shoulder_length_m.powi(2) - i.powi(2)).abs() < 1e-3
         });
 
+        // Set elbow y coordinate to length of shoulder
         for (i, condition) in shoulder_length_solutions.indexed_iter() {
             if *condition {
                 y_elbow_m[i] = self.params.shoulder_length_m;
             }
         }
 
+        // x coordinates of elbow joint and which coordinates are possible
         let x_elbow_pos_m =
             (self.params.shoulder_length_m.powi(2) - y_elbow_m.mapv(|i| i.powi(2))).mapv(f64::sqrt);
         let x_elbow_m = stack![Axis(0), x_elbow_pos_m, -&x_elbow_pos_m];
@@ -105,7 +108,7 @@ impl ArmCtrl {
         .mapv(f64::sqrt);
         let solution_idx = (&elbow_lengths_m - self.params.elbow_length_m).mapv(|i| i.abs() < 1e-4);
 
-
+        // Find which solution is closest to current position of arm and calculate angles
         if let Some(ref mut current_cfg) = self.current_arm_config {
             let mut shoulder_angle_rad = 0.;
             let mut elbow_angle_rad = 0.;
@@ -127,6 +130,7 @@ impl ArmCtrl {
                 }
             }
 
+            // Update arm positions
             debug!("\nArm positions:\nShoulder: {:?}\nElbow: {:?}\n", shoulder_angle_rad, elbow_angle_rad);
             pos_rad.insert(ActId::ArmShoulder, shoulder_angle_rad);
             pos_rad.insert(ActId::ArmElbow, elbow_angle_rad);
