@@ -16,12 +16,12 @@ use std::{
 
 use cell_map::CellMapParams;
 use comms_if::{eqpt::perloc::DepthImage, tc::loco_ctrl::MnvrCmd};
-use log::{error, info, trace, warn};
+use log::{error, info, warn};
 use util::params::{load as load_params, LoadError};
 
 use crate::auto::{
     auto_mgr::{
-        states::{ImgStop, Stop},
+        states::ImgStop,
         AutoMgrError, AutoMgrOutput, AutoMgrState, StackAction, StepOutput,
     },
     loc::Pose,
@@ -173,6 +173,9 @@ pub enum TravMgrError {
 
     #[error("A point on the escape boundary was outside the local cost map")]
     PointOutsideMap,
+
+    #[error("Rover is outside of the local cost map")]
+    RoverOutsideMap,
 
     #[error("Couldn't get a valid target to plot path towards")]
     NoValidTarget,
@@ -327,6 +330,10 @@ impl TravMgr {
 
         // Stop traj ctrl
         self.traj_ctrl.abort_path_sequence()?;
+
+        // Reset camera state
+        self.depth_img_request_sent = false;
+        self.img_proc_task_started = false;
 
         Ok(TravMgrOutput {
             step_output: StepOutput {
@@ -612,7 +619,6 @@ impl TravMgr {
 
                 // If we're in stop mode once the image is sent on we can return to traverse,
                 // otherwise we have to wait for the worker to send the "complete" signal
-                let mut step_output = StepOutput::none();
                 match trav_state {
                     TraverseState::Stop => {
                         *self.shared.traverse_state.write()? = TraverseState::Traverse;
@@ -638,10 +644,7 @@ impl TravMgr {
                                     error!("Error processing last depth image: {:?}", e);
 
                                     // TODO: more graceful recovery such as trying the image again?
-                                    step_output = StepOutput {
-                                        action: StackAction::Abort,
-                                        data: AutoMgrOutput::None,
-                                    };
+                                    return self.stop();
                                 }
                                 s => {
                                     warn!("Unexpected signal from worker: {:?}", s);
@@ -668,7 +671,7 @@ impl TravMgr {
                 }
 
                 Ok(TravMgrOutput {
-                    step_output,
+                    step_output: StepOutput::none(),
                     new_global_terr_map,
                     new_global_cost_map,
                     primary_path: self.shared.primary_path.read()?.clone(),

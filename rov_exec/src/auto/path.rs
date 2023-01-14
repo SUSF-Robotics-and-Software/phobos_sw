@@ -6,18 +6,12 @@
 // IMPORTS
 // ---------------------------------------------------------------------------
 
-use std::{
-    cmp::Reverse,
-    collections::{BTreeSet, BinaryHeap},
-};
 
-use owo_colors::OwoColorize;
 // External
-use nalgebra::{Point2, Vector2};
-use ordered_float::NotNan;
+use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use super::{loc::Pose, nav::NavPose};
+use super::loc::Pose;
 use comms_if::tc::auto::PathSpec;
 
 // ---------------------------------------------------------------------------

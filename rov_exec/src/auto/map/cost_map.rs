@@ -23,7 +23,7 @@ use crate::auto::{nav::NavPose, path::Path};
 
 use super::{TerrainMap, TerrainMapLayer};
 use cell_map::{Bounds, CellMap, CellMapParams, Error as CellMapError, Layer};
-use nalgebra::{Matrix1x2, Matrix2, Matrix2x1, Point2, Vector2};
+use nalgebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use util::{convert::Convert, quadtree::Quad};
 
@@ -461,9 +461,9 @@ impl CostMap {
         Ok(cost)
     }
 
-    fn bilinterp(&self, layer: CostMapLayer, position: Point2<f64>) -> Option<f64> {
-        super::bilinterp(&self.map, layer, position, |val| val.cost().cloned())
-    }
+    // fn bilinterp(&self, layer: CostMapLayer, position: Point2<f64>) -> Option<f64> {
+    //     super::bilinterp(&self.map, layer, position, |val| val.cost().cloned())
+    // }
 }
 
 impl Deref for CostMap {

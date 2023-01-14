@@ -7,8 +7,7 @@
 use std::ops::{Deref, DerefMut, Range};
 
 use cell_map::{Bounds, CellMap, CellMapParams, Error as CellMapError, Layer};
-use log::trace;
-use nalgebra::{Isometry2, Matrix1x2, Matrix2, Matrix2x1, Point2, Vector2};
+use nalgebra::{Isometry2, Point2, Vector2};
 use noise::{NoiseFn, Perlin};
 use serde::{Deserialize, Serialize};
 

@@ -21,7 +21,7 @@
 //!
 //! All modules (e.g. `loco_ctrl`) shall meet the following requirements:
 //!     1. Provide a public struct implementing the `util::module::State` trait.
-//!     
+//!
 
 // ---------------------------------------------------------------------------
 // USE MODULES FROM LIBRARY

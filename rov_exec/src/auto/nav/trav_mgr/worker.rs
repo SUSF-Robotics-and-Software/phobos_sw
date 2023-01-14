@@ -276,7 +276,21 @@ pub(super) fn worker_thread(
                     let target = match *shared.ground_path.read()? {
                         Some(ref path) => match *shared.local_target.write()? {
                             Some(ref mut lt) => {
-                                lt.next(&NavPose::from_parent_pose(&pose), path, &*gcm)?
+                                // Check if the path calculation is successful
+                                match lt.next(&NavPose::from_parent_pose(&pose), path, &*gcm) {
+                                    Ok(t) => t,
+                                    Err(TravMgrError::RoverOutsideMap) => {
+                                        error!("{}", TravMgrError::RoverOutsideMap);
+                                        main_sender.send(WorkerSignal::Error(Box::new(
+                                            TravMgrError::RoverOutsideMap,
+                                        )))?;
+                                        continue;
+                                    },
+                                    Err(e) => {
+                                        error!("{}", e);
+                                        continue
+                                    }
+                                }
                             }
                             None => {
                                 main_sender.send(WorkerSignal::Error(Box::new(

@@ -30,13 +30,13 @@ color-eyre = "0.5"
 thiserror = "1.0"
 image = "0.23"
 chrono = "0.4"
-conquer-once = "0.2"
+conquer-once = "0.3"
 nalgebra = { version = "0.25.4", features = ["serde-serialize"] }
 ndarray = { version = "0.15", features = ["serde"] }
 ndarray-stats = "0.4"
 noise = "0.7"
 csv = "1.1"
-# cell-map = "0.5"
+cell-map = { git = "https://github.com/SUSF-Robotics-and-Software/phobos-cell-map" }
 ordered-float = "2"
 owo-colors = "3.4.0"
 cmake = "0.1.48"
@@ -44,7 +44,6 @@ cmake = "0.1.48"
 # Internal
 util = { path = "../util" }
 comms_if = { path = "../comms_if" }
-cell-map = { path = "../../phobos-cell-map"}
 
 [features]
 # Default feature enables all network stacks

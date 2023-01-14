@@ -64,7 +64,7 @@ use comms_if::{
     eqpt::perloc::{DepthImage, PerlocCmd},
     tc::{auto::AutoCmd, loco_ctrl::MnvrCmd},
 };
-use log::{error, info, trace, warn};
+use log::{error, info, warn};
 use states::*;
 use util::session::Session;
 

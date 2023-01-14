@@ -1,7 +1,7 @@
 //! Determines the local target in a check traverse
 
 use crate::auto::{
-    map::{CostMap, CostMapData, CostMapError, CostMapLayer},
+    map::{CostMap, CostMapLayer},
     nav::NavPose,
     path::Path,
 };
@@ -71,7 +71,12 @@ impl LocalTarget {
 
         // Get the point at least the threshold way from the previous target
         let mut target_pose_idx = self.previous_segment_end - 1;
-        let mut target_pose = NavPose::from_path_point(path, target_pose_idx).unwrap();
+
+        // Return error if rover is outside of map
+        let mut target_pose = match NavPose::from_path_point(path, target_pose_idx) {
+            None => return Err(TravMgrError::RoverOutsideMap),
+            Some(value) => value,
+        };
 
         // TODO: make the exclusion check test all cells in the distance, rather than the distance
         // from the extreme target to the current target.
